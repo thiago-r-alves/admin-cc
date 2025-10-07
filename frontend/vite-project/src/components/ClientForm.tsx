@@ -275,6 +275,8 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
               <option value="São José dos Campos">São José dos Campos</option>
               <option value="Jacareí">Jacareí</option>
               <option value="Caçapava">Caçapava</option>
+              <option value="Jambeiro">Jambeiro</option>
+              <option value="Monteiro Lobato">Monteiro Lobato</option>
             </Select>
           </FormGroup>
         </FormRow>
