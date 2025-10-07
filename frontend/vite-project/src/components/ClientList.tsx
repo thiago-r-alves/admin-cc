@@ -138,6 +138,7 @@ const ClientList: React.FC<ClientListProps> = ({ clients, onEdit, onDelete, onVi
         <DataItem style={{ flex: 1.5 }}>Nome</DataItem>
         <DataItem style={{ flex: 1.5 }}>Contato</DataItem>
         <DataItem style={{ flex: 2 }}>Endereço</DataItem>
+        <DataItem style={{ flex: 1.5 }}>Data de Criação</DataItem>
         <div style={{ flexBasis: '240px', textAlign: 'right' }}>Ações</div>
       </ListHeader>
 
@@ -156,6 +157,19 @@ const ClientList: React.FC<ClientListProps> = ({ clients, onEdit, onDelete, onVi
             <DataItem style={{ flex: 2 }}>
               <DataLabel>Endereço:</DataLabel>
               <DataValue>{`${client.address}, ${client.addressNumber} - ${client.neighborhood} - ${client.city}`}</DataValue>
+            </DataItem>
+            <DataItem style={{ flex: 1.5 }}>
+              <DataLabel>Data de Criação:</DataLabel>
+              <DataValue>
+                {client.createdAt 
+                  ? new Date(client.createdAt).toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: '2-digit', 
+                      year: 'numeric'
+                    })
+                  : 'N/A'
+                }
+              </DataValue>
             </DataItem>
           </InfoSection>
 

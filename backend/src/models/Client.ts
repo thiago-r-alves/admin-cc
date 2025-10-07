@@ -11,6 +11,7 @@ export interface IClient extends Document {
   cnpjCpf?: string;
   city?: string;
   cep?: string; // ADICIONADO
+  createdAt?: Date; // ADICIONADO
 }
 
 const ClientSchema: Schema = new Schema<IClient>({
@@ -23,6 +24,10 @@ const ClientSchema: Schema = new Schema<IClient>({
   cnpjCpf: { type: String, trim: true, default: '' },
   city: { type: String, trim: true, default: '' },
   cep: { type: String, trim: true, default: '' }, // ADICIONADO
+  createdAt: {
+    type: Date,
+    default: Date.now
+  } // ADICIONADO
 }, {
   timestamps: true
 });

@@ -3,14 +3,15 @@
 export interface IClient {
   _id: string;
   clientName: string;
-  contactName: string;
-  contactNumber: string;
-  neighborhood: string;
-  address: string;
-  addressNumber: string;
   cnpjCpf?: string;
+  contactName?: string;
+  contactNumber?: string;
+  neighborhood?: string;
+  address?: string;
+  addressNumber?: string;
   city?: string;
-  cep?: string; // ADICIONADO
+  cep?: string;
+  createdAt?: string; // Adicionar este campo
 }
 
 export interface IDriver {
