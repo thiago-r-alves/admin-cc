@@ -215,7 +215,7 @@ app.get('/orders', authenticateToken, isAdmin, async (req, res) => {
             },
             {
                 path: 'cacambas',
-                select: 'numero tipo imageUrl createdAt local' // <-- Adicione local aqui!
+                select: 'numero tipo imageUrl createdAt local horaServicoDigitos' // ADICIONADO horaServicoDigitos
             }
         ]).sort({ priority: -1, createdAt: 1 });
         return res.status(200).json(orders);
@@ -466,11 +466,16 @@ app.post('/driver/orders/:id/cacambas',
   upload.single('image'),
   async (req: AuthenticatedRequest, res) => {
     const { id } = req.params;
-    const { numero, tipo, local } = req.body;
+    const { numero, tipo, local, horaServicoDigitos } = req.body; // ADICIONADO horaServicoDigitos
 
     const order = await OrderModel.findOne({ _id: id, motorista: req.userData?.userId });
     if (!order) {
       return res.status(404).json({ message: 'Pedido não encontrado ou não pertence a este motorista.' });
+    }
+
+    // Validar horaServicoDigitos
+    if (!horaServicoDigitos || !/^\d{3}$/.test(horaServicoDigitos)) {
+      return res.status(400).json({ message: 'Hora de serviço deve conter exatamente 3 dígitos.' });
     }
 
     const exists = await CacambaModel.findOne({ orderId: order._id, numero: numero.trim() });
@@ -501,6 +506,7 @@ app.post('/driver/orders/:id/cacambas',
         numero: numero.trim(),
         tipo: finalTipo,
         local,
+        horaServicoDigitos, // ADICIONADO
         orderId: order._id,
         imageUrl
       });
@@ -573,12 +579,19 @@ app.patch('/cacambas/:id',
   async (req, res) => {
     try {
       const { id } = req.params;
-      const { numero, tipo, local } = req.body;
+      const { numero, tipo, local, horaServicoDigitos } = req.body; // ADICIONADO horaServicoDigitos
 
       const updates: any = {};
       if (numero) updates.numero = numero;
       if (tipo) updates.tipo = (tipo === 'retirada' ? 'retirada' : 'entrega');
       if (local) updates.local = local;
+      if (horaServicoDigitos) {
+        // Validar horaServicoDigitos se fornecido
+        if (!/^\d{3}$/.test(horaServicoDigitos)) {
+          return res.status(400).json({ message: 'Hora de serviço deve conter exatamente 3 dígitos.' });
+        }
+        updates.horaServicoDigitos = horaServicoDigitos; // ADICIONADO
+      }
 
       if (req.file) {
         const { buffer: outBuf, contentType, filename } = await compressImage(

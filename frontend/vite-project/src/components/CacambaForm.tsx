@@ -143,6 +143,7 @@ interface CacambaFormProps {
 const CacambaForm: React.FC<CacambaFormProps> = (props) => {
   const { orderId, orderType, onCacambaAdded, onClose, beforeUploadFiles } = props;
   const [numero, setNumero] = useState('');
+  const [horaServicoDigitos, setHoraServicoDigitos] = useState('');
   const [tipo, setTipo] = useState<'entrega' | 'retirada'>('entrega');
   const [local, setLocal] = useState<'via_publica' | 'canteiro_obra'>('via_publica');
   const [files, setFiles] = useState<File[]>([]);
@@ -174,8 +175,6 @@ const CacambaForm: React.FC<CacambaFormProps> = (props) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // REMOVA o uso do submitAttempted
-    // setSubmitAttempted(true);
 
     if (!numero.trim()) {
       setError('Número da caçamba é obrigatório');
@@ -194,6 +193,7 @@ const CacambaForm: React.FC<CacambaFormProps> = (props) => {
       formData.append('numero', numero);
       formData.append('tipo', tipo);
       formData.append('local', local);
+      formData.append('horaServicoDigitos', horaServicoDigitos);
       files.forEach(file => formData.append('image', file));
       const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -214,6 +214,7 @@ const CacambaForm: React.FC<CacambaFormProps> = (props) => {
 
       // Reset form
       setNumero('');
+      setHoraServicoDigitos('');
       setTipo('entrega');
       setLocal('via_publica');
       setFiles([]);
@@ -240,6 +241,20 @@ const CacambaForm: React.FC<CacambaFormProps> = (props) => {
               value={numero}
               onChange={(e) => setNumero(e.target.value)}
               placeholder="Ex: 501"
+              required
+            />
+          </FormGroup>
+
+          <FormGroup>
+            <Label>3 Últimos Dígitos da Hora de Serviço</Label>
+            <Input
+              type="text"
+              value={horaServicoDigitos}
+              onChange={(e) => setHoraServicoDigitos(e.target.value)}
+              placeholder="Ex: 123"
+              maxLength={3}
+              inputMode="numeric"
+              pattern="[0-9]{3}"
               required
             />
           </FormGroup>
@@ -283,7 +298,7 @@ const CacambaForm: React.FC<CacambaFormProps> = (props) => {
               multiple
               accept="image/*"
               onChange={handleFileChange}
-              onClick={() => setError('')} // limpa ao abrir o seletor
+              onClick={() => setError('')}
             />
           </FormGroup>
 

@@ -66,6 +66,7 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
         : (props.cacamba.tipo === 'retirada' ? 'retirada' : 'entrega');
 
   const [numero, setNumero] = useState(props.cacamba.numero);
+  const [horaServicoDigitos, setHoraServicoDigitos] = useState(props.cacamba.horaServicoDigitos || '');
   const [tipo, setTipo] = useState<'entrega' | 'retirada'>(forcedTipo);
   const [formData, setFormData] = useState({ local: props.cacamba.local });
   const [file, setFile] = useState<File | null>(null);
@@ -120,6 +121,7 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
     try {
       const fd = new FormData();
       fd.append('numero', numero);
+      fd.append('horaServicoDigitos', horaServicoDigitos);
       fd.append('tipo', tipo);
       fd.append('local', formData.local);
       if (file) fd.append('image', file);
@@ -158,6 +160,20 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
               value={numero}
               onChange={e => setNumero(e.target.value)}
               placeholder="Ex: 501"
+              required
+            />
+          </FormGroup>
+
+          <FormGroup>
+            <Label>3 Últimos Dígitos da Hora de Serviço</Label>
+            <Input
+              type="text"
+              value={horaServicoDigitos}
+              onChange={(e) => setHoraServicoDigitos(e.target.value)}
+              placeholder="Ex: 123"
+              maxLength={3}
+              inputMode="numeric"
+              pattern="[0-9]{3}"
               required
             />
           </FormGroup>
