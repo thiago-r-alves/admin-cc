@@ -68,7 +68,7 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
   const [numero, setNumero] = useState(props.cacamba.numero);
   const [horaServicoDigitos, setHoraServicoDigitos] = useState(props.cacamba.horaServicoDigitos || '');
   const [tipo, setTipo] = useState<'entrega' | 'retirada'>(forcedTipo);
-  const [formData, setFormData] = useState({ local: props.cacamba.local });
+  const [formData, setFormData] = useState({ local: props.cacamba.local || 'via_publica' });
   const [file, setFile] = useState<File | null>(null);
   const [imgError, setImgError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false); // <-- ADICIONADO
@@ -123,7 +123,7 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
       fd.append('numero', numero);
       fd.append('horaServicoDigitos', horaServicoDigitos);
       fd.append('tipo', tipo);
-      fd.append('local', formData.local);
+      fd.append('local', formData.local || ''); // Adicionar fallback para string vazia
       if (file) fd.append('image', file);
 
       const token = localStorage.getItem('token') || '';
