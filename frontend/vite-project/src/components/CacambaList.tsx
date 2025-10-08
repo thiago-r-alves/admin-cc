@@ -161,7 +161,7 @@ const CacambaList: React.FC<CacambaListProps> = ({ cacambas, onImageClick, onEdi
               )}
               { cacamba.horaServicoDigitos && (
                 <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#4b5563' }}>
-                  <strong>Hora de Serviço:</strong> {
+                  <strong>Ordem de serviço:</strong> {
                     cacamba.horaServicoDigitos
                   }
                 </div>

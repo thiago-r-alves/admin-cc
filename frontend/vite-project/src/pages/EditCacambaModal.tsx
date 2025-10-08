@@ -165,7 +165,7 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
           </FormGroup>
 
           <FormGroup>
-            <Label>3 Últimos Dígitos da Hora de Serviço</Label>
+            <Label>3 Últimos Dígitos da Ordem de serviço</Label>
             <Input
               type="text"
               value={horaServicoDigitos}

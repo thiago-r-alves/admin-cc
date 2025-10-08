@@ -475,7 +475,7 @@ app.post('/driver/orders/:id/cacambas',
 
     // Validar horaServicoDigitos
     if (!horaServicoDigitos || !/^\d{3}$/.test(horaServicoDigitos)) {
-      return res.status(400).json({ message: 'Hora de serviço deve conter exatamente 3 dígitos.' });
+      return res.status(400).json({ message: 'Ordem de serviço deve conter exatamente 3 dígitos.' });
     }
 
     const exists = await CacambaModel.findOne({ orderId: order._id, numero: numero.trim() });
@@ -588,7 +588,7 @@ app.patch('/cacambas/:id',
       if (horaServicoDigitos) {
         // Validar horaServicoDigitos se fornecido
         if (!/^\d{3}$/.test(horaServicoDigitos)) {
-          return res.status(400).json({ message: 'Hora de serviço deve conter exatamente 3 dígitos.' });
+          return res.status(400).json({ message: 'Ordem de serviço deve conter exatamente 3 dígitos.' });
         }
         updates.horaServicoDigitos = horaServicoDigitos; // ADICIONADO
       }

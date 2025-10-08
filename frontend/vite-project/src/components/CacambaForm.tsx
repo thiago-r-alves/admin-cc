@@ -246,7 +246,7 @@ const CacambaForm: React.FC<CacambaFormProps> = (props) => {
           </FormGroup>
 
           <FormGroup>
-            <Label>3 Últimos Dígitos da Hora de Serviço</Label>
+            <Label>3 Últimos Dígitos da Ordem de serviço</Label>
             <Input
               type="text"
               value={horaServicoDigitos}
