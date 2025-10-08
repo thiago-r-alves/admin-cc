@@ -143,7 +143,10 @@ const CacambaList: React.FC<CacambaListProps> = ({ cacambas, onImageClick, onEdi
                 </TypeBadge>
               </HeaderInfo>
               <DateInfo>
-                Registrada em: {new Date(cacamba.createdAt).toLocaleString('pt-BR')}
+                Registrada em: {cacamba.createdAt 
+                  ? new Date(cacamba.createdAt).toLocaleString('pt-BR')
+                  : 'Data não disponível'
+                }
               </DateInfo>
 
               {cacamba.local && (

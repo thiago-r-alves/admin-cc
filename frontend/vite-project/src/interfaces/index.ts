@@ -20,13 +20,14 @@ export interface IDriver {
 }
 
 export interface ICacamba {
-  _id?: string;
+  _id: string;
   numero: string;
   tipo: 'entrega' | 'retirada';
   local?: string;
+  orderId: string;
   imageUrl?: string;
-  createdAt?: string;
-  horaServicoDigitos?: string; // Certificar que este campo existe
+  createdAt: string; // Remover o '?' para tornar obrigatório
+  horaServicoDigitos?: string;
 }
 
 export type OrderType = 'entrega' | 'retirada' | 'troca';
