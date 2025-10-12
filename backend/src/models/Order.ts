@@ -22,6 +22,7 @@ export interface IOrder extends Document {
   cnpjCpf?: string;
   city?: string;
   cep?: string; // ADICIONADO
+  placa?: string; // ADICIONADO
 }
 
 const OrderSchema: Schema = new Schema<IOrder>({
@@ -35,7 +36,8 @@ const OrderSchema: Schema = new Schema<IOrder>({
   contactNumber: { type: String, trim: true, default: '' },
   neighborhood: { type: String, trim: true, default: '' },
   address: { type: String, trim: true, default: '' },
-  addressNumber: { type: String, trim: true, default: '' },
+  addressNumber: { type: String, default: '' },
+  placa: { type: String, required: false, trim: true, default: '' },
 
   // Referência obrigatória ao cliente
   clientId: {

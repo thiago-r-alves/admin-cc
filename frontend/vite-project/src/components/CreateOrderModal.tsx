@@ -114,10 +114,11 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
     address: '',
     addressNumber: '',
     city: '',
-    cep: '', // ADICIONADO
+    cep: '',
     type: 'entrega' as 'entrega' | 'retirada' | 'troca',
     motorista: '',
-    priority: 0
+    priority: 0,
+    placa: ''
   });
   const [error, setError] = useState('');
   const [isFetchingCep, setIsFetchingCep] = useState(false);
@@ -186,7 +187,8 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
         cep: '',
         type: 'entrega',
         motorista: '',
-        priority: 0
+        priority: 0,
+        placa: ''
       });
     }
   };
@@ -219,8 +221,9 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
         neighborhood: form.neighborhood,
         address: form.address,
         addressNumber: form.addressNumber,
-        type: form.type,                      // OBRIGATÓRIO
-        priority: form.priority,              // número
+        type: form.type,                   
+        priority: form.priority,   
+        placa: form.placa,
         motorista: form.motorista || undefined
       }),
     });
@@ -416,6 +419,18 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                     {drivers.map(driver => (
                       <option key={driver._id} value={driver._id}>{driver.username}</option>
                     ))}
+                  </Select>
+                </FormGroup>
+                <FormGroup>
+                  <Label>Placa</Label>
+                  <Select
+                    value={form.placa}
+                    onChange={e => setForm(prev => ({ ...prev, placa: e.target.value }))}
+                    required={true}
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="fto2e29">FTO 2E29</option>
+                    <option value="etu7g44">ETU 7G44</option>
                   </Select>
                 </FormGroup>
 

@@ -160,7 +160,8 @@ app.post('/orders', authenticateToken, isAdmin, async (req, res) => {
       addressNumber,
       type,
       priority,
-      motorista
+      motorista,
+      placa
     } = req.body;
 
     if (!clientId) return res.status(400).json({ message: 'clientId é obrigatório' });
@@ -187,7 +188,8 @@ app.post('/orders', authenticateToken, isAdmin, async (req, res) => {
       type,
       priority: mapPriority(priority),
       motorista: motorista || null,
-      orderNumber: nextOrderNumber
+      orderNumber: nextOrderNumber,
+      placa: placa || '',
     });
 
     // RETORNAR POPULADO E EMITIR ATUALIZAÇÃO

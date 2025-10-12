@@ -53,4 +53,5 @@ export interface IOrder {
   cacambas?: ICacamba[];
   createdAt?: string;
   updatedAt?: string; // adicionado para evitar erro no orderPdf e modais
+  placa?: string; // Adicione este campo
 }
