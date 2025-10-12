@@ -692,6 +692,8 @@ const AdminPage: React.FC = () => {
                         <p><strong>Endereço:</strong> {order.address}, {order.addressNumber} - {order.neighborhood} - {order.city}{order.cep ? ` - CEP ${order.cep}` : ''}</p>
                         <p><strong>Contato:</strong> {order.contactName} ({order.contactNumber})</p>
                         <p><strong>CNPJ/CPF:</strong> {order.cnpjCpf || '-'}</p>
+                        <p><strong>Placa:</strong> {order.placa || '-'}</p>
+                        <p><strong>Tipo:</strong> {order.type}</p>
 
                         {((order.cacambas?.length ?? 0) > 0) && (
                           <CacambaSection>
