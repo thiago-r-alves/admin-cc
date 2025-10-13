@@ -626,7 +626,7 @@ const AdminPage: React.FC = () => {
                             <p><strong>Contato:</strong> {order.contactName} ({order.contactNumber})</p>
                             <p><strong>CNPJ/CPF:</strong> {order.cnpjCpf || '-'}</p>
                             <p><strong>Prioridade:</strong> {order.priority}</p>
-                            <p><strong>Placa:</strong> {order.placa || '-'}</p>
+                            <p><strong>Placa:</strong> <span style={{ textTransform: 'uppercase' }}>{order.placa || '-'}</span></p>
                             <p><strong>Tipo:</strong> {order.type}</p>
 
                             {((order.cacambas?.length ?? 0) > 0) && (
@@ -692,7 +692,7 @@ const AdminPage: React.FC = () => {
                         <p><strong>Endereço:</strong> {order.address}, {order.addressNumber} - {order.neighborhood} - {order.city}{order.cep ? ` - CEP ${order.cep}` : ''}</p>
                         <p><strong>Contato:</strong> {order.contactName} ({order.contactNumber})</p>
                         <p><strong>CNPJ/CPF:</strong> {order.cnpjCpf || '-'}</p>
-                        <p><strong>Placa:</strong> {order.placa || '-'}</p>
+                        <p><strong>Placa:</strong> <span style={{ textTransform: 'uppercase' }}>{order.placa || '-'}</span></p>
                         <p><strong>Tipo:</strong> {order.type}</p>
 
                         {((order.cacambas?.length ?? 0) > 0) && (
