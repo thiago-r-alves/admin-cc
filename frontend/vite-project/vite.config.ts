@@ -35,11 +35,12 @@ export default defineConfig({
         manualChunks(id) {
           if (!id) return null;
           if (id.includes('node_modules')) {
-            if (id.includes('react') && !id.includes('react-dom') && !id.includes('react-router') && !id.includes('react-select')) return 'vendor.react';
-            // Keep jspdf in its own chunk for visibility, but mark it clearly
+            // Keep React and React-DOM together (they're tightly coupled)
+            if (id.includes('react')) return 'vendor.react';
+            // jspdf in its own chunk (lazy-loaded)
             if (id.includes('jspdf')) return 'vendor.jspdf';
+            // Other vendors
             if (id.includes('socket.io-client')) return 'vendor.socketio';
-            if (id.includes('react-router-dom')) return 'vendor.rtr';
             if (id.includes('react-select')) return 'vendor.select';
             if (id.includes('styled-components')) return 'vendor.styled';
             return 'vendor';
