@@ -5,8 +5,7 @@ import CreateOrderModal from '../components/CreateOrderModal';
 import CreateDriverModal from '../components/CreateDriverModal';
 import CacambaList from '../components/CacambaList';
 import ClientPage from './ClientPage';
-import { io } from 'socket.io-client';
-import { downloadOrderPdf } from '../utils/orderPdf';
+// socket.io-client and PDF download will be dynamically imported to avoid parsing on initial load
 
 // ==========================================================
 // ESTILOS
@@ -459,17 +458,36 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  const socket = io(apiUrl);
+  const socketRef = React.useRef<any>(null);
 
   useEffect(() => {
+    let mounted = true;
     fetchData();
 
-    socket.on('orders_updated', () => {
-      fetchData();
-    });
+    // dynamically import socket.io-client and connect
+    (async () => {
+      try {
+        const mod = await import('socket.io-client');
+        if (!mounted) return;
+        socketRef.current = mod.io(apiUrl);
+        socketRef.current.on('orders_updated', () => {
+          fetchData();
+        });
+      } catch (e) {
+        console.error('Falha ao carregar socket.io-client dinamicamente', e);
+      }
+    })();
 
     return () => {
-      socket.off('orders_updated');
+      mounted = false;
+      try {
+        if (socketRef.current) {
+          socketRef.current.off('orders_updated');
+          socketRef.current.close && socketRef.current.close();
+        }
+      } catch (e) {
+        // ignore cleanup errors
+      }
     };
   }, []);
 
@@ -726,7 +744,10 @@ const AdminPage: React.FC = () => {
                           {order.status === 'concluido' && (
                             <ActionButton
                               type="button"
-                              onClick={() => downloadOrderPdf(order)}
+                              onClick={async () => {
+                                const { downloadOrderPdf } = await import('../utils/orderPdf');
+                                downloadOrderPdf(order);
+                              }}
                               style={{ background:'#2563eb' }}
                             >
                               Baixar Pedido

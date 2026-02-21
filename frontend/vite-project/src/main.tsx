@@ -1,20 +1,33 @@
 // src/main.tsx
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
-import AdminPage from './pages/AdminPage';
-import DriverPage from './pages/DriverPage'; // Importe a DriverPage
+const AdminPage = React.lazy(() => import('./pages/AdminPage'));
+const DriverPage = React.lazy(() => import('./pages/DriverPage'));
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<LoginPage />} />
-        <Route path="/admin" element={<AdminPage />} />
-        <Route path="/motorista" element={<DriverPage />} /> {/* Adicione a rota do motorista */}
-      </Routes>
+      <Suspense fallback={<div />}> 
+        <Routes>
+          <Route path="/" element={<LoginPage />} />
+          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/motorista" element={<DriverPage />} /> {/* Adicione a rota do motorista */}
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   </React.StrictMode>,
 );
+
+// Remove the pre-rendered header and mark JS enabled to hide the placeholder
+setTimeout(() => {
+  try {
+    document.documentElement.classList.remove('js-disabled');
+    const el = document.getElementById('preload-header');
+    if (el) el.remove();
+  } catch (e) {
+    // ignore
+  }
+}, 0);

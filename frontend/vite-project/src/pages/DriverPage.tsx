@@ -4,7 +4,7 @@ import type { IOrder, ICacamba } from '../interfaces';
 import CacambaForm from '../components/CacambaForm';
 import CacambaList from '../components/CacambaList';
 import EditCacambaModal from './EditCacambaModal';
-import { io } from 'socket.io-client';
+// socket.io-client will be dynamically imported to avoid parsing on initial load
 
 // Estilos
 const DriverContainer = styled.div`
@@ -136,7 +136,7 @@ const DriverPage: React.FC = () => {
   
   // Defina a apiUrl aqui, lendo do .env
   const apiUrl = import.meta.env.VITE_API_URL;
-  const socket = io(apiUrl); // Use a variável aqui
+  const socketRef = React.useRef<any>(null);
 
   const authenticatedFetch = async (url: string, options?: RequestInit) => {
     const token = localStorage.getItem('token');
@@ -173,14 +173,32 @@ const DriverPage: React.FC = () => {
   };
 
   useEffect(() => {
+    let mounted = true;
     fetchDriverOrders();
 
-    socket.on('orders_updated', () => {
-      fetchDriverOrders();
-    });
+    (async () => {
+      try {
+        const mod = await import('socket.io-client');
+        if (!mounted) return;
+        socketRef.current = mod.io(apiUrl);
+        socketRef.current.on('orders_updated', () => {
+          fetchDriverOrders();
+        });
+      } catch (e) {
+        console.error('Falha ao carregar socket.io-client dinamicamente', e);
+      }
+    })();
 
     return () => {
-      socket.off('orders_updated');
+      mounted = false;
+      try {
+        if (socketRef.current) {
+          socketRef.current.off('orders_updated');
+          socketRef.current.close && socketRef.current.close();
+        }
+      } catch (e) {
+        // ignore
+      }
     };
   }, []);
 
@@ -299,14 +317,34 @@ const DriverPage: React.FC = () => {
 
   // Chamar após autenticação do motorista
   useEffect(() => {
+    let mounted = true;
     fetchDriverOrders();
 
-    socket.on('orders_updated', () => {
-      fetchDriverOrders();
-    });
+    (async () => {
+      try {
+        const mod = await import('socket.io-client');
+        if (!mounted) return;
+        const s = mod.io(apiUrl);
+        s.on('orders_updated', () => {
+          fetchDriverOrders();
+        });
+        // store on ref to cleanup later
+        socketRef.current = s;
+      } catch (e) {
+        console.error('Falha ao carregar socket.io-client dinamicamente', e);
+      }
+    })();
 
     return () => {
-      socket.off('orders_updated');
+      mounted = false;
+      try {
+        if (socketRef.current) {
+          socketRef.current.off('orders_updated');
+          socketRef.current.close && socketRef.current.close();
+        }
+      } catch (e) {
+        // ignore
+      }
     };
   }, []);
 

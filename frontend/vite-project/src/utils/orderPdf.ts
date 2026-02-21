@@ -1,8 +1,9 @@
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import type { IOrder, ICacamba } from '../interfaces';
 
-export function downloadOrderPdf(order: IOrder) {
+export async function downloadOrderPdf(order: IOrder) {
+  const { jsPDF } = await import('jspdf');
+  const autoTableModule = await import('jspdf-autotable');
+  const autoTable = (autoTableModule as any).default || autoTableModule;
   const doc = new jsPDF();
   const fmt = (d?: string) => (d ? new Date(d).toLocaleString('pt-BR') : '-');
 
@@ -81,6 +82,5 @@ export function downloadOrderPdf(order: IOrder) {
       }
     }
   }
-
   doc.save(`pedido_${orderNumber}.pdf`);
 }

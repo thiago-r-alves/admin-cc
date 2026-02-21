@@ -119,13 +119,21 @@ const CacambaList: React.FC<CacambaListProps> = ({ cacambas, onImageClick, onEdi
   }
   const apiUrl = import.meta.env.VITE_API_URL;
 
-  const buildImageUrl = (url?: string, w = 480, q = 70) => {
-    if (!url) return '';
-    const absolute = url.startsWith('http');
-    const base = absolute ? url : `${apiUrl}${url}`;
-    const sep = base.includes('?') ? '&' : '?';
-    return `${base}${sep}w=${w}&q=${q}&f=webp`;
-  };
+  // store resized thumbnails for each caçamba
+  const [thumbs, setThumbs] = React.useState<Record<string, string>>({});
+
+  React.useEffect(() => {
+    cacambas.forEach(c => {
+      if (c.imageUrl && !thumbs[c._id]) {
+        const full = c.imageUrl.startsWith('http') ? c.imageUrl : `${apiUrl}${c.imageUrl}`;
+        import('../utils/image').then(({ resizeImage }) => {
+          resizeImage(full, 64, 1)
+            .then(r => setThumbs(prev => ({ ...prev, [c._id]: r })))
+            .catch(console.error);
+        });
+      }
+    });
+  }, [cacambas, apiUrl, thumbs]);
 
   return (
     <Container>
@@ -169,9 +177,22 @@ const CacambaList: React.FC<CacambaListProps> = ({ cacambas, onImageClick, onEdi
             </InfoSection>
             <ImageContainer>
               <CacambaImage
-                src={buildImageUrl(cacamba.imageUrl, 480, 70)}
+                src={thumbs[cacamba._id] || ''}
                 alt="Foto da caçamba"
-                onClick={() => onImageClick && cacamba.imageUrl && onImageClick(buildImageUrl(cacamba.imageUrl, 1200, 80))}
+                onClick={async () => {
+                  if (onImageClick && cacamba.imageUrl) {
+                    const full = cacamba.imageUrl.startsWith('http')
+                      ? cacamba.imageUrl
+                      : `${apiUrl}${cacamba.imageUrl}`;
+                    try {
+                      const mod = await import('../utils/image');
+                      const large = await mod.resizeImage(full, 1200, 0.8);
+                      onImageClick(large);
+                    } catch (e) {
+                      console.error('Erro redimensionando imagem:', e);
+                    }
+                  }
+                }}
               />
             </ImageContainer>
           </CardContent>

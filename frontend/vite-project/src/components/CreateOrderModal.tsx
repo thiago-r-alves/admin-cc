@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import styled from 'styled-components';
 import type { IDriver, IClient } from '../interfaces';
-import ReactSelect, { type SingleValue } from 'react-select';
+import type { SingleValue } from 'react-select';
 
 // Overlay ocupa a tela inteira com padding e safe areas
 const ModalOverlay = styled.div`
@@ -103,6 +103,14 @@ interface CreateOrderModalProps {
 type ClientOption = { value: string; label: string; clientName: string };
 
 const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCreated, drivers }) => {
+  // lazy-load react-select to avoid loading its JS until modal is opened
+  const [SelectComponent, setSelectComponent] = useState<any>(null);
+  useEffect(() => {
+    let mounted = true;
+    // load only when modal mounts
+    import('react-select').then(mod => { if (mounted) setSelectComponent(mod.default || mod); }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
   const [clients, setClients] = useState<IClient[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [form, setForm] = useState({
@@ -144,20 +152,14 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
       clients.map(c => ({
         value: c._id,
         clientName: c.clientName, // usado no filtro
-        label: [
-          c.clientName
-        ]
-          .filter(Boolean)
-          .join(' • ')
+        label: [c.clientName].filter(Boolean).join(' • ')
       })),
     [clients]
   );
 
-  // ao selecionar cliente, preencher CEP também
-  const handleClientChangeRs = (opt: SingleValue<ClientOption>) => {
-    const clientId = opt?.value || '';
+  // shared helper to select client by id (used by react-select and fallback native select)
+  const setSelectedClientById = (clientId: string) => {
     setSelectedClientId(clientId);
-
     if (clientId) {
       const selectedClient = clients.find(c => c._id === clientId);
       if (selectedClient) {
@@ -191,6 +193,10 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
         placa: ''
       });
     }
+  };
+
+  const handleClientChangeRs = (opt: SingleValue<ClientOption>) => {
+    setSelectedClientById(opt?.value || '');
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -291,20 +297,32 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
           <Form onSubmit={handleSubmit}>
             <FormGroup>
               <Label>Selecione o Cliente</Label>
-              <ReactSelect
-                options={clientOptions}
-                value={clientOptions.find(o => o.value === selectedClientId) || null}
-                onChange={handleClientChangeRs}
-                placeholder="Selecione ou pesquise o cliente..."
-                isSearchable
-                isClearable
-                // Filtra APENAS pelo nome do cliente
-                filterOption={(opt, raw) =>
-                  (opt.data as ClientOption).clientName.toLowerCase().includes((raw || '').toLowerCase())
-                }
-                menuPortalTarget={document.body}
-                styles={{ menuPortal: base => ({ ...base, zIndex: 9999 }) }}
-              />
+              {SelectComponent ? (
+                <SelectComponent
+                  options={clientOptions}
+                  value={clientOptions.find(o => o.value === selectedClientId) || null}
+                  onChange={handleClientChangeRs}
+                  placeholder="Selecione ou pesquise o cliente..."
+                  isSearchable
+                  isClearable
+                  filterOption={(opt: any, raw: any) => (opt.data as ClientOption).clientName.toLowerCase().includes((raw || '').toLowerCase())}
+                  menuPortalTarget={document.body}
+                  styles={{ menuPortal: (base: any) => ({ ...base, zIndex: 9999 }) }}
+                />
+              ) : (
+                <Select
+                  value={selectedClientId}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setSelectedClientById(v);
+                  }}
+                >
+                  <option value="">Selecione...</option>
+                  {clientOptions.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </Select>
+              )}
             </FormGroup>
 
             {selectedClientId && (
