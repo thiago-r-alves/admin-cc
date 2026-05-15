@@ -150,7 +150,6 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose }
               <option value="">Todos</option>
               <option value="entrega">Entrega</option>
               <option value="retirada">Retirada</option>
-              <option value="troca">Troca</option>
             </Select>
           </FormGroup>
           <FormGroup>

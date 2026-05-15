@@ -30,7 +30,7 @@ export interface ICacamba {
   horaServicoDigitos?: string;
 }
 
-export type OrderType = 'entrega' | 'retirada' | 'troca';
+export type OrderType = 'entrega' | 'retirada';
 
 export interface IOrder {
   _id: string;
@@ -45,7 +45,7 @@ export interface IOrder {
   neighborhood: string;
   address: string;
   addressNumber: string;
-  type: 'entrega' | 'retirada' | 'troca';
+  type: OrderType;
   priority: number;
   status: 'pendente' | 'em_andamento' | 'concluido' | 'cancelado';
   motorista?: any;

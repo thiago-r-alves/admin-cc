@@ -144,6 +144,10 @@ const mapPriority = (p: any) => {
   return 1;
 };
 
+const orderTypes = ['entrega', 'retirada'] as const;
+const isOrderType = (value: unknown): value is typeof orderTypes[number] =>
+  orderTypes.includes(value as typeof orderTypes[number]);
+
 // POST /orders
 app.post('/orders', authenticateToken, isAdmin, async (req, res) => {
   try {
@@ -166,6 +170,7 @@ app.post('/orders', authenticateToken, isAdmin, async (req, res) => {
 
     if (!clientId) return res.status(400).json({ message: 'clientId é obrigatório' });
     if (!type) return res.status(400).json({ message: 'type é obrigatório' });
+    if (!isOrderType(type)) return res.status(400).json({ message: 'type deve ser entrega ou retirada' });
 
     // calcula próximo número (ignora registros com null)
     const last = await OrderModel.findOne({ orderNumber: { $ne: null } })
@@ -232,6 +237,9 @@ app.patch('/orders/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const updates: any = {};
+    if (req.body.type !== undefined && !isOrderType(req.body.type)) {
+      return res.status(400).json({ message: 'type deve ser entrega ou retirada' });
+    }
     const fields = [
       'clientId','clientName','cnpjCpf','city','cep', // ADICIONADO
       'contactName','contactNumber','neighborhood',
@@ -468,7 +476,7 @@ app.post('/driver/orders/:id/cacambas',
   upload.single('image'),
   async (req: AuthenticatedRequest, res) => {
     const { id } = req.params;
-    const { numero, tipo, local, horaServicoDigitos } = req.body; // ADICIONADO horaServicoDigitos
+    const { numero, local, horaServicoDigitos } = req.body; // ADICIONADO horaServicoDigitos
 
     const order = await OrderModel.findOne({ _id: id, motorista: req.userData?.userId });
     if (!order) {
@@ -485,10 +493,7 @@ app.post('/driver/orders/:id/cacambas',
       return res.status(400).json({ message: 'Número de caçamba já registrado neste pedido.' });
     }
 
-    let finalTipo: 'entrega' | 'retirada';
-    if (order.type === 'retirada') finalTipo = 'retirada';
-    else if (order.type === 'entrega') finalTipo = 'entrega';
-    else finalTipo = (tipo === 'retirada') ? 'retirada' : 'entrega';
+    const finalTipo: 'entrega' | 'retirada' = order.type === 'retirada' ? 'retirada' : 'entrega';
 
     try {
       let imageUrl: string | undefined;

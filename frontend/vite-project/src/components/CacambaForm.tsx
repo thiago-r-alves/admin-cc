@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import type { ICacamba } from '../interfaces';
+import type { ICacamba, OrderType } from '../interfaces';
 
 // Styled Components
 const ModalOverlay = styled.div`
@@ -134,7 +134,7 @@ const CancelButton = styled.button`
 
 interface CacambaFormProps {
   orderId: string;
-  orderType: 'entrega' | 'retirada' | 'troca';
+  orderType: OrderType;
   onCacambaAdded: (c: ICacamba) => void;
   onClose: () => void;
   beforeUploadFiles?: (files: File[]) => Promise<{ allowed: File[]; error?: string }>; // alterado
@@ -144,7 +144,7 @@ const CacambaForm: React.FC<CacambaFormProps> = (props) => {
   const { orderId, orderType, onCacambaAdded, onClose, beforeUploadFiles } = props;
   const [numero, setNumero] = useState('');
   const [horaServicoDigitos, setHoraServicoDigitos] = useState('');
-  const [tipo, setTipo] = useState<'entrega' | 'retirada'>('entrega');
+  const [tipo, setTipo] = useState<OrderType>(orderType);
   const [local, setLocal] = useState<'via_publica' | 'canteiro_obra'>('via_publica');
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
@@ -215,7 +215,7 @@ const CacambaForm: React.FC<CacambaFormProps> = (props) => {
       // Reset form
       setNumero('');
       setHoraServicoDigitos('');
-      setTipo('entrega');
+      setTipo(orderType);
       setLocal('via_publica');
       setFiles([]);
       setError('');
@@ -265,15 +265,11 @@ const CacambaForm: React.FC<CacambaFormProps> = (props) => {
             </Label>
             <Select
               value={tipo}
-              onChange={e => setTipo(e.target.value as 'entrega' | 'retirada')}
+              onChange={e => setTipo(e.target.value as OrderType)}
               required
             >
-              {(orderType === 'entrega' || orderType === 'troca') && (
-                <option value="entrega">Entrega</option>
-              )}
-              {(orderType === 'retirada' || orderType === 'troca') && (
-                <option value="retirada">Retirada</option>
-              )}
+              {orderType === 'entrega' && <option value="entrega">Entrega</option>}
+              {orderType === 'retirada' && <option value="retirada">Retirada</option>}
             </Select>
           </FormGroup>
 

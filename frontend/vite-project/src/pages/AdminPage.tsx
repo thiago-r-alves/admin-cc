@@ -11,62 +11,153 @@ import ClientPage from './ClientPage';
 // ESTILOS
 // ==========================================================
 const AdminContainer = styled.div`
+  min-height: 100vh;
+  background-color: #f6f7fb;
+  font-family: Arial, sans-serif;
+  color: #111827;
+`;
+
+const AdminShell = styled.div`
+  min-height: 100vh;
+  display: flex;
+`;
+
+const Sidebar = styled.aside<{ $open: boolean }>`
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 900;
+  width: 272px;
+  background: #ffffff;
+  border-right: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  background-color: #f0f2f5;
-  padding: 1rem;
-  font-family: Arial, sans-serif;
+  transform: translateX(${({ $open }) => ($open ? '0' : '-100%')});
+  transition: transform 0.2s ease;
 
-  @media (min-width: 768px) {
+  @media (min-width: 769px) {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    flex: 0 0 272px;
+    transform: none;
+  }
+`;
+
+const SidebarHeader = styled.div`
+  padding: 1.35rem 1rem 1rem;
+  border-bottom: 1px solid #f3f4f6;
+`;
+
+const SidebarLogo = styled.img`
+  display: block;
+  width: 100%;
+  max-width: 200px;
+  height: auto;
+  object-fit: contain;
+`;
+
+const SidebarNav = styled.nav`
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 0.75rem;
+`;
+
+const SidebarItem = styled.button<{ $active?: boolean }>`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  background-color: ${({ $active }) => ($active ? '#e30613' : 'transparent')};
+  color: ${({ $active }) => ($active ? '#ffffff' : '#374151')};
+  border: none;
+  border-radius: 5px;
+  padding: 0.75rem 0.85rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: left;
+  transition: background-color 0.2s, color 0.2s;
+
+  &:hover {
+    background-color: ${({ $active }) => ($active ? '#c9000b' : '#f3f4f6')};
+  }
+
+  svg {
+    flex: 0 0 18px;
+  }
+`;
+
+const SidebarFooter = styled.div`
+  margin-top: auto;
+  border-top: 1px solid #fee2e2;
+  padding: 0.9rem 0.75rem 1rem;
+`;
+
+const MainContent = styled.main`
+  flex: 1;
+  min-width: 0;
+  padding: 1rem;
+
+  @media (min-width: 769px) {
     padding: 2rem;
   }
 `;
 
-const Header = styled.header`
-  background-color: #3b82f6;
-  color: white;
-  padding: 1rem;
+const MobileTopBar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
-  margin-bottom: 1.5rem;
-  text-align: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
 
-  h1 {
-    font-size: 1.8rem;
+  h2 {
     margin: 0;
-    @media (min-width: 768px) {
-      font-size: 2.5rem;
-    }
+    font-size: 0.95rem;
+    color: #111827;
+  }
+
+  @media (min-width: 769px) {
+    display: none;
   }
 `;
 
-const TabContainer = styled.div`
-  display: flex;
-  justify-content: flex-start;
-  border-bottom: 2px solid #ddd;
-  margin-bottom: 1.5rem;
+const MenuButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #111827;
+  cursor: pointer;
 `;
 
-const Tab = styled.button<{ active: boolean }>`
-  background-color: ${({ active }) => (active ? '#3b82f6' : 'transparent')};
-  color: ${({ active }) => (active ? 'white' : '#555')};
-  border: none;
-  padding: 1rem 1.5rem;
-  cursor: pointer;
-  font-size: 1rem;
-  font-weight: bold;
-  transition: background-color 0.2s, color 0.2s;
-  border-radius: 8px 8px 0 0;
-  &:hover {
-    background-color: ${({ active }) => (active ? '#2563eb' : '#eee')};
+const Backdrop = styled.button<{ $open: boolean }>`
+  position: fixed;
+  inset: 0;
+  z-index: 890;
+  border: 0;
+  background: rgba(17, 24, 39, 0.45);
+  opacity: ${({ $open }) => ($open ? 1 : 0)};
+  pointer-events: ${({ $open }) => ($open ? 'auto' : 'none')};
+  transition: opacity 0.2s ease;
+
+  @media (min-width: 769px) {
+    display: none;
   }
 `;
 
 const ContentContainer = styled.div`
   background-color: white;
   padding: 1.5rem;
-  border-radius: 0 8px 8px 8px;
+  border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 
   @media (max-width: 768px) {
@@ -206,27 +297,8 @@ const SectionContainer = styled.div`
   margin-bottom: 2rem;
 `;
 
-const PriorityButton = styled(Button)`
+const DeleteOrderButton = styled(Button)`
   padding: 0.5rem;
-`;
-
-const IncreasePriorityButton = styled(PriorityButton)`
-  background-color: #10b981;
-
-  @media (max-width: 768px) {
-    width: 48%;
-  }
-`;
-
-const DecreasePriorityButton = styled(PriorityButton)`
-  background-color: #f59e0b;
-
-  @media (max-width: 768px) {
-    width: 48%;
-  }
-`;
-
-const DeleteOrderButton = styled(PriorityButton)`
   background-color: #ef4444;
 
   @media (max-width: 768px) {
@@ -355,14 +427,89 @@ const SectionHeader = styled.div`
 
 // Remover margem padrão do body
 const GlobalStyle = createGlobalStyle`
-  body { margin: 0; }
+  body { margin: 0; background: #f6f7fb; }
 `;
+
+type AdminTab = 'pedidos' | 'clientes' | 'motoristas';
+type SidebarIconName = AdminTab | 'sair' | 'menu';
+
+const SidebarIcon = ({ name }: { name: SidebarIconName }) => {
+  const common = {
+    width: 18,
+    height: 18,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    'aria-hidden': true,
+  };
+
+  if (name === 'pedidos') {
+    return (
+      <svg {...common}>
+        <path d="M9 5h6" />
+        <path d="M9 12h6" />
+        <path d="M9 16h4" />
+        <path d="M5 4h14v16H5z" />
+      </svg>
+    );
+  }
+
+  if (name === 'clientes') {
+    return (
+      <svg {...common}>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+        <circle cx="9.5" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    );
+  }
+
+  if (name === 'motoristas') {
+    return (
+      <svg {...common}>
+        <path d="M3 13h2l2-5h10l2 5h2" />
+        <path d="M5 13v5h14v-5" />
+        <circle cx="7.5" cy="18" r="1.5" />
+        <circle cx="16.5" cy="18" r="1.5" />
+      </svg>
+    );
+  }
+
+  if (name === 'menu') {
+    return (
+      <svg {...common}>
+        <path d="M4 6h16" />
+        <path d="M4 12h16" />
+        <path d="M4 18h16" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...common}>
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="M16 17l5-5-5-5" />
+      <path d="M21 12H9" />
+    </svg>
+  );
+};
+
+const sidebarItems: Array<{ key: AdminTab; label: string }> = [
+  { key: 'pedidos', label: 'Pedidos' },
+  { key: 'clientes', label: 'Clientes' },
+  { key: 'motoristas', label: 'Motoristas' },
+];
 
 // ==========================================================
 // COMPONENTE PRINCIPAL
 // ==========================================================
 const AdminPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'pedidos' | 'motoristas' | 'clientes' | 'cacambas'>('pedidos');
+  const [activeTab, setActiveTab] = useState<AdminTab>('pedidos');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [orders, setOrders] = useState<IOrder[]>([]);
   const [drivers, setDrivers] = useState<IDriver[]>([]);
   const [loading, setLoading] = useState(true);
@@ -530,15 +677,6 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  // Funções para prioridade
-  const handleIncreasePriority = (orderId: string, currentPriority: number) => {
-    handleUpdateOrder(orderId, { priority: currentPriority + 1 });
-  };
-
-  const handleDecreasePriority = (orderId: string, currentPriority: number) => {
-    handleUpdateOrder(orderId, { priority: Math.max(0, currentPriority - 1) });
-  };
-
   // Funções de Gerenciamento de Motoristas
   const handleEditDriver = (driver: IDriver) => {
     setEditingDriver(driver);
@@ -573,6 +711,18 @@ const AdminPage: React.FC = () => {
 
   const selectedDriver = drivers.find(d => d._id === selectedDriverId);
 
+  const handleSelectTab = (tab: AdminTab) => {
+    setActiveTab(tab);
+    setIsSidebarOpen(false);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('token_expires_at');
+    window.location.href = '/';
+  };
+
   if (loading) return <AdminContainer>Carregando...</AdminContainer>;
   if (error) return <AdminContainer>Erro: {error}</AdminContainer>;
 
@@ -582,23 +732,53 @@ const AdminPage: React.FC = () => {
       <AdminContainer>
         {modalImage && <ImageModal url={modalImage} onClose={() => setModalImage(null)} />}
 
-        <Header>
-          <h1>Painel de Administração de Caçambas</h1>
-        </Header>
+        <AdminShell>
+          <Sidebar $open={isSidebarOpen}>
+            <SidebarHeader>
+              <SidebarLogo src="/logo-central-cacambas.webp" alt="Central Caçambas" />
+            </SidebarHeader>
 
-        <TabContainer>
-          <Tab active={activeTab === 'pedidos'} onClick={() => setActiveTab('pedidos')}>
-            Pedidos
-          </Tab>
-          <Tab active={activeTab === 'clientes'} onClick={() => setActiveTab('clientes')}>
-            Clientes
-          </Tab>
-          <Tab active={activeTab === 'motoristas'} onClick={() => setActiveTab('motoristas')}>
-            Motoristas
-          </Tab>
-        </TabContainer>
+            <SidebarNav>
+              {sidebarItems.map(item => (
+                <SidebarItem
+                  key={item.key}
+                  type="button"
+                  $active={activeTab === item.key}
+                  onClick={() => handleSelectTab(item.key)}
+                >
+                  <SidebarIcon name={item.key} />
+                  {item.label}
+                </SidebarItem>
+              ))}
+            </SidebarNav>
 
-        <ContentContainer>
+            <SidebarFooter>
+              <SidebarItem type="button" onClick={handleLogout}>
+                <SidebarIcon name="sair" />
+                Sair
+              </SidebarItem>
+            </SidebarFooter>
+          </Sidebar>
+
+          <MainContent>
+            <MobileTopBar>
+              <MenuButton
+                type="button"
+                onClick={() => setIsSidebarOpen(true)}
+                aria-label="Abrir menu"
+              >
+                <SidebarIcon name="menu" />
+              </MenuButton>
+              <h2>Painel de Administração de Caçambas</h2>
+            </MobileTopBar>
+          <Backdrop
+            type="button"
+            $open={isSidebarOpen}
+            onClick={() => setIsSidebarOpen(false)}
+            aria-label="Fechar menu"
+          />
+
+            <ContentContainer>
           {activeTab === 'clientes' && (
             <ClientPage />
           )}
@@ -674,9 +854,6 @@ const AdminPage: React.FC = () => {
                             )}
 
                             <div style={{ display:'flex', gap:'.5rem', flexWrap:'wrap', marginTop:'.5rem' }}>
-                              <IncreasePriorityButton onClick={() => handleIncreasePriority(order._id, order.priority)}>▲ Prioridade</IncreasePriorityButton>
-                              <DecreasePriorityButton onClick={() => handleDecreasePriority(order._id, order.priority)}>▼ Prioridade</DecreasePriorityButton>
-
                               <SelectInput
                                 required
                                 value={order.motorista?._id || selectedDriverId}
@@ -819,7 +996,9 @@ const AdminPage: React.FC = () => {
               </DriverList>
             </div>
           )}
-        </ContentContainer>
+            </ContentContainer>
+          </MainContent>
+        </AdminShell>
 
         {/* Modais */}
         {isOrderModalOpen && (

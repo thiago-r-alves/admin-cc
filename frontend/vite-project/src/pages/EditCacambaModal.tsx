@@ -1,6 +1,6 @@
 import React, { useState } from 'react'; // Remova 'useEffect' daqui
 import styled from 'styled-components';
-import type { ICacamba } from '../interfaces';
+import type { ICacamba, OrderType } from '../interfaces';
 
 const ModalOverlay = styled.div`
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -50,7 +50,7 @@ const ErrorText = styled.p`
 
 interface EditCacambaModalProps {
   cacamba: ICacamba;
-  orderType?: 'entrega' | 'retirada' | 'troca';
+  orderType?: OrderType;
   onClose: () => void;
   onUpdate: (updated: Partial<ICacamba> & { image?: File | null }) => void;
   beforeUploadFiles?: (files: File[]) => Promise<{ allowed: File[]; error?: string }>; // alterado
@@ -76,8 +76,8 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
   const apiUrl = import.meta.env.VITE_API_URL; // <-- ADICIONADO
 
   // quais opções mostrar (idêntico ao formulário de adicionar)
-  const showEntrega = !props.orderType || props.orderType === 'entrega' || props.orderType === 'troca';
-  const showRetirada = !props.orderType || props.orderType === 'retirada' || props.orderType === 'troca';
+  const showEntrega = !props.orderType || props.orderType === 'entrega';
+  const showRetirada = !props.orderType || props.orderType === 'retirada';
 
   // se o pedido não permite trocar o tipo, bloqueia o select
   const lockSelect = props.orderType === 'entrega' || props.orderType === 'retirada';

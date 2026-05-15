@@ -10,7 +10,7 @@ export interface IOrder extends Document {
   neighborhood: string;
   address: string;
   addressNumber: string;
-  type: 'entrega' | 'retirada' | 'troca';
+  type: 'entrega' | 'retirada';
   status: 'pendente' | 'em_andamento' | 'concluido' | 'cancelado';
   motorista?: mongoose.Types.ObjectId;
   priority: number;
@@ -49,7 +49,7 @@ const OrderSchema: Schema = new Schema<IOrder>({
   // Campos específicos do pedido
   type: {
     type: String,
-    enum: ['entrega', 'retirada', 'troca'],
+    enum: ['entrega', 'retirada'],
     required: true,
   },
   priority: { type: Number, default: 0 },

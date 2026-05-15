@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import type { IOrder, ICacamba } from '../interfaces';
+import type { IOrder, ICacamba, OrderType } from '../interfaces';
 import CacambaForm from '../components/CacambaForm';
 import CacambaList from '../components/CacambaList';
 import EditCacambaModal from './EditCacambaModal';
@@ -124,12 +124,12 @@ const DriverPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showCacambaForm, setShowCacambaForm] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-  const [selectedOrderType, setSelectedOrderType] = useState<'entrega' | 'retirada' | 'troca' | null>(null);
+  const [selectedOrderType, setSelectedOrderType] = useState<OrderType | null>(null);
   const [modalImage, setModalImage] = useState<string | null>(null);
   const [editingCacamba, setEditingCacamba] = useState<ICacamba | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   // ADICIONE um estado para guardar o tipo do pedido em edição
-  const [editingOrderType, setEditingOrderType] = useState<'entrega' | 'retirada' | 'troca' | undefined>(undefined);
+  const [editingOrderType, setEditingOrderType] = useState<OrderType | undefined>(undefined);
   const [role] = useState<string | null>(() => localStorage.getItem('role'));
   const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
   const [pushError, setPushError] = useState<string | null>(null);
@@ -372,7 +372,7 @@ const DriverPage: React.FC = () => {
     }
   };
 
-  const handleAddCacamba = (orderId: string, orderType: 'entrega' | 'retirada' | 'troca') => {
+  const handleAddCacamba = (orderId: string, orderType: OrderType) => {
     setSelectedOrderId(orderId);
     setSelectedOrderType(orderType);
     setShowCacambaForm(true);
@@ -409,7 +409,7 @@ const DriverPage: React.FC = () => {
     fetchDriverOrders();
   };
 
-  const handleOpenEditModal = (cacamba: ICacamba, orderType: 'entrega' | 'retirada' | 'troca') => {
+  const handleOpenEditModal = (cacamba: ICacamba, orderType: OrderType) => {
     setEditingCacamba(cacamba);
     setEditingOrderType(orderType);
     setIsEditModalOpen(true);
@@ -478,12 +478,7 @@ const DriverPage: React.FC = () => {
         {orders
           .filter(order => order.status !== 'concluido') // Apenas pedidos não concluídos
           .map(order => {
-            // Regra para mostrar o botão de concluir pedido:
-            // - entrega/retirada: pelo menos 1 caçamba
-            // - troca: pelo menos 2 caçambas
-            const canConclude =
-              (order.type === 'troca' && order.cacambas && order.cacambas.length >= 2) ||
-              ((order.type === 'entrega' || order.type === 'retirada') && order.cacambas && order.cacambas.length >= 1);
+            const canConclude = (order.cacambas?.length ?? 0) >= 1;
 
             return (
               <OrderCard key={order._id} status={order.status}>

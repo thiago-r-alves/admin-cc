@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import styled from 'styled-components';
-import type { IDriver, IClient } from '../interfaces';
+import type { IDriver, IClient, OrderType } from '../interfaces';
 import type { SingleValue } from 'react-select';
 
 // Overlay ocupa a tela inteira com padding e safe areas
@@ -123,9 +123,8 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
     addressNumber: '',
     city: '',
     cep: '',
-    type: 'entrega' as 'entrega' | 'retirada' | 'troca',
+    type: 'entrega' as OrderType,
     motorista: '',
-    priority: 0,
     placa: ''
   });
   const [error, setError] = useState('');
@@ -189,7 +188,6 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
         cep: '',
         type: 'entrega',
         motorista: '',
-        priority: 0,
         placa: ''
       });
     }
@@ -227,8 +225,8 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
         neighborhood: form.neighborhood,
         address: form.address,
         addressNumber: form.addressNumber,
-        type: form.type,                   
-        priority: form.priority,   
+        type: form.type,
+        priority: 0,
         placa: form.placa,
         motorista: form.motorista || undefined
       }),
@@ -419,11 +417,10 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                   <Label>Tipo de Pedido</Label>
                   <Select
                     value={form.type}
-                    onChange={e => setForm(prev => ({ ...prev, type: e.target.value as 'entrega' | 'retirada' | 'troca' }))}
+                    onChange={e => setForm(prev => ({ ...prev, type: e.target.value as OrderType }))}
                   >
                     <option value="entrega">Entrega</option>
                     <option value="retirada">Retirada</option>
-                    <option value="troca">Troca</option>
                   </Select>
                 </FormGroup>
                 <FormGroup>
@@ -452,20 +449,6 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                   </Select>
                 </FormGroup>
 
-                <div style={{ display:'flex', gap: 16, flexWrap:'wrap' }}>
-                  <div style={{ flex:'1 1 220px' }}>
-                    <Label>Prioridade</Label>
-                    <Select
-                      value={form.priority}
-                      onChange={e => setForm(f => ({ ...f, priority: Number(e.target.value) }))}
-                      required
-                    >
-                      <option value={0}>Baixa</option>
-                      <option value={1}>Média</option>
-                      <option value={2}>Alta</option>
-                    </Select>
-                  </div>
-                </div>
               </>
             )}
             {error && <ErrorMessage>{error}</ErrorMessage>}
