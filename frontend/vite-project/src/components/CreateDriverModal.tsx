@@ -1,75 +1,198 @@
-import React, { useState, type FormEvent, useEffect } from 'react';
+import React, { useEffect, useState, type FormEvent } from 'react';
 import styled from 'styled-components';
 import type { IDriver } from '../interfaces';
 
 const ModalOverlay = styled.div`
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.6);
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  inset: 0;
   z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: rgba(17, 24, 39, 0.62);
+
+  @media (max-width: 768px) {
+    align-items: stretch;
+    padding: 0;
+  }
 `;
 
 const ModalContent = styled.div`
-  background-color: white;
-  padding: 2rem;
-  border-radius: 8px;
-  max-width: 90%;
-  width: 400px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  position: relative;
+  width: min(560px, 94vw);
+  max-height: min(90dvh, 720px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+
+  @media (max-width: 768px) {
+    width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+`;
+
+const ModalHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex: 0 0 auto;
+  padding: 1.15rem 1.5rem;
+  border-bottom: 1px solid #fecaca;
+  background: #ffffff;
+`;
+
+const Title = styled.h2`
+  margin: 0;
+  color: #1f2937;
+  font-size: 1.25rem;
+  font-weight: 900;
 `;
 
 const CloseButton = styled.button`
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: none;
-  border: none;
-  font-size: 1.5rem;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #6b7280;
   cursor: pointer;
-  color: #555;
-`;
+  font-size: 1.55rem;
+  line-height: 1;
+  transition: background 0.18s ease, color 0.18s ease;
 
-const FormGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 1rem;
-
-  label {
-    margin-bottom: 0.4rem;
-    font-size: 0.9rem;
-    color: #555;
-  }
-
-  input {
-    padding: 0.6rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 1rem;
-  }
-`;
-
-const Button = styled.button`
-  background-color: #3b82f6;
-  color: white;
-  padding: 0.8rem 1.2rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1rem;
-  width: 100%;
-  transition: background-color 0.2s;
-  
   &:hover {
-    background-color: #2563eb;
+    background: #fff1f2;
+    color: #e30613;
   }
 `;
+
+const Form = styled.form`
+  min-height: 0;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+`;
+
+const ModalBody = styled.div`
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 1.5rem;
+  -webkit-overflow-scrolling: touch;
+`;
+
+const SectionTitle = styled.h3`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1.1rem;
+  color: #e30613;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+`;
+
+const FieldGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+`;
+
+const Field = styled.div`
+  min-width: 0;
+`;
+
+const Label = styled.label`
+  display: block;
+  margin-bottom: 0.4rem;
+  color: #4b5563;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+`;
+
+const Input = styled.input`
+  width: 100%;
+  min-height: 43px;
+  box-sizing: border-box;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #d1d5db;
+  border-radius: 2px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 0.9rem;
+
+  &::placeholder {
+    color: #9ca3af;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: #e30613;
+    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
+  }
+`;
+
+const FieldHint = styled.p`
+  margin: 0.4rem 0 0;
+  color: #6b7280;
+  font-size: 0.75rem;
+`;
+
+const ModalFooter = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex: 0 0 auto;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #fecaca;
+  background: #ffffff;
+
+  @media (max-width: 560px) {
+    flex-direction: column-reverse;
+  }
+`;
+
+const Button = styled.button<{ $variant?: 'primary' | 'secondary' }>`
+  min-width: 150px;
+  min-height: 42px;
+  padding: 0.75rem 1rem;
+  border: 1px solid ${({ $variant }) => ($variant === 'primary' ? '#e30613' : '#d8b4b4')};
+  border-radius: 2px;
+  background: ${({ $variant }) => ($variant === 'primary' ? '#e30613' : '#ffffff')};
+  color: ${({ $variant }) => ($variant === 'primary' ? '#ffffff' : '#6b1f1f')};
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+
+  &:hover {
+    background: ${({ $variant }) => ($variant === 'primary' ? '#c9000b' : '#fff1f2')};
+    border-color: #e30613;
+    color: ${({ $variant }) => ($variant === 'primary' ? '#ffffff' : '#e30613')};
+  }
+
+  @media (max-width: 560px) {
+    width: 100%;
+  }
+`;
+
+const DriverIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M20 21a8 8 0 0 0-16 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2" />
+  </svg>
+);
 
 interface CreateDriverModalProps {
   onClose: () => void;
@@ -80,23 +203,27 @@ interface CreateDriverModalProps {
 const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ onClose, onDriverCreated, editingDriver }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const apiUrl = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
     if (editingDriver) {
       setUsername(editingDriver.username);
-    } else {
-      setUsername('');
       setPassword('');
+      return;
     }
+
+    setUsername('');
+    setPassword('');
   }, [editingDriver]);
-  
+
   const authenticatedFetch = async (url: string, options?: RequestInit) => {
     const token = localStorage.getItem('token');
     const headers = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
       ...options?.headers,
     };
+
     const response = await fetch(url, { ...options, headers });
     if (response.status === 401 || response.status === 403) {
       alert('Acesso negado ou sessão inválida. Faça login novamente.');
@@ -104,25 +231,24 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ onClose, onDriver
       window.location.href = '/';
       throw new Error('Authentication failed');
     }
+
     return response;
   };
 
-  const apiUrl = import.meta.env.VITE_API_URL;
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
     if (editingDriver) {
-      // Lógica de atualização
       const updates: { username: string; password?: string } = { username };
-      if (password) {
-        updates.password = password;
-      }
+      if (password) updates.password = password;
+
       try {
         const response = await authenticatedFetch(`${apiUrl}/drivers/${editingDriver._id}`, {
           method: 'PATCH',
           body: JSON.stringify(updates),
         });
         const data = await response.json();
+
         if (response.ok) {
           alert('Motorista atualizado com sucesso!');
           onDriverCreated();
@@ -134,56 +260,79 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ onClose, onDriver
         console.error(err);
         alert('Erro ao atualizar motorista.');
       }
-    } else {
-      // Lógica de criação
-      try {
-        const response = await authenticatedFetch(`${apiUrl}/drivers`, {
-          method: 'POST',
-          body: JSON.stringify({ username, password }),
-        });
-        const data = await response.json();
-        if (response.ok) {
-          alert('Motorista cadastrado com sucesso!');
-          onDriverCreated();
-          onClose();
-        } else {
-          alert(data.message || 'Erro ao cadastrar motorista.');
-        }
-      } catch (err) {
-        console.error(err);
-        alert('Erro ao cadastrar motorista.');
+      return;
+    }
+
+    try {
+      const response = await authenticatedFetch(`${apiUrl}/drivers`, {
+        method: 'POST',
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        alert('Motorista cadastrado com sucesso!');
+        onDriverCreated();
+        onClose();
+      } else {
+        alert(data.message || 'Erro ao cadastrar motorista.');
       }
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao cadastrar motorista.');
     }
   };
 
   return (
     <ModalOverlay onClick={onClose}>
-      <ModalContent onClick={e => e.stopPropagation()}>
-        <CloseButton onClick={onClose}>&times;</CloseButton>
-        <h2>{editingDriver ? 'Editar Motorista' : 'Adicionar Novo Motorista'}</h2>
-        <form onSubmit={handleSubmit}>
-          <FormGroup>
-            <label>Usuário</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-            />
-          </FormGroup>
-          <FormGroup>
-            <label>Senha {editingDriver && "(deixe vazio para não alterar)"}</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required={!editingDriver}
-            />
-          </FormGroup>
-          <Button type="submit">
-            {editingDriver ? 'Atualizar Motorista' : 'Adicionar Motorista'}
-          </Button>
-        </form>
+      <ModalContent onClick={(e) => e.stopPropagation()}>
+        <ModalHeader>
+          <Title>{editingDriver ? 'Editar Motorista' : 'Adicionar Motorista'}</Title>
+          <CloseButton type="button" aria-label="Fechar modal" onClick={onClose}>
+            ×
+          </CloseButton>
+        </ModalHeader>
+
+        <Form onSubmit={handleSubmit}>
+          <ModalBody>
+
+            <FieldGrid>
+              <Field>
+                <Label htmlFor="driver-username">Usuário</Label>
+                <Input
+                  id="driver-username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Nome de usuário"
+                  required
+                />
+              </Field>
+
+              <Field>
+                <Label htmlFor="driver-password">Senha</Label>
+                <Input
+                  id="driver-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={editingDriver ? 'Deixe vazio para manter a senha atual' : 'Senha de acesso'}
+                  required={!editingDriver}
+                />
+                {editingDriver && <FieldHint>Deixe vazio para não alterar a senha.</FieldHint>}
+              </Field>
+            </FieldGrid>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button type="button" $variant="secondary" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" $variant="primary">
+              {editingDriver ? 'Atualizar' : 'Cadastrar'}
+            </Button>
+          </ModalFooter>
+        </Form>
       </ModalContent>
     </ModalOverlay>
   );

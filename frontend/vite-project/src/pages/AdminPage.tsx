@@ -182,13 +182,6 @@ const OrdersHeader = styled.div`
   }
 `;
 
-const ActionButtons = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-  margin-bottom: 1rem;
-`;
-
 const Button = styled.button`
   background-color: #3b82f6;
   color: white;
@@ -416,41 +409,157 @@ const EmptyState = styled.div`
   background: #fffafa;
 `;
 
-const DriverList = styled.ul`
-  list-style: none;
-  padding: 0;
-  margin-top: 1rem;
-`;
-
-const DriverItem = styled.li`
-  background-color: #f9f9f9;
-  border: 1px solid #eee;
-  border-radius: 4px;
-  padding: 0.8rem;
-  margin-bottom: 0.5rem;
+const DriversPage = styled.div`
   display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+const DriversHeader = styled.div`
+  display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  align-items: center;
+  gap: 1rem;
 
-  span {
-    font-weight: bold;
-    color: #333;
-  }
-
-  div {
-    display: flex;
-    gap: 0.5rem;
+  @media (max-width: 720px) {
+    flex-direction: column;
   }
 `;
 
-const IconButton = styled.button`
-  background: none;
+const DriversTitle = styled.h2`
+  margin: 0;
+  color: #1f2937;
+  font-size: clamp(1.45rem, 2vw, 2rem);
+  line-height: 1.15;
+`;
+
+const AddDriverButton = styled.button`
+  flex: 0 0 auto;
+  min-height: 43px;
+  padding: 0.75rem 1rem;
   border: none;
+  border-radius: 4px;
+  background: #e30613;
+  color: #ffffff;
   cursor: pointer;
-  color: #3b82f6; // Azul
-  font-size: 1rem;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 8px 16px rgba(227, 6, 19, 0.18);
+
   &:hover {
-    color: #2563eb;
+    background: #c9000b;
+  }
+
+  @media (max-width: 720px) {
+    width: 100%;
+  }
+`;
+
+const DriverList = styled.div`
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #ffffff;
+`;
+
+const DriverItem = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #fee2e2;
+  background: #ffffff;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  @media (max-width: 640px) {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+`;
+
+const DriverInfo = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+`;
+
+const DriverAvatar = styled.div`
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #fff1f2;
+  color: #e30613;
+`;
+
+const DriverName = styled.span`
+  display: block;
+  color: #1f2937;
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+`;
+
+const DriverRole = styled.span`
+  display: block;
+  margin-top: 0.15rem;
+  color: #6b7280;
+  font-size: 0.8rem;
+  font-weight: 700;
+`;
+
+const DriverActions = styled.div`
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+
+  @media (max-width: 640px) {
+    justify-content: stretch;
+    flex-wrap: wrap;
+  }
+`;
+
+const DriverActionButton = styled.button<{ $variant?: 'danger' }>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.42rem;
+  min-height: 38px;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid ${({ $variant }) => ($variant === 'danger' ? 'transparent' : '#d8b4b4')};
+  border-radius: 4px;
+  background: ${({ $variant }) => ($variant === 'danger' ? '#dc2626' : '#ffffff')};
+  color: ${({ $variant }) => ($variant === 'danger' ? '#ffffff' : '#374151')};
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+
+  &:hover {
+    background: ${({ $variant }) => ($variant === 'danger' ? '#b91c1c' : '#fff1f2')};
+    border-color: ${({ $variant }) => ($variant === 'danger' ? 'transparent' : '#e30613')};
+    color: ${({ $variant }) => ($variant === 'danger' ? '#ffffff' : '#e30613')};
+  }
+
+  @media (max-width: 640px) {
+    flex: 1 1 120px;
   }
 `;
 
@@ -786,6 +895,27 @@ const SidebarIcon = ({ name }: { name: SidebarIconName }) => {
     </svg>
   );
 };
+
+const DriverPersonIcon = () => (
+  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M20 21a8 8 0 0 0-16 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2" />
+  </svg>
+);
+
+const DriverEditIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M12 20h9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+  </svg>
+);
+
+const DriverTrashIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M3 6h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <path d="M8 6V4h8v2M6 6l1 15h10l1-15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 const sidebarItems: Array<{ key: AdminTab; label: string }> = [
   { key: 'pedidos', label: 'Pedidos' },
@@ -1369,23 +1499,45 @@ const AdminPage: React.FC = () => {
           )}
 
           {activeTab === 'motoristas' && (
-            <div>
-              <ActionButtons>
-                <Button onClick={() => { setEditingDriver(null); setIsDriverModalOpen(true); }}>+ Adicionar Motorista</Button>
-              </ActionButtons>
-              <h2>Gerenciar Motoristas</h2>
+            <DriversPage>
+              <DriversHeader>
+                <DriversTitle>Gerenciar Motoristas</DriversTitle>
+                <AddDriverButton type="button" onClick={() => { setEditingDriver(null); setIsDriverModalOpen(true); }}>
+                  + Adicionar Motorista
+                </AddDriverButton>
+              </DriversHeader>
+
               <DriverList>
-                {drivers.map(driver => (
-                  <DriverItem key={driver._id}>
-                    <span>{driver.username}</span>
-                    <div>
-                      <IconButton onClick={() => handleEditDriver(driver)}>✏️</IconButton>
-                      <IconButton  onClick={() => handleDeleteDriver(driver._id)}>🗑️</IconButton>
-                    </div>
-                  </DriverItem>
-                ))}
+                {drivers.length ? (
+                  drivers.map(driver => (
+                    <DriverItem key={driver._id}>
+                      <DriverInfo>
+                        <DriverAvatar>
+                          <DriverPersonIcon />
+                        </DriverAvatar>
+                        <div>
+                          <DriverName>{driver.username}</DriverName>
+                          <DriverRole>Motorista</DriverRole>
+                        </div>
+                      </DriverInfo>
+
+                      <DriverActions>
+                        <DriverActionButton type="button" onClick={() => handleEditDriver(driver)}>
+                          <DriverEditIcon />
+                          Editar
+                        </DriverActionButton>
+                        <DriverActionButton type="button" $variant="danger" onClick={() => handleDeleteDriver(driver._id)}>
+                          <DriverTrashIcon />
+                          Excluir
+                        </DriverActionButton>
+                      </DriverActions>
+                    </DriverItem>
+                  ))
+                ) : (
+                  <EmptyState>Nenhum motorista cadastrado.</EmptyState>
+                )}
               </DriverList>
-            </div>
+            </DriversPage>
           )}
             </ContentContainer>
           </MainContent>
