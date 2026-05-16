@@ -243,26 +243,27 @@ const OrderCard = styled.div<{ status: IOrder['status'] }>`
 `;
 
 const DriverFilterPanel = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  display: grid;
+  gap: 0.8rem;
   border: 1px solid #fecaca;
   border-radius: 8px;
   padding: 0.95rem 1rem;
   background: #fffafa;
 
   @media (max-width: 640px) {
-    align-items: flex-start;
+    padding: 0.85rem;
   }
 `;
 
 const FilterLabel = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
   color: #6b7280;
-  font-size: 0.72rem;
+  font-size: 0.76rem;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0;
+  letter-spacing: 0.08em;
 `;
 
 const OrdersSectionTitle = styled.h2`
@@ -590,98 +591,6 @@ const CacambaSection = styled.div`
   }
 `;
 
-const CompletedCacambas = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-`;
-
-const CompletedCacambasTitle = styled.h4`
-  margin: 0;
-  color: #111827;
-  font-size: 0.95rem;
-  font-weight: 900;
-`;
-
-const CompletedCacambasList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-`;
-
-const CompletedCacambaCard = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  min-height: 76px;
-  padding: 0.85rem 1rem;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  background: #f9fafb;
-
-  @media (max-width: 640px) {
-    align-items: flex-start;
-  }
-`;
-
-const CompletedCacambaInfo = styled.div`
-  min-width: 0;
-`;
-
-const CompletedCacambaHeader = styled.div`
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin-bottom: 0.25rem;
-`;
-
-const CompletedCacambaNumber = styled.span`
-  color: #111827;
-  font-size: 1rem;
-  font-weight: 900;
-`;
-
-const CompletedTypeBadge = styled.span<{ tipo: ICacamba['tipo'] }>`
-  padding: 0.2rem 0.4rem;
-  border-radius: 3px;
-  background: ${({ tipo }) => tipo === 'entrega' ? '#dcfce7' : '#fee2e2'};
-  color: ${({ tipo }) => tipo === 'entrega' ? '#166534' : '#b91c1c'};
-  font-size: 0.62rem;
-  font-weight: 900;
-  text-transform: uppercase;
-`;
-
-const CompletedMeta = styled.p`
-  margin: 0.1rem 0;
-  color: #374151;
-  font-size: 0.76rem;
-  line-height: 1.35;
-
-  strong {
-    color: #111827;
-  }
-`;
-
-const CompletedThumbButton = styled.button`
-  flex: 0 0 auto;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-`;
-
-const CompletedThumb = styled.img`
-  display: block;
-  width: 72px;
-  height: 54px;
-  object-fit: cover;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  background: #fff;
-`;
-
 const SectionContainer = styled.div`
   margin-bottom: 2rem;
   padding-bottom: 1rem;
@@ -735,22 +644,71 @@ const ActionButton = styled.button`
 `;
 
 const DriverTabsBar = styled.div`
-  display:flex;
-  gap:.5rem;
-  flex-wrap:wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 0.8rem;
+
+  @media (max-width: 980px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
 `;
 const DriverTabButton = styled.button<{active:boolean}>`
-  background:${p=>p.active ? '#e30613' : '#e5e7eb'};
-  color:${p=>p.active ? '#fff' : '#374151'};
-  border:none;
-  padding:.6rem .9rem;
-  font-size:.8rem;
-  font-weight:900;
-  border-radius:999px;
-  cursor:pointer;
-  transition:.18s;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.8rem 0.85rem;
+  border: 1px solid ${({ active }) => (active ? '#e30613' : '#f1c8c8')};
+  border-radius: 10px;
+  background: #ffffff;
+  color: #111827;
+  cursor: pointer;
+  transition: .18s;
+  text-align: left;
+
+  .initial {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: ${({ active }) => (active ? '#e30613' : '#e5e7eb')};
+    color: ${({ active }) => (active ? '#ffffff' : '#4b5563')};
+    font-size: 1.15rem;
+    font-weight: 900;
+  }
+
+  .meta {
+    min-width: 0;
+    display: grid;
+    gap: 0.2rem;
+  }
+
+  .name {
+    font-size: 1.02rem;
+    font-weight: 900;
+    color: #111827;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .count {
+    font-size: 0.74rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 800;
+    color: ${({ active }) => (active ? '#c9000b' : '#6b7280')};
+  }
+
   &:hover{
-    background:${p=>p.active ? '#c9000b' : '#d1d5db'};
+    border-color: #e30613;
+    transform: translateY(-1px);
   }
 `;
 
@@ -940,22 +898,6 @@ const formatOrderAddress = (order: IOrder) => {
   return parts.join(' - ') || '-';
 };
 
-const formatCacambaLocal = (local?: string) => {
-  if (!local) return '-';
-  if (local === 'via_publica') return 'Via pública';
-  if (local === 'canteiro_obra') return 'Canteiro de obra';
-  return local;
-};
-
-const formatCacambaDate = (createdAt?: string) => {
-  if (!createdAt) return 'Data não disponível';
-
-  const date = new Date(createdAt);
-  if (Number.isNaN(date.getTime())) return 'Data não disponível';
-
-  return date.toLocaleString('pt-BR');
-};
-
 // ==========================================================
 // COMPONENTE PRINCIPAL
 // ==========================================================
@@ -986,6 +928,18 @@ const AdminPage: React.FC = () => {
     () => driverOrders.filter(o => o.status !== 'concluido'),
     [driverOrders]
   );
+  const pendingCountByDriver = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const driver of drivers) counts[driver._id] = 0;
+    for (const order of orders) {
+      if (order.status === 'concluido') continue;
+      const driverId = order.motorista?._id ?? (order as any).motorista;
+      if (typeof driverId === 'string' && counts[driverId] !== undefined) {
+        counts[driverId] += 1;
+      }
+    }
+    return counts;
+  }, [drivers, orders]);
 
   // Ordena concluídos do motorista selecionado (mais recente -> mais antigo)
   const completedOrders = useMemo(() => {
@@ -1179,48 +1133,11 @@ const AdminPage: React.FC = () => {
   };
 
   const renderCompletedCacambas = (cacambas: ICacamba[]) => (
-    <CompletedCacambas>
-      <CompletedCacambasTitle>Caçambas Registradas:</CompletedCacambasTitle>
-      <CompletedCacambasList>
-        {cacambas.map((cacamba) => {
-          const imageUrl = cacamba.imageUrl
-            ? cacamba.imageUrl.startsWith('http')
-              ? cacamba.imageUrl
-              : `${apiUrl}${cacamba.imageUrl}`
-            : '';
-
-          return (
-            <CompletedCacambaCard key={cacamba._id}>
-              <CompletedCacambaInfo>
-                <CompletedCacambaHeader>
-                  <CompletedCacambaNumber>#{cacamba.numero}</CompletedCacambaNumber>
-                  <CompletedTypeBadge tipo={cacamba.tipo}>
-                    {typeLabels[cacamba.tipo]}
-                  </CompletedTypeBadge>
-                </CompletedCacambaHeader>
-                <CompletedMeta>Registrada em: {formatCacambaDate(cacamba.createdAt)}</CompletedMeta>
-                <CompletedMeta>
-                  <strong>Local:</strong> {formatCacambaLocal(cacamba.local)}
-                </CompletedMeta>
-                <CompletedMeta>
-                  <strong>Ordem de serviço:</strong> {cacamba.horaServicoDigitos || '-'}
-                </CompletedMeta>
-              </CompletedCacambaInfo>
-
-              {imageUrl && (
-                <CompletedThumbButton
-                  type="button"
-                  onClick={() => setModalImage(imageUrl)}
-                  aria-label={`Abrir foto da caçamba ${cacamba.numero}`}
-                >
-                  <CompletedThumb src={imageUrl} alt={`Foto da caçamba ${cacamba.numero}`} />
-                </CompletedThumbButton>
-              )}
-            </CompletedCacambaCard>
-          );
-        })}
-      </CompletedCacambasList>
-    </CompletedCacambas>
+    <CacambaList
+      cacambas={cacambas}
+      onImageClick={setModalImage}
+      showTitle={false}
+    />
   );
 
   const renderOrderCard = (order: IOrder) => {
@@ -1408,7 +1325,12 @@ const AdminPage: React.FC = () => {
               </OrdersHeader>
 
               <DriverFilterPanel>
-                <FilterLabel>Filtrar por motorista:</FilterLabel>
+                <FilterLabel>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M4 7h16M7 12h10M10 17h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                  Seleção de motorista
+                </FilterLabel>
                 <DriverTabsBar>
                   {drivers.map(d => (
                     <DriverTabButton
@@ -1416,7 +1338,11 @@ const AdminPage: React.FC = () => {
                       active={d._id === selectedDriverId}
                       onClick={() => setSelectedDriverId(d._id)}
                     >
-                      {d.username}
+                      <span className="initial">{d.username.charAt(0).toUpperCase()}</span>
+                      <span className="meta">
+                        <span className="name">{d.username}</span>
+                        <span className="count">{pendingCountByDriver[d._id] ?? 0} pendentes</span>
+                      </span>
                     </DriverTabButton>
                   ))}
                 </DriverTabsBar>

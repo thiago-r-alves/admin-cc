@@ -2,7 +2,6 @@ import React from 'react';
 import styled from 'styled-components';
 import type { ICacamba } from '../interfaces';
 
-// Styled Components
 const EmptyState = styled.div`
   color: #6b7280;
   text-align: center;
@@ -16,27 +15,30 @@ const Container = styled.div`
 `;
 
 const Title = styled.h3`
-  font-weight: 600;
-  color: #1f2937;
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #111827;
   margin: 0;
 `;
 
 const CacambaCard = styled.div`
-  background-color: #f9fafb;
-  padding: 0.75rem;
-  border-radius: 0.5rem;
-  border: 1px solid #e5e7eb;
+  background-color: #f8fafc;
+  padding: 0.78rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
 `;
 
 const CardContent = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 1.5rem;
+  gap: 0.75rem;
+  margin-bottom: 0.72rem;
 `;
 
 const InfoSection = styled.div`
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
 `;
 
 const HeaderInfo = styled.div`
@@ -46,60 +48,76 @@ const HeaderInfo = styled.div`
 `;
 
 const CacambaNumber = styled.span`
-  font-weight: 500;
-  color: #1f2937;
+  font-weight: 900;
+  color: #111827;
+  font-size: 1.02rem;
 `;
 
 const TypeBadge = styled.span<{ tipo: 'entrega' | 'retirada' }>`
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.66rem;
   border-radius: 9999px;
-  background-color: ${props => props.tipo === 'entrega' ? '#dcfce7' : '#fee2e2'};
-  color: ${props => props.tipo === 'entrega' ? '#166534' : '#991b1b'};
+  background-color: ${(props) => (props.tipo === 'entrega' ? '#dcfce7' : '#fee2e2')};
+  color: ${(props) => (props.tipo === 'entrega' ? '#166534' : '#b91c1c')};
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 `;
 
 const DateInfo = styled.p`
-  font-size: 0.875rem;
-  color: #6b7280;
-  margin: 0.25rem 0 0 0;
+  font-size: 0.82rem;
+  color: #4b5563;
+  margin: 0.2rem 0 0 0;
+  line-height: 1.35;
+`;
+
+const LocalInfo = styled.span`
+  display: block;
+  font-size: 0.82rem;
+  color: #374151;
+  margin-top: 0.18rem;
+`;
+
+const ServiceOrder = styled.p`
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  color: #374151;
+
+  strong {
+    color: #111827;
+  }
 `;
 
 const ImageContainer = styled.div`
-  margin-left: 0.75rem;
+  margin-left: 0.35rem;
+  flex: 0 0 auto;
 `;
 
 const CacambaImage = styled.img`
-  width: 4rem;
-  height: 4rem;
+  width: 66px;
+  height: 66px;
   object-fit: cover;
-  border-radius: 0.25rem;
+  border-radius: 4px;
   border: 1px solid #d1d5db;
+  background: #fff;
 `;
 
-// Adicione estilos para os botões de ação
 const ActionButton = styled.button<{ color?: string }>`
   background-color: ${({ color }) => color || '#3b82f6'};
   color: white;
   border: none;
   border-radius: 4px;
-  padding: 0.4rem 0.9rem;
+  padding: 0.42rem 0.9rem;
   margin-right: 8px;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
+  font-weight: 800;
   cursor: pointer;
   transition: background 0.2s, box-shadow 0.2s;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 
   &:hover {
-    background-color: ${({ color }) => color === '#ef4444' ? '#b91c1c' : '#2563eb'};
+    background-color: ${({ color }) => (color === '#ef4444' ? '#b91c1c' : '#2563eb')};
   }
-`;
-
-const LocalInfo = styled.span`
-  display: block;
-  font-size: 0.85rem;
-  color: #3730a3;
-  margin-top: 0.2rem;
-  margin-left: 0.1rem;
 `;
 
 interface CacambaListProps {
@@ -107,54 +125,55 @@ interface CacambaListProps {
   onImageClick?: (url: string) => void;
   onEdit?: (cacamba: ICacamba) => void;
   onDelete?: (cacambaId: string) => void;
+  showTitle?: boolean;
 }
 
-const CacambaList: React.FC<CacambaListProps> = ({ cacambas, onImageClick, onEdit, onDelete }) => {
+const CacambaList: React.FC<CacambaListProps> = ({
+  cacambas,
+  onImageClick,
+  onEdit,
+  onDelete,
+  showTitle = true,
+}) => {
   if (cacambas.length === 0) {
-    return (
-      <EmptyState>
-        Nenhuma caçamba registrada ainda
-      </EmptyState>
-    );
+    return <EmptyState>Nenhuma caçamba registrada ainda</EmptyState>;
   }
-  const apiUrl = import.meta.env.VITE_API_URL;
 
-  // store resized thumbnails for each caçamba
+  const apiUrl = import.meta.env.VITE_API_URL;
   const [thumbs, setThumbs] = React.useState<Record<string, string>>({});
 
   React.useEffect(() => {
-    cacambas.forEach(c => {
+    cacambas.forEach((c) => {
       if (c.imageUrl && !thumbs[c._id]) {
         const full = c.imageUrl.startsWith('http') ? c.imageUrl : `${apiUrl}${c.imageUrl}`;
-        import('../utils/image').then(({ resizeImage }) => {
-          resizeImage(full, 64, 1)
-            .then(r => setThumbs(prev => ({ ...prev, [c._id]: r })))
-            .catch(console.error);
-        });
+        import('../utils/image')
+          .then(({ resizeImage }) => resizeImage(full, 66, 1))
+          .then((r) => setThumbs((prev) => ({ ...prev, [c._id]: r })))
+          .catch(console.error);
       }
     });
   }, [cacambas, apiUrl, thumbs]);
 
   return (
     <Container>
-      <Title>Caçambas Registradas:</Title>
+      {showTitle && <Title>Caçambas Registradas:</Title>}
+
       {cacambas.map((cacamba) => (
         <CacambaCard key={cacamba._id}>
           <CardContent>
             <InfoSection>
               <HeaderInfo>
-                <CacambaNumber>
-                  #{cacamba.numero}
-                </CacambaNumber>
+                <CacambaNumber>#{cacamba.numero}</CacambaNumber>
                 <TypeBadge tipo={cacamba.tipo}>
                   {cacamba.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
                 </TypeBadge>
               </HeaderInfo>
+
               <DateInfo>
-                Registrada em: {cacamba.createdAt 
+                Registrada em:{' '}
+                {cacamba.createdAt
                   ? new Date(cacamba.createdAt).toLocaleString('pt-BR')
-                  : 'Data não disponível'
-                }
+                  : 'Data não disponível'}
               </DateInfo>
 
               {cacamba.local && (
@@ -167,14 +186,14 @@ const CacambaList: React.FC<CacambaListProps> = ({ cacambas, onImageClick, onEdi
                       : cacamba.local}
                 </LocalInfo>
               )}
-              { cacamba.horaServicoDigitos && (
-                <div style={{ marginTop: '0.5rem', fontSize: '0.875rem', color: '#4b5563' }}>
-                  <strong>Ordem de serviço:</strong> {
-                    cacamba.horaServicoDigitos
-                  }
-                </div>
+
+              {cacamba.horaServicoDigitos && (
+                <ServiceOrder>
+                  <strong>Ordem de serviço:</strong> {cacamba.horaServicoDigitos}
+                </ServiceOrder>
               )}
             </InfoSection>
+
             <ImageContainer>
               <CacambaImage
                 src={thumbs[cacamba._id] || ''}
@@ -196,12 +215,9 @@ const CacambaList: React.FC<CacambaListProps> = ({ cacambas, onImageClick, onEdi
               />
             </ImageContainer>
           </CardContent>
+
           <div>
-            {onEdit && (
-              <ActionButton onClick={() => onEdit(cacamba)}>
-                Editar
-              </ActionButton>
-            )}
+            {onEdit && <ActionButton onClick={() => onEdit(cacamba)}>Editar</ActionButton>}
             {onDelete && (
               <ActionButton color="#ef4444" onClick={() => onDelete(cacamba._id)}>
                 Excluir

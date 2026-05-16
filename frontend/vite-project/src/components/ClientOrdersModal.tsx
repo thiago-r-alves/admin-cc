@@ -468,6 +468,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose }
                           <CacambaList
                             cacambas={order.cacambas || []}
                             onImageClick={setModalImage}
+                            showTitle={false}
                           />
                         </CacambaSection>
                       )}
