@@ -12,7 +12,7 @@ const FormWrapper = styled.div`
   overflow: hidden;
   box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
   position: relative;
-  font-family: Consolas, 'Courier New', monospace;
+  font-family: Arial, sans-serif;
 
   @media (max-width: 420px) {
     max-width: calc(100vw - 2rem);
