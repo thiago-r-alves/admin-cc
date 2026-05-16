@@ -1276,13 +1276,10 @@ const AdminPage: React.FC = () => {
               {order.status === 'concluido' ? (
                 renderCompletedCacambas(order.cacambas || [])
               ) : (
-                <>
-                  <h4>Caçambas Registradas</h4>
-                  <CacambaList
-                    cacambas={order.cacambas || []}
-                    onImageClick={setModalImage}
-                  />
-                </>
+                <CacambaList
+                  cacambas={order.cacambas || []}
+                  onImageClick={setModalImage}
+                />
               )}
             </CacambaSection>
           )}

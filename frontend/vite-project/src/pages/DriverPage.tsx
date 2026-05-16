@@ -297,17 +297,10 @@ const CacambaSection = styled.div`
 
 const CacambaHeader = styled.div`
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 1rem;
-
-  h4 {
-    margin: 0;
-    color: #111827;
-    font-size: 1rem;
-    font-weight: 900;
-  }
 
   @media (max-width: 640px) {
     align-items: stretch;
@@ -747,7 +740,7 @@ const DriverPage: React.FC = () => {
                   <ClientName>{order.clientName}</ClientName>
 
                   <InfoGrid>
-                    <InfoBlock $span={order.cnpjCpf ? 1 : 2}>
+                    <InfoBlock $span={2}>
                       <InfoLabel>Endereço da obra</InfoLabel>
                       <InfoValue>
                         {order.address}, {order.addressNumber} - {order.neighborhood} - {order.city} - CEP {order.cep}
@@ -757,12 +750,6 @@ const DriverPage: React.FC = () => {
                       <InfoLabel>Contato</InfoLabel>
                       <InfoValue>{order.contactName} ({order.contactNumber})</InfoValue>
                     </InfoBlock>
-                    {order.cnpjCpf && (
-                      <InfoBlock>
-                        <InfoLabel>CNPJ/CPF</InfoLabel>
-                        <InfoValue>{order.cnpjCpf}</InfoValue>
-                      </InfoBlock>
-                    )}
                   </InfoGrid>
 
                   <ActionRow>
@@ -787,7 +774,6 @@ const DriverPage: React.FC = () => {
                   {canManage && (
                     <CacambaSection>
                       <CacambaHeader>
-                        <h4>Caçambas Registradas</h4>
                         <CacambaButton type="button" $variant="primary" onClick={() => handleAddCacamba(order._id, order.type)}>
                           + Adicionar Caçamba
                         </CacambaButton>
