@@ -1,94 +1,266 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
+import type { IClient } from '../interfaces';
 
-const FormContainer = styled.div`
-  max-width: 600px;
-  margin: 20px auto;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+const ModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: rgba(17, 24, 39, 0.62);
+
+  @media (max-width: 768px) {
+    align-items: stretch;
+    padding: 0;
+  }
+`;
+
+const ModalContent = styled.div`
+  width: min(860px, 94vw);
+  max-height: min(90dvh, 820px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+
+  @media (max-width: 768px) {
+    width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+`;
+
+const ModalHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex: 0 0 auto;
+  padding: 1.15rem 2rem;
+  border-bottom: 1px solid #fecaca;
+  background: #ffffff;
+
+  @media (max-width: 560px) {
+    padding: 1rem 1.25rem;
+  }
+`;
+
+const Title = styled.h2`
+  margin: 0;
+  color: #1f2937;
+  font-size: 1.3rem;
+  font-weight: 900;
+`;
+
+const CloseButton = styled.button`
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 1.55rem;
+  line-height: 1;
+  transition: background 0.18s ease, color 0.18s ease;
+
+  &:hover {
+    background: #fff1f2;
+    color: #e30613;
+  }
 `;
 
 const Form = styled.form`
+  min-height: 0;
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: 16px;
 `;
 
-const FormGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+const ModalBody = styled.div`
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 1.75rem 2rem;
+  -webkit-overflow-scrolling: touch;
+
+  @media (max-width: 560px) {
+    padding: 1.25rem;
+  }
 `;
 
-const FormRow = styled.div`
+const Section = styled.section`
+  padding-bottom: 1.35rem;
+  margin-bottom: 1.35rem;
+  border-bottom: 1px solid #f3f4f6;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+`;
+
+const SectionTitle = styled.h3`
   display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  > div { flex: 1 1 260px; }
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1.1rem;
+  color: #e30613;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+`;
+
+const FieldGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 1.25rem;
+
+  @media (max-width: 680px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const Field = styled.div<{ $span?: 1 | 2 }>`
+  min-width: 0;
+  grid-column: span ${({ $span }) => $span || 1};
+
+  @media (max-width: 680px) {
+    grid-column: span 1;
+  }
 `;
 
 const Label = styled.label`
-  font-weight: 500;
-  color: #333;
+  display: block;
+  margin-bottom: 0.4rem;
+  color: #4b5563;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
 `;
 
 const Input = styled.input`
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
+  width: 100%;
+  min-height: 43px;
+  box-sizing: border-box;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #d1d5db;
+  border-radius: 2px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 0.9rem;
+
+  &::placeholder {
+    color: #9ca3af;
+  }
 
   &:focus {
     outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+    border-color: #e30613;
+    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
   }
 `;
 
 const Select = styled.select`
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  background: #fff;
+  width: 100%;
+  min-height: 43px;
+  box-sizing: border-box;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #d1d5db;
+  border-radius: 2px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 0.9rem;
 
   &:focus {
     outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+    border-color: #e30613;
+    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
   }
 `;
 
-const ButtonGroup = styled.div`
+const FetchingHint = styled.small`
+  display: block;
+  margin-top: 0.35rem;
+  color: #6b7280;
+  font-size: 0.75rem;
+`;
+
+const ModalFooter = styled.div`
   display: flex;
-  gap: 12px;
-  margin-top: 20px;
+  justify-content: flex-start;
+  gap: 0.75rem;
+  flex: 0 0 auto;
+  padding: 1rem 2rem;
+  border-top: 1px solid #fecaca;
+  background: #ffffff;
+
+  @media (max-width: 560px) {
+    flex-direction: column;
+    padding: 1rem 1.25rem;
+  }
 `;
 
-const Button = styled.button`
-  padding: 10px 20px;
-  border: none;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
+const Button = styled.button<{ $variant?: 'primary' | 'secondary' }>`
+  min-width: 150px;
+  min-height: 42px;
+  padding: 0.75rem 1rem;
+  border: 1px solid ${({ $variant }) => ($variant === 'primary' ? '#e30613' : '#d8b4b4')};
+  border-radius: 2px;
+  background: ${({ $variant }) => ($variant === 'primary' ? '#e30613' : '#ffffff')};
+  color: ${({ $variant }) => ($variant === 'primary' ? '#ffffff' : '#6b1f1f')};
   cursor: pointer;
-  transition: background-color 0.2s;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 
-  &.primary {
-    background: #3b82f6;
-    color: white;
-    &:hover { background: #2563eb; }
+  &:hover {
+    background: ${({ $variant }) => ($variant === 'primary' ? '#c9000b' : '#fff1f2')};
+    border-color: #e30613;
+    color: ${({ $variant }) => ($variant === 'primary' ? '#ffffff' : '#e30613')};
   }
 
-  &.secondary {
-    background: #e5e7eb;
-    color: #374151;
-    &:hover { background: #d1d5db; }
+  @media (max-width: 560px) {
+    width: 100%;
   }
 `;
 
-import type { IClient } from '../interfaces';
+const SectionIcon = ({ name }: { name: 'client' | 'pin' | 'contact' }) => {
+  if (name === 'pin') {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 21s7-5.1 7-11a7 7 0 0 0-14 0c0 5.9 7 11 7 11Z" stroke="currentColor" strokeWidth="2" />
+        <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="2" />
+      </svg>
+    );
+  }
+
+  if (name === 'contact') {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M20 21a8 8 0 0 0-16 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2" />
+        <path d="M16 11l4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 7h16v13H4z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M8 7V5h8v2M8 12h8M8 16h5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+};
 
 interface Props {
   onSubmit: (client: Omit<IClient, '_id'>) => void;
@@ -109,7 +281,6 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
     addressNumber: '',
   });
 
-  // Auto-preenchimento por CEP
   const [isFetchingCep, setIsFetchingCep] = useState(false);
   const lastCepRef = useRef<string>('');
 
@@ -126,6 +297,7 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
       setIsFetchingCep(true);
       const res = await fetch(`https://viacep.com.br/ws/${cepDigits}/json/`);
       const data = await res.json();
+
       if (data && !data.erro) {
         setFormData(prev => ({
           ...prev,
@@ -135,37 +307,37 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
         }));
       }
     } catch {
-      // silencioso
+      // CEP autocomplete is best-effort; manual entry remains available.
     } finally {
       setIsFetchingCep(false);
     }
   };
 
   const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value;
-    const digits = onlyDigits(raw).slice(0, 8);
-    const masked = maskCep(digits);
-    setFormData(prev => ({ ...prev, cep: masked }));
+    const digits = onlyDigits(e.target.value).slice(0, 8);
+    setFormData(prev => ({ ...prev, cep: maskCep(digits) }));
     if (digits.length === 8) fetchCep(digits);
   };
 
   useEffect(() => {
-    if (initialData) {
-      setFormData(prev => ({
-        ...prev,
-        clientName: initialData.clientName || '',
-        cnpjCpf: initialData.cnpjCpf || '',
-        city: initialData.city || '',
-        cep: initialData.cep || '',
-        contactName: initialData.contactName || '',
-        contactNumber: initialData.contactNumber || '',
-        neighborhood: initialData.neighborhood || '',
-        address: initialData.address || '',
-        addressNumber: initialData.addressNumber || '',
-      }));
-      const digits = onlyDigits(initialData.cep || '');
-      if (digits.length === 8) fetchCep(digits);
-    }
+    if (!initialData) return;
+
+    setFormData(prev => ({
+      ...prev,
+      clientName: initialData.clientName || '',
+      cnpjCpf: initialData.cnpjCpf || '',
+      city: initialData.city || '',
+      cep: initialData.cep || '',
+      contactName: initialData.contactName || '',
+      contactNumber: initialData.contactNumber || '',
+      neighborhood: initialData.neighborhood || '',
+      address: initialData.address || '',
+      addressNumber: initialData.addressNumber || '',
+    }));
+
+    const digits = onlyDigits(initialData.cep || '');
+    if (digits.length === 8) fetchCep(digits);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -175,148 +347,179 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData); // envia também city e cep
+    onSubmit(formData);
   };
 
   return (
-    <FormContainer>
-      <Form onSubmit={handleSubmit}>
-        <FormRow>
-          <FormGroup>
-            <Label htmlFor="clientName">Nome do Cliente</Label>
-            <Input
-              id="clientName"
-              name="clientName"
-              type="text"
-              value={formData.clientName}
-              onChange={handleChange}
-              required
-            />
-          </FormGroup>
+    <ModalOverlay onClick={onCancel}>
+      <ModalContent onClick={(e) => e.stopPropagation()}>
+        <ModalHeader>
+          <Title>Gerenciamento de Clientes</Title>
+          <CloseButton type="button" aria-label="Fechar modal" onClick={onCancel}>
+            ×
+          </CloseButton>
+        </ModalHeader>
 
-          <FormGroup>
-            <Label htmlFor="cnpjCpf">CNPJ/CPF</Label>
-            <Input
-              id="cnpjCpf"
-              name="cnpjCpf"
-              type="text"
-              value={formData.cnpjCpf}
-              onChange={handleChange}
-              placeholder="00.000.000/0000-00 ou 000.000.000-00"
-            />
-          </FormGroup>
-        </FormRow>
+        <Form onSubmit={handleSubmit}>
+          <ModalBody>
+            <Section>
+              <SectionTitle>
+                <SectionIcon name="client" />
+                Dados do Cliente
+              </SectionTitle>
+              <FieldGrid>
+                <Field>
+                  <Label htmlFor="clientName">Nome do Cliente</Label>
+                  <Input
+                    id="clientName"
+                    name="clientName"
+                    type="text"
+                    value={formData.clientName}
+                    onChange={handleChange}
+                    placeholder="Razão Social ou Nome Completo"
+                    required
+                  />
+                </Field>
 
-        <FormRow>
-          <FormGroup>
-            <Label htmlFor="cep">CEP</Label>
-            <Input
-              id="cep"
-              name="cep"
-              type="text"
-              value={formData.cep}
-              onChange={handleCepChange}
-              placeholder="00000-000"
-              maxLength={9}
-              inputMode="numeric"
-            />
-            {isFetchingCep && (
-              <small style={{ color: '#6b7280' }}>Buscando endereço…</small>
-            )}
-          </FormGroup>
+                <Field>
+                  <Label htmlFor="cnpjCpf">CNPJ/CPF</Label>
+                  <Input
+                    id="cnpjCpf"
+                    name="cnpjCpf"
+                    type="text"
+                    value={formData.cnpjCpf}
+                    onChange={handleChange}
+                    placeholder="00.000.000/0000-00 ou 000.000.000-00"
+                  />
+                </Field>
+              </FieldGrid>
+            </Section>
 
-          <FormGroup>
-            <Label htmlFor="address">Logradouro</Label>
-            <Input
-              id="address"
-              name="address"
-              type="text"
-              value={formData.address}
-              onChange={handleChange}
-              required
-            />
-          </FormGroup>
+            <Section>
+              <SectionTitle>
+                <SectionIcon name="pin" />
+                Localização
+              </SectionTitle>
+              <FieldGrid>
+                <Field>
+                  <Label htmlFor="cep">CEP</Label>
+                  <Input
+                    id="cep"
+                    name="cep"
+                    type="text"
+                    value={formData.cep}
+                    onChange={handleCepChange}
+                    placeholder="00000-000"
+                    maxLength={9}
+                    inputMode="numeric"
+                  />
+                  {isFetchingCep && <FetchingHint>Buscando endereço...</FetchingHint>}
+                </Field>
 
-          <FormGroup>
-            <Label htmlFor="addressNumber">Número</Label>
-            <Input
-              id="addressNumber"
-              name="addressNumber"
-              type="text"
-              value={formData.addressNumber}
-              onChange={handleChange}
-            />
-          </FormGroup>
-        </FormRow>
+                <Field>
+                  <Label htmlFor="address">Logradouro</Label>
+                  <Input
+                    id="address"
+                    name="address"
+                    type="text"
+                    value={formData.address}
+                    onChange={handleChange}
+                    placeholder="Rua, Avenida, Praça..."
+                    required
+                  />
+                </Field>
 
-        <FormRow>
-          <FormGroup>
-            <Label htmlFor="neighborhood">Bairro</Label>
-            <Input
-              id="neighborhood"
-              name="neighborhood"
-              type="text"
-              value={formData.neighborhood}
-              onChange={handleChange}
-              required
-            />
-          </FormGroup>
+                <Field $span={2}>
+                  <Label htmlFor="addressNumber">Número</Label>
+                  <Input
+                    id="addressNumber"
+                    name="addressNumber"
+                    type="text"
+                    value={formData.addressNumber}
+                    onChange={handleChange}
+                    placeholder="Número, Bloco, Sala"
+                  />
+                </Field>
 
-          <FormGroup>
-            <Label htmlFor="city">Cidade</Label>
-            <Select
-              id="city"
-              name="city"
-              value={formData.city}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Selecione...</option>
-              <option value="São José dos Campos">São José dos Campos</option>
-              <option value="Jacareí">Jacareí</option>
-              <option value="Caçapava">Caçapava</option>
-              <option value="Jambeiro">Jambeiro</option>
-              <option value="Monteiro Lobato">Monteiro Lobato</option>
-            </Select>
-          </FormGroup>
-        </FormRow>
+                <Field>
+                  <Label htmlFor="neighborhood">Bairro</Label>
+                  <Input
+                    id="neighborhood"
+                    name="neighborhood"
+                    type="text"
+                    value={formData.neighborhood}
+                    onChange={handleChange}
+                    placeholder="Nome do Bairro"
+                    required
+                  />
+                </Field>
 
-        <FormRow>
-          <FormGroup>
-            <Label htmlFor="contactName">Nome do Contato</Label>
-            <Input
-              id="contactName"
-              name="contactName"
-              type="text"
-              value={formData.contactName}
-              onChange={handleChange}
-              required
-            />
-          </FormGroup>
+                <Field>
+                  <Label htmlFor="city">Cidade</Label>
+                  <Select
+                    id="city"
+                    name="city"
+                    value={formData.city}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">Selecione...</option>
+                    <option value="São José dos Campos">São José dos Campos</option>
+                    <option value="Jacareí">Jacareí</option>
+                    <option value="Caçapava">Caçapava</option>
+                    <option value="Jambeiro">Jambeiro</option>
+                    <option value="Monteiro Lobato">Monteiro Lobato</option>
+                  </Select>
+                </Field>
+              </FieldGrid>
+            </Section>
 
-          <FormGroup>
-            <Label htmlFor="contactNumber">Número do Contato</Label>
-            <Input
-              id="contactNumber"
-              name="contactNumber"
-              type="text"
-              value={formData.contactNumber}
-              onChange={handleChange}
-              required
-            />
-          </FormGroup>
-        </FormRow>
+            <Section>
+              <SectionTitle>
+                <SectionIcon name="contact" />
+                Contato
+              </SectionTitle>
+              <FieldGrid>
+                <Field>
+                  <Label htmlFor="contactName">Nome do Contato</Label>
+                  <Input
+                    id="contactName"
+                    name="contactName"
+                    type="text"
+                    value={formData.contactName}
+                    onChange={handleChange}
+                    placeholder="Responsável no local"
+                    required
+                  />
+                </Field>
 
-        <ButtonGroup>
-          <Button type="submit" className="primary">
-            {initialData ? 'Atualizar' : 'Cadastrar'}
-          </Button>
-          <Button type="button" className="secondary" onClick={onCancel}>
-            Cancelar
-          </Button>
-        </ButtonGroup>
-      </Form>
-    </FormContainer>
+                <Field>
+                  <Label htmlFor="contactNumber">Número do Contato</Label>
+                  <Input
+                    id="contactNumber"
+                    name="contactNumber"
+                    type="text"
+                    value={formData.contactNumber}
+                    onChange={handleChange}
+                    placeholder="(00) 00000-0000"
+                    required
+                  />
+                </Field>
+              </FieldGrid>
+            </Section>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button type="submit" $variant="primary">
+              {initialData ? 'Atualizar' : 'Cadastrar'}
+            </Button>
+            <Button type="button" $variant="secondary" onClick={onCancel}>
+              Cancelar
+            </Button>
+          </ModalFooter>
+        </Form>
+      </ModalContent>
+    </ModalOverlay>
   );
 };
 

@@ -182,21 +182,6 @@ const OrdersHeader = styled.div`
   }
 `;
 
-const OrdersTitleBlock = styled.div`
-  h1 {
-    margin: 0;
-    color: #1f2937;
-    font-size: clamp(1.45rem, 2vw, 2rem);
-    line-height: 1.15;
-  }
-
-  p {
-    margin: 0.4rem 0 0;
-    color: #6b7280;
-    font-size: 0.9rem;
-  }
-`;
-
 const ActionButtons = styled.div`
   display: flex;
   justify-content: flex-end;
@@ -590,6 +575,11 @@ const CompletedThumb = styled.img`
 
 const SectionContainer = styled.div`
   margin-bottom: 2rem;
+  padding-bottom: 1rem;
+
+  > ${OrdersSectionTitle} {
+    margin-bottom: 1rem;
+  }
 `;
 
 const DeleteOrderButton = styled(Button)`

@@ -2,124 +2,143 @@ import React from 'react';
 import styled from 'styled-components';
 import type { IClient } from '../interfaces';
 
-// --- Styled Components ---
-
-// O container principal da lista
 const ListContainer = styled.div`
   width: 100%;
-`;
-
-// O cabeçalho que só aparece no desktop
-const ListHeader = styled.div`
-  display: none; // Escondido por padrão
-  
-  @media (min-width: 769px) {
-    display: flex;
-    padding: 0 1.5rem;
-    margin-bottom: 0.5rem;
-    font-weight: 600;
-    color: #4a5568;
-    border-bottom: 2px solid #e2e8f0;
-    padding-bottom: 0.5rem;
-  }
-`;
-
-// O card individual para cada cliente
-const ClientCard = styled.div`
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  margin-bottom: 1rem;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column; // Layout de coluna para mobile
-  gap: 0.75rem;
-
-  @media (min-width: 769px) {
-    flex-direction: row; // Layout de linha para desktop
-    align-items: center;
-    padding: 1rem 1.5rem;
-    gap: 1rem;
-  }
-`;
-
-// Seção de informações dentro do card/linha
-const InfoSection = styled.div`
-  flex: 1; // Ocupa o espaço disponível
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-
-  @media (min-width: 769px) {
-    flex-direction: row;
-    align-items: center;
-    gap: 1rem;
-  }
-`;
-
-// Cada item de dado (Nome, Contato, etc.)
-const DataItem = styled.div`
-  display: flex;
-  justify-content: space-between; // Label de um lado, valor do outro
-  
-  @media (min-width: 769px) {
-    display: block; // Comportamento normal em desktop
-    flex: 1; // Distribui o espaço igualmente
-  }
-`;
-
-// O label que aparece no mobile ("Nome:", "Contato:")
-const DataLabel = styled.span`
-  font-weight: 600;
-  color: #4a5568;
-
-  @media (min-width: 769px) {
-    display: none; // Esconde o label no desktop
-  }
-`;
-
-const DataValue = styled.span`
-  color: #1a202c;
-  text-align: right;
-
-  @media (min-width: 769px) {
-    text-align: left;
-  }
-`;
-
-// Container para os botões de ação
-const ActionContainer = styled.div`
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-  border-top: 1px solid #edf2f7;
-  padding-top: 1rem;
-
-  @media (min-width: 769px) {
-    margin-top: 0;
-    border-top: none;
-    padding-top: 0;
-    flex-basis: 240px; // Largura fixa para a coluna de ações
-    justify-content: flex-end;
-  }
-`;
-
-const ActionButton = styled.button<{ color?: string }>`
-  padding: 8px 12px;
-  border: none;
+  overflow: hidden;
+  border: 1px solid #fecaca;
   border-radius: 6px;
-  background-color: ${({ color }) => color || '#3b82f6'};
-  color: white;
-  font-size: 0.875rem;
+  background: #ffffff;
+`;
+
+const ClientCard = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #fee2e2;
+  background: #ffffff;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  @media (max-width: 760px) {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+`;
+
+const ClientInfo = styled.div`
+  min-width: 0;
+  flex: 1 1 auto;
+`;
+
+const ClientName = styled.h3`
+  margin: 0 0 0.25rem;
+  color: #1f2937;
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1.25;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+`;
+
+const DocumentLine = styled.p`
+  margin: 0 0 0.45rem;
+  color: #4b5563;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.35;
+
+  strong {
+    color: #111827;
+  }
+`;
+
+const MetaRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin-top: 0.28rem;
+`;
+
+const MetaItem = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  min-width: 0;
+  color: #6b7280;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+
+  svg {
+    flex: 0 0 auto;
+    color: #6b7280;
+  }
+`;
+
+const AddressItem = styled(MetaItem)`
+  max-width: 100%;
+`;
+
+const ActionContainer = styled.div`
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+
+  @media (max-width: 760px) {
+    justify-content: stretch;
+    flex-wrap: wrap;
+  }
+`;
+
+const ActionButton = styled.button<{ $variant?: 'success' | 'danger' }>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.42rem;
+  min-height: 38px;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid ${({ $variant }) => ($variant ? 'transparent' : '#d8b4b4')};
+  border-radius: 4px;
+  background: ${({ $variant }) =>
+    $variant === 'danger' ? '#dc2626' :
+    $variant === 'success' ? '#16a34a' :
+    '#ffffff'};
+  color: ${({ $variant }) => ($variant ? '#ffffff' : '#374151')};
   cursor: pointer;
-  transition: background-color 0.2s;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
 
   &:hover {
-    opacity: 0.9;
+    background: ${({ $variant }) =>
+      $variant === 'danger' ? '#b91c1c' :
+      $variant === 'success' ? '#15803d' :
+      '#fff1f2'};
+    border-color: ${({ $variant }) => ($variant ? 'transparent' : '#e30613')};
+    color: ${({ $variant }) => ($variant ? '#ffffff' : '#e30613')};
+  }
+
+  @media (max-width: 760px) {
+    flex: 1 1 120px;
   }
 `;
 
-// --- Props ---
+const EmptyState = styled.div`
+  padding: 1.2rem;
+  color: #6b7280;
+  background: #fffafa;
+`;
 
 interface ClientListProps {
   clients: IClient[];
@@ -128,55 +147,105 @@ interface ClientListProps {
   onViewOrders: (client: IClient) => void;
 }
 
-// --- Componente ---
+const UserIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M20 21a8 8 0 0 0-16 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2" />
+  </svg>
+);
+
+const PhoneIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.4 2.1L8 9.7a16 16 0 0 0 6.3 6.3l1.3-1.3a2 2 0 0 1 2.1-.4c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const PinIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M12 21s7-5.1 7-11a7 7 0 0 0-14 0c0 5.9 7 11 7 11Z" stroke="currentColor" strokeWidth="2" />
+    <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="2" />
+  </svg>
+);
+
+const EditIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M12 20h9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+  </svg>
+);
+
+const ClipboardIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M9 5h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <path d="M9 12h6M9 16h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <path d="M8 3h8l1 2h3v16H4V5h3Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+  </svg>
+);
+
+const TrashIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M3 6h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <path d="M8 6V4h8v2M6 6l1 15h10l1-15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const formatAddress = (client: IClient) => {
+  const street = [client.address, client.addressNumber].filter(Boolean).join(', ');
+  const parts = [street, client.neighborhood, client.city].filter(Boolean);
+  return parts.join(' - ') || '-';
+};
 
 const ClientList: React.FC<ClientListProps> = ({ clients, onEdit, onDelete, onViewOrders }) => {
+  if (!clients.length) {
+    return (
+      <ListContainer>
+        <EmptyState>Nenhum cliente encontrado.</EmptyState>
+      </ListContainer>
+    );
+  }
+
   return (
     <ListContainer>
-      {/* Cabeçalho visível apenas no desktop */}
-      <ListHeader>
-        <DataItem style={{ flex: 1.5 }}>Nome</DataItem>
-        <DataItem style={{ flex: 1.5 }}>Contato</DataItem>
-        <DataItem style={{ flex: 2 }}>Endereço</DataItem>
-        <DataItem style={{ flex: 1.5 }}>Data de Criação</DataItem>
-        <div style={{ flexBasis: '240px', textAlign: 'right' }}>Ações</div>
-      </ListHeader>
-
-      {/* Lista de cards de cliente */}
       {clients.map((client) => (
         <ClientCard key={client._id}>
-          <InfoSection>
-            <DataItem style={{ flex: 1.5 }}>
-              <DataLabel>Nome:</DataLabel>
-              <DataValue>{client.clientName}</DataValue>
-            </DataItem>
-            <DataItem style={{ flex: 1.5 }}>
-              <DataLabel>Contato:</DataLabel>
-              <DataValue>{client.contactName} ({client.contactNumber})</DataValue>
-            </DataItem>
-            <DataItem style={{ flex: 2 }}>
-              <DataLabel>Endereço:</DataLabel>
-              <DataValue>{`${client.address}, ${client.addressNumber} - ${client.neighborhood} - ${client.city}`}</DataValue>
-            </DataItem>
-            <DataItem style={{ flex: 1.5 }}>
-              <DataLabel>Data de Criação:</DataLabel>
-              <DataValue>
-                {client.createdAt 
-                  ? new Date(client.createdAt).toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: '2-digit', 
-                      year: 'numeric'
-                    })
-                  : 'N/A'
-                }
-              </DataValue>
-            </DataItem>
-          </InfoSection>
+          <ClientInfo>
+            <ClientName>{client.clientName}</ClientName>
+            <DocumentLine>
+              <strong>CNPJ:</strong> {client.cnpjCpf || '-'}
+            </DocumentLine>
+
+            <MetaRow>
+              <MetaItem>
+                <UserIcon />
+                {client.contactName || '-'}
+              </MetaItem>
+              <MetaItem>
+                <PhoneIcon />
+                {client.contactNumber || '-'}
+              </MetaItem>
+            </MetaRow>
+
+            <MetaRow>
+              <AddressItem>
+                <PinIcon />
+                {formatAddress(client)}
+              </AddressItem>
+            </MetaRow>
+          </ClientInfo>
 
           <ActionContainer>
-            <ActionButton onClick={() => onEdit(client)}>Editar</ActionButton>
-            <ActionButton onClick={() => onViewOrders(client)} style={{ background: '#10b981' }}>Pedidos</ActionButton>
-            <ActionButton onClick={() => onDelete(client._id)} color="#ef4444">Excluir</ActionButton>
+            <ActionButton type="button" onClick={() => onEdit(client)}>
+              <EditIcon />
+              Editar
+            </ActionButton>
+            <ActionButton type="button" $variant="success" onClick={() => onViewOrders(client)}>
+              <ClipboardIcon />
+              Pedidos
+            </ActionButton>
+            <ActionButton type="button" $variant="danger" onClick={() => onDelete(client._id)}>
+              <TrashIcon />
+              Excluir
+            </ActionButton>
           </ActionContainer>
         </ClientCard>
       ))}

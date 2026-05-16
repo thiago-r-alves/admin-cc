@@ -1,58 +1,113 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import ClientList from '../components/ClientList';
 import ClientForm from '../components/ClientForm';
-import ClientOrdersModal from '../components/ClientOrdersModal'; // Importe o novo modal
+import ClientOrdersModal from '../components/ClientOrdersModal';
 import type { IClient } from '../interfaces';
 
-const Container = styled.div``;
+const Container = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
 
 const Header = styled.div`
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-
-   @media (max-width: 480px) {
-    flex-direction: column;
-    gap: 1rem;
-  }
+  gap: 1rem;
 `;
 
 const Title = styled.h2`
-  margin: 0; // Adicione esta linha para remover as margens padrão do h2
-  color: #333;
+  margin: 0;
+  color: #1f2937;
+  font-size: clamp(1.45rem, 2vw, 2rem);
+  line-height: 1.15;
 `;
 
-const AddButton = styled.button`
-  padding: 10px 20px;
-  background: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
+const Toolbar = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
 
-  &:hover {
-    background: #2563eb;
+  @media (max-width: 720px) {
+    flex-direction: column;
+    align-items: stretch;
   }
 `;
 
-// Barra de filtro
-const FilterBar = styled.div`
-  display: flex;
-  gap: .75rem;
-  flex-wrap: wrap;
-  align-items: center;
-  margin-bottom: 1rem;
+const SearchWrap = styled.div`
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 260px;
+
+  @media (max-width: 720px) {
+    width: 100%;
+    min-width: 0;
+  }
 `;
+
+const SearchIcon = styled.span`
+  position: absolute;
+  left: 0.9rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  color: #9ca3af;
+  pointer-events: none;
+`;
+
 const SearchInput = styled.input`
-  flex: 1 1 260px;
-  padding: .6rem .8rem;
-  border: 1px solid #e5e7eb;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.82rem 0.9rem 0.82rem 2.45rem;
+  border: 1px solid #fecaca;
   border-radius: 6px;
-  font-size: .95rem;
+  background: #ffffff;
+  color: #374151;
+  font-size: 0.92rem;
+
+  &::placeholder {
+    color: #9ca3af;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: #e30613;
+    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
+  }
+`;
+
+const AddButton = styled.button`
+  flex: 0 0 auto;
+  min-height: 43px;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 4px;
+  background: #e30613;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 8px 16px rgba(227, 6, 19, 0.18);
+
+  &:hover {
+    background: #c9000b;
+  }
+
+  @media (max-width: 720px) {
+    width: 100%;
+  }
+`;
+
+const LoadingState = styled.div`
+  padding: 1.2rem;
+  border: 1px dashed #fecaca;
+  border-radius: 8px;
+  background: #fffafa;
+  color: #6b7280;
 `;
 
 const ClientPage: React.FC = () => {
@@ -60,8 +115,6 @@ const ClientPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<IClient | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  // Novos estados para o modal de pedidos
   const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<IClient | null>(null);
   const [search, setSearch] = useState('');
@@ -71,10 +124,10 @@ const ClientPage: React.FC = () => {
     try {
       const response = await fetch(`${apiUrl}/clients`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setClients(data);
@@ -90,6 +143,7 @@ const ClientPage: React.FC = () => {
 
   useEffect(() => {
     fetchClients();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleAddClient = async (clientData: Omit<IClient, '_id'>) => {
@@ -98,9 +152,9 @@ const ClientPage: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify(clientData)
+        body: JSON.stringify(clientData),
       });
 
       if (response.ok) {
@@ -122,9 +176,9 @@ const ClientPage: React.FC = () => {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify(clientData)
+        body: JSON.stringify(clientData),
       });
 
       if (response.ok) {
@@ -140,12 +194,15 @@ const ClientPage: React.FC = () => {
   };
 
   const handleDeleteClient = async (id: string) => {
+    const shouldDelete = window.confirm('Tem certeza que deseja excluir este cliente?');
+    if (!shouldDelete) return;
+
     try {
       const response = await fetch(`${apiUrl}/clients/${id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
       });
 
       if (response.ok) {
@@ -168,16 +225,15 @@ const ClientPage: React.FC = () => {
     setIsOrdersModalOpen(true);
   };
 
-  // normaliza texto para busca (sem acentos)
-  const norm = (s: any) =>
+  const norm = (s: unknown) =>
     String(s ?? '')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase();
 
-  // clients: mantenha sua origem atual (estado já existente no componente)
   const filteredClients = useMemo(() => {
-    if (!search.trim()) return clients; // clients já existente na página
+    if (!search.trim()) return clients;
+
     const q = norm(search);
     return clients.filter(c => {
       const fields = [
@@ -189,26 +245,42 @@ const ClientPage: React.FC = () => {
         c.city,
         c.cep,
         c.contactName,
-        c.contactNumber
+        c.contactNumber,
       ];
       return fields.some(f => norm(f).includes(q));
     });
   }, [clients, search]);
 
-  if (loading) {
-    return <div>Carregando...</div>;
-  }
+  if (loading) return <LoadingState>Carregando...</LoadingState>;
 
   return (
     <Container>
       <Header>
         <Title>Gerenciamento de Clientes</Title>
-        {!showForm && (
-          <AddButton onClick={() => setShowForm(true)}>
-            Adicionar Cliente
-          </AddButton>
-        )}
       </Header>
+
+      {!showForm && (
+        <Toolbar>
+          <SearchWrap>
+            <SearchIcon aria-hidden="true">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+                <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </SearchIcon>
+            <SearchInput
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar cliente por nome, CNPJ/CPF, endereço, bairro, cidade, CEP..."
+            />
+          </SearchWrap>
+
+          <AddButton onClick={() => setShowForm(true)}>
+            + Adicionar Cliente
+          </AddButton>
+        </Toolbar>
+      )}
 
       {showForm ? (
         <ClientForm
@@ -226,30 +298,14 @@ const ClientPage: React.FC = () => {
           initialData={editingClient || undefined}
         />
       ) : (
-        <>
-          {/* Filtro de clientes */}
-          <FilterBar>
-            <SearchInput
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar cliente por nome, CNPJ/CPF, endereço, bairro, cidade, CEP..."
-            />
-            <span style={{ color:'#6b7280', fontSize:'.9rem' }}>
-              {filteredClients.length} de {clients.length} clientes
-            </span>
-          </FilterBar>
-
-          <ClientList
-            clients={filteredClients}
-            onEdit={handleEditButtonClick}
-            onDelete={handleDeleteClient}
-            onViewOrders={handleViewOrdersClick} // Passe a nova função
-          />
-        </>
+        <ClientList
+          clients={filteredClients}
+          onEdit={handleEditButtonClick}
+          onDelete={handleDeleteClient}
+          onViewOrders={handleViewOrdersClick}
+        />
       )}
 
-      {/* Renderize o novo modal */}
       {isOrdersModalOpen && selectedClient && (
         <ClientOrdersModal
           client={selectedClient}
