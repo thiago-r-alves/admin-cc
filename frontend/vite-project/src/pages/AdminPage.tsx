@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
-import type { IDriver, IOrder } from '../interfaces';
+import type { ICacamba, IDriver, IOrder } from '../interfaces';
 import CreateOrderModal from '../components/CreateOrderModal';
 import CreateDriverModal from '../components/CreateDriverModal';
 import CacambaList from '../components/CacambaList';
@@ -165,6 +165,38 @@ const ContentContainer = styled.div`
   }
 `;
 
+const OrdersPage = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+`;
+
+const OrdersHeader = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+  }
+`;
+
+const OrdersTitleBlock = styled.div`
+  h1 {
+    margin: 0;
+    color: #1f2937;
+    font-size: clamp(1.45rem, 2vw, 2rem);
+    line-height: 1.15;
+  }
+
+  p {
+    margin: 0.4rem 0 0;
+    color: #6b7280;
+    font-size: 0.9rem;
+  }
+`;
+
 const ActionButtons = styled.div`
   display: flex;
   justify-content: flex-end;
@@ -191,41 +223,223 @@ const Button = styled.button`
   }
 `;
 
+const AddOrderButton = styled(Button)`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  background-color: #e30613;
+  border-radius: 4px;
+  box-shadow: 0 8px 16px rgba(227, 6, 19, 0.18);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  white-space: nowrap;
+
+  &:hover {
+    background-color: #c9000b;
+  }
+
+  @media (max-width: 640px) {
+    width: 100%;
+  }
+`;
+
 const OrdersGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1rem;
-  margin-top: 1rem;
+  gap: 1.15rem;
 `;
 
 const OrderCard = styled.div<{ status: IOrder['status'] }>`
-  background-color: #f9f9f9;
-  border: 1px solid #eee;
-  border-left: 5px solid ${({ status }) => 
-    status === 'pendente' ? '#f59e0b' :
-    status === 'em_andamento' ? '#3b82f6' :
-    status === 'concluido' ? '#10b981' :
-    '#ef4444'
+  background-color: #ffffff;
+  border: 1px solid ${({ status }) => 
+    status === 'pendente' ? '#fecaca' :
+    status === 'em_andamento' ? '#bfdbfe' :
+    status === 'concluido' ? '#bbf7d0' :
+    '#fecaca'
   };
   border-radius: 8px;
-  padding: 1rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  margin-bottom: 1rem;
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+`;
 
-  h3 {
-    margin-top: 0;
-    margin-bottom: 0.5rem;
-    color: #333;
-    font-size: 1.1rem;
+const DriverFilterPanel = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 0.95rem 1rem;
+  background: #fffafa;
+
+  @media (max-width: 640px) {
+    align-items: flex-start;
   }
-  p {
-    margin: 0.3rem 0;
-    font-size: 0.9rem;
-    color: #666;
+`;
+
+const FilterLabel = styled.span`
+  color: #6b7280;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0;
+`;
+
+const OrdersSectionTitle = styled.h2`
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0;
+  color: #374151;
+  font-size: 1.25rem;
+
+  &::before {
+    content: '';
+    display: block;
+    width: 3px;
+    height: 26px;
+    border-radius: 999px;
+    background: #e30613;
   }
-  strong {
-    color: #333;
+`;
+
+const OrderCardHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: #f9fafb;
+  border-bottom: 1px solid #fee2e2;
+
+  @media (max-width: 640px) {
+    align-items: flex-start;
+    flex-direction: column;
   }
+`;
+
+const OrderHeaderMeta = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+`;
+
+const OrderNumber = styled.span`
+  color: #e30613;
+  font-weight: 900;
+  font-size: 1rem;
+`;
+
+const OrderTypeBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 4px;
+  background: #374151;
+  color: #ffffff;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+`;
+
+const StatusBadge = styled.span<{ status: IOrder['status'] }>`
+  color: ${({ status }) =>
+    status === 'concluido' ? '#15803d' :
+    status === 'em_andamento' ? '#1d4ed8' :
+    status === 'cancelado' ? '#b91c1c' :
+    '#b91c1c'};
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+`;
+
+const OrderCardBody = styled.div`
+  padding: 1.25rem;
+`;
+
+const OrderClientName = styled.h3`
+  margin: 0 0 1.15rem;
+  color: #1f2937;
+  font-size: 1.15rem;
+  line-height: 1.3;
+  text-transform: uppercase;
+`;
+
+const OrderAddressBlock = styled.div`
+  margin-bottom: 1rem;
+`;
+
+const InfoLabel = styled.span`
+  display: block;
+  color: #9ca3af;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+`;
+
+const InfoValue = styled.span`
+  display: block;
+  color: #374151;
+  font-size: 0.9rem;
+  line-height: 1.45;
+`;
+
+const InfoGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const InfoTile = styled.div`
+  min-width: 0;
+`;
+
+const OrderDetailsDivider = styled.div`
+  height: 1px;
+  background: #fee2e2;
+  margin: 1.25rem 0;
+`;
+
+const OrderFooter = styled.div`
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding-top: 0.2rem;
+`;
+
+const FooterField = styled.div`
+  min-width: min(100%, 220px);
+`;
+
+const OrderActions = styled.div`
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  margin-left: auto;
+
+  @media (max-width: 640px) {
+    width: 100%;
+    margin-left: 0;
+  }
+`;
+
+const EmptyState = styled.div`
+  border: 1px dashed #fecaca;
+  border-radius: 8px;
+  padding: 1.2rem;
+  color: #6b7280;
+  background: #fffafa;
 `;
 
 const DriverList = styled.ul`
@@ -293,37 +507,134 @@ const CacambaSection = styled.div`
   }
 `;
 
+const CompletedCacambas = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+`;
+
+const CompletedCacambasTitle = styled.h4`
+  margin: 0;
+  color: #111827;
+  font-size: 0.95rem;
+  font-weight: 900;
+`;
+
+const CompletedCacambasList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+`;
+
+const CompletedCacambaCard = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 76px;
+  padding: 0.85rem 1rem;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #f9fafb;
+
+  @media (max-width: 640px) {
+    align-items: flex-start;
+  }
+`;
+
+const CompletedCacambaInfo = styled.div`
+  min-width: 0;
+`;
+
+const CompletedCacambaHeader = styled.div`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.25rem;
+`;
+
+const CompletedCacambaNumber = styled.span`
+  color: #111827;
+  font-size: 1rem;
+  font-weight: 900;
+`;
+
+const CompletedTypeBadge = styled.span<{ tipo: ICacamba['tipo'] }>`
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  background: ${({ tipo }) => tipo === 'entrega' ? '#dcfce7' : '#fee2e2'};
+  color: ${({ tipo }) => tipo === 'entrega' ? '#166534' : '#b91c1c'};
+  font-size: 0.62rem;
+  font-weight: 900;
+  text-transform: uppercase;
+`;
+
+const CompletedMeta = styled.p`
+  margin: 0.1rem 0;
+  color: #374151;
+  font-size: 0.76rem;
+  line-height: 1.35;
+
+  strong {
+    color: #111827;
+  }
+`;
+
+const CompletedThumbButton = styled.button`
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+`;
+
+const CompletedThumb = styled.img`
+  display: block;
+  width: 72px;
+  height: 54px;
+  object-fit: cover;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: #fff;
+`;
+
 const SectionContainer = styled.div`
   margin-bottom: 2rem;
 `;
 
 const DeleteOrderButton = styled(Button)`
-  padding: 0.5rem;
+  padding: 0.75rem 1rem;
   background-color: #ef4444;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
 
   @media (max-width: 768px) {
-    width: 100%;
+    flex: 1 1 140px;
   }
 `;
 
 const SelectInput = styled.select`
-  padding: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 0.8rem;
   border-radius: 4px;
-  border: 1px solid #ddd;
-
-  @media (max-width: 768px) {
-    width: 100%;
-  }
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #374151;
+  font-weight: 700;
 `;
 
 const ActionButton = styled.button`
   background-color: #3b82f6;
   color: white;
-  padding: 0.5rem;
+  padding: 0.75rem 1rem;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
   transition: background-color 0.2s;
   
   &:hover {
@@ -331,7 +642,7 @@ const ActionButton = styled.button`
   }
 
   @media (max-width: 768px) {
-    width: 100%;
+    flex: 1 1 140px;
   }
 `;
 
@@ -339,20 +650,19 @@ const DriverTabsBar = styled.div`
   display:flex;
   gap:.5rem;
   flex-wrap:wrap;
-  margin-bottom:1rem;
 `;
 const DriverTabButton = styled.button<{active:boolean}>`
-  background:${p=>p.active ? '#3b82f6' : '#e5e7eb'};
+  background:${p=>p.active ? '#e30613' : '#e5e7eb'};
   color:${p=>p.active ? '#fff' : '#374151'};
   border:none;
-  padding:.55rem .9rem;
+  padding:.6rem .9rem;
   font-size:.8rem;
-  font-weight:600;
-  border-radius:20px;
+  font-weight:900;
+  border-radius:999px;
   cursor:pointer;
   transition:.18s;
   &:hover{
-    background:${p=>p.active ? '#2563eb' : '#d1d5db'};
+    background:${p=>p.active ? '#c9000b' : '#d1d5db'};
   }
 `;
 
@@ -504,6 +814,46 @@ const sidebarItems: Array<{ key: AdminTab; label: string }> = [
   { key: 'motoristas', label: 'Motoristas' },
 ];
 
+const statusLabels: Record<IOrder['status'], string> = {
+  pendente: 'Aguardando',
+  em_andamento: 'Em andamento',
+  concluido: 'Concluído',
+  cancelado: 'Cancelado',
+};
+
+const typeLabels: Record<IOrder['type'], string> = {
+  entrega: 'Entrega',
+  retirada: 'Retirada',
+};
+
+const formatOrderAddress = (order: IOrder) => {
+  const street = [order.address, order.addressNumber].filter(Boolean).join(', ');
+  const parts = [
+    street,
+    order.neighborhood,
+    order.city,
+    order.cep ? `CEP ${order.cep}` : '',
+  ].filter(Boolean);
+
+  return parts.join(' - ') || '-';
+};
+
+const formatCacambaLocal = (local?: string) => {
+  if (!local) return '-';
+  if (local === 'via_publica') return 'Via pública';
+  if (local === 'canteiro_obra') return 'Canteiro de obra';
+  return local;
+};
+
+const formatCacambaDate = (createdAt?: string) => {
+  if (!createdAt) return 'Data não disponível';
+
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return 'Data não disponível';
+
+  return date.toLocaleString('pt-BR');
+};
+
 // ==========================================================
 // COMPONENTE PRINCIPAL
 // ==========================================================
@@ -528,6 +878,11 @@ const AdminPage: React.FC = () => {
   const driverOrders = useMemo(
     () => orders.filter(o => (o.motorista?._id ?? (o as any).motorista) === selectedDriverId),
     [orders, selectedDriverId]
+  );
+
+  const pendingOrders = useMemo(
+    () => driverOrders.filter(o => o.status !== 'concluido'),
+    [driverOrders]
   );
 
   // Ordena concluídos do motorista selecionado (mais recente -> mais antigo)
@@ -709,8 +1064,6 @@ const AdminPage: React.FC = () => {
     }
   }, [drivers, selectedDriverId]);
 
-  const selectedDriver = drivers.find(d => d._id === selectedDriverId);
-
   const handleSelectTab = (tab: AdminTab) => {
     setActiveTab(tab);
     setIsSidebarOpen(false);
@@ -721,6 +1074,171 @@ const AdminPage: React.FC = () => {
     localStorage.removeItem('role');
     localStorage.removeItem('token_expires_at');
     window.location.href = '/';
+  };
+
+  const renderCompletedCacambas = (cacambas: ICacamba[]) => (
+    <CompletedCacambas>
+      <CompletedCacambasTitle>Caçambas Registradas:</CompletedCacambasTitle>
+      <CompletedCacambasList>
+        {cacambas.map((cacamba) => {
+          const imageUrl = cacamba.imageUrl
+            ? cacamba.imageUrl.startsWith('http')
+              ? cacamba.imageUrl
+              : `${apiUrl}${cacamba.imageUrl}`
+            : '';
+
+          return (
+            <CompletedCacambaCard key={cacamba._id}>
+              <CompletedCacambaInfo>
+                <CompletedCacambaHeader>
+                  <CompletedCacambaNumber>#{cacamba.numero}</CompletedCacambaNumber>
+                  <CompletedTypeBadge tipo={cacamba.tipo}>
+                    {typeLabels[cacamba.tipo]}
+                  </CompletedTypeBadge>
+                </CompletedCacambaHeader>
+                <CompletedMeta>Registrada em: {formatCacambaDate(cacamba.createdAt)}</CompletedMeta>
+                <CompletedMeta>
+                  <strong>Local:</strong> {formatCacambaLocal(cacamba.local)}
+                </CompletedMeta>
+                <CompletedMeta>
+                  <strong>Ordem de serviço:</strong> {cacamba.horaServicoDigitos || '-'}
+                </CompletedMeta>
+              </CompletedCacambaInfo>
+
+              {imageUrl && (
+                <CompletedThumbButton
+                  type="button"
+                  onClick={() => setModalImage(imageUrl)}
+                  aria-label={`Abrir foto da caçamba ${cacamba.numero}`}
+                >
+                  <CompletedThumb src={imageUrl} alt={`Foto da caçamba ${cacamba.numero}`} />
+                </CompletedThumbButton>
+              )}
+            </CompletedCacambaCard>
+          );
+        })}
+      </CompletedCacambasList>
+    </CompletedCacambas>
+  );
+
+  const renderOrderCard = (order: IOrder) => {
+    const canReassign = order.status !== 'concluido';
+    const contactText = [order.contactName, order.contactNumber ? `(${order.contactNumber})` : '']
+      .filter(Boolean)
+      .join(' ') || '-';
+
+    return (
+      <OrderCard key={order._id} status={order.status}>
+        <OrderCardHeader>
+          <OrderHeaderMeta>
+            <OrderNumber>#{order.orderNumber ?? '-'}</OrderNumber>
+            <OrderTypeBadge>{typeLabels[order.type] ?? order.type}</OrderTypeBadge>
+          </OrderHeaderMeta>
+          <StatusBadge status={order.status}>{statusLabels[order.status]}</StatusBadge>
+        </OrderCardHeader>
+
+        <OrderCardBody>
+          <OrderClientName>{order.clientName}</OrderClientName>
+
+          <OrderAddressBlock>
+            <div>
+              <InfoLabel>Endereço da obra</InfoLabel>
+              <InfoValue>{formatOrderAddress(order)}</InfoValue>
+            </div>
+          </OrderAddressBlock>
+
+          <InfoGrid>
+            <InfoTile>
+              <div>
+                <InfoLabel>Contato</InfoLabel>
+                <InfoValue>{contactText}</InfoValue>
+              </div>
+            </InfoTile>
+            <InfoTile>
+              <div>
+                <InfoLabel>CNPJ/CPF</InfoLabel>
+                <InfoValue>{order.cnpjCpf || '-'}</InfoValue>
+              </div>
+            </InfoTile>
+            <InfoTile>
+              <div>
+                <InfoLabel>Placa veículo</InfoLabel>
+                <InfoValue style={{ textTransform: 'uppercase', color: '#e30613', fontWeight: 800 }}>
+                  {order.placa || '-'}
+                </InfoValue>
+              </div>
+            </InfoTile>
+          </InfoGrid>
+
+          {((order.cacambas?.length ?? 0) > 0) && (
+            <CacambaSection>
+              {order.status === 'concluido' ? (
+                renderCompletedCacambas(order.cacambas || [])
+              ) : (
+                <>
+                  <h4>Caçambas Registradas</h4>
+                  <CacambaList
+                    cacambas={order.cacambas || []}
+                    onImageClick={setModalImage}
+                  />
+                </>
+              )}
+            </CacambaSection>
+          )}
+
+          {((order.imageUrls?.length ?? 0) > 0) && (
+            <CacambaSection>
+              <h4>Imagens Anexadas</h4>
+              <ImageContainer>
+                {(order.imageUrls ?? []).map((url, i) => (
+                  <OrderImage
+                    key={i}
+                    src={`${apiUrl}${url}`}
+                    alt={`Imagem ${i + 1}`}
+                    onClick={() => setModalImage(`${apiUrl}${url}`)}
+                  />
+                ))}
+              </ImageContainer>
+            </CacambaSection>
+          )}
+
+          <OrderDetailsDivider />
+
+          <OrderFooter>
+            {canReassign && (
+              <FooterField>
+                <InfoLabel>Reatribuir motorista</InfoLabel>
+                <SelectInput
+                  required
+                  value={order.motorista?._id || selectedDriverId}
+                  onChange={(e) => handleUpdateOrder(order._id, { motorista: e.target.value as any })}
+                >
+                  {drivers.map(d => (
+                    <option key={d._id} value={d._id}>{d.username}</option>
+                  ))}
+                </SelectInput>
+              </FooterField>
+            )}
+
+            <OrderActions>
+              <DeleteOrderButton onClick={() => handleDeleteOrder(order._id)}>Excluir</DeleteOrderButton>
+              {order.status === 'concluido' && (
+                <ActionButton
+                  type="button"
+                  onClick={async () => {
+                    const { downloadOrderPdf } = await import('../utils/orderPdf');
+                    downloadOrderPdf(order);
+                  }}
+                  style={{ background:'#2563eb' }}
+                >
+                  Baixar Pedido
+                </ActionButton>
+              )}
+            </OrderActions>
+          </OrderFooter>
+        </OrderCardBody>
+      </OrderCard>
+    );
   };
 
   if (loading) return <AdminContainer>Carregando...</AdminContainer>;
@@ -784,157 +1302,63 @@ const AdminPage: React.FC = () => {
           )}
 
           {activeTab === 'pedidos' && (
-            <div>
-              <ActionButtons>
-                <Button onClick={() => setIsOrderModalOpen(true)}>+ Adicionar Pedido</Button>
-              </ActionButtons>
+            <OrdersPage>
+              <OrdersHeader>
+                <OrdersTitleBlock>
+                  <h1>Monitor de Pedidos</h1>
+                  <p>Acompanhamento em tempo real da operação de campo.</p>
+                </OrdersTitleBlock>
+                <AddOrderButton type="button" onClick={() => setIsOrderModalOpen(true)}>
+                  + Adicionar Pedido
+                </AddOrderButton>
+              </OrdersHeader>
 
-              {/* Abas de motoristas */}
-              <DriverTabsBar>
-                {drivers.map(d => (
-                  <DriverTabButton
-                    key={d._id}
-                    active={d._id === selectedDriverId}
-                    onClick={() => setSelectedDriverId(d._id)}
-                  >
-                    {d.username}
-                  </DriverTabButton>
-                ))}
-              </DriverTabsBar>
+              <DriverFilterPanel>
+                <FilterLabel>Filtrar por motorista:</FilterLabel>
+                <DriverTabsBar>
+                  {drivers.map(d => (
+                    <DriverTabButton
+                      key={d._id}
+                      active={d._id === selectedDriverId}
+                      onClick={() => setSelectedDriverId(d._id)}
+                    >
+                      {d.username}
+                    </DriverTabButton>
+                  ))}
+                </DriverTabsBar>
+              </DriverFilterPanel>
 
-              {!drivers.length && <p>Nenhum motorista cadastrado.</p>}
-              {drivers.length > 0 && !driverOrders.length && (
-                <p>Nenhum pedido para o motorista selecionado.</p>
+              {!drivers.length && (
+                <EmptyState>Nenhum motorista cadastrado.</EmptyState>
               )}
 
-              {drivers.length > 0 && driverOrders.length > 0 && (
-                <SectionContainer>
-                  <h2>Pedidos do Motorista: {selectedDriver?.username}</h2>
+              {drivers.length > 0 && (
+                <>
+                  <SectionContainer>
+                    <OrdersSectionTitle>Pedidos Pendentes</OrdersSectionTitle>
+                    {pendingOrders.length ? (
+                      <OrdersGrid>
+                        {pendingOrders.map(renderOrderCard)}
+                      </OrdersGrid>
+                    ) : (
+                      <EmptyState>Nenhum pedido pendente para o motorista selecionado.</EmptyState>
+                    )}
+                  </SectionContainer>
 
-                  {/* Pendentes */}
-                  <h3>Pedidos Pendentes</h3>
-                  {driverOrders.filter(o => o.status !== 'concluido').length ? (
-                    <OrdersGrid>
-                      {driverOrders
-                        .filter(o => o.status !== 'concluido')
-                        .map(order => (
-                          <OrderCard key={order._id} status={order.status}>
-                            <h3>Pedido #{order.orderNumber} - {order.clientName}</h3>
-                            <p><strong>Endereço:</strong> {order.address}, {order.addressNumber} - {order.neighborhood} - {order.city}{order.cep ? ` - CEP ${order.cep}` : ''}</p>
-                            <p><strong>Contato:</strong> {order.contactName} ({order.contactNumber})</p>
-                            <p><strong>CNPJ/CPF:</strong> {order.cnpjCpf || '-'}</p>
-                            <p><strong>Prioridade:</strong> {order.priority}</p>
-                            <p><strong>Placa:</strong> <span style={{ textTransform: 'uppercase' }}>{order.placa || '-'}</span></p>
-                            <p><strong>Tipo:</strong> {order.type}</p>
-
-                            {((order.cacambas?.length ?? 0) > 0) && (
-                              <CacambaSection>
-                                <h4>Caçambas Registradas:</h4>
-                                <CacambaList
-                                  cacambas={order.cacambas || []}
-                                  onImageClick={setModalImage}
-                                />
-                              </CacambaSection>
-                            )}
-
-                            {((order.imageUrls?.length ?? 0) > 0) && (
-                              <div>
-                                <h4>Imagens Anexadas:</h4>
-                                <ImageContainer>
-                                  {(order.imageUrls ?? []).map((url, i) => (
-                                    <OrderImage
-                                      key={i}
-                                      src={`${apiUrl}${url}`}
-                                      alt={`Imagem ${i + 1}`}
-                                      onClick={() => setModalImage(`${apiUrl}${url}`)}
-                                    />
-                                  ))}
-                                </ImageContainer>
-                              </div>
-                            )}
-
-                            <div style={{ display:'flex', gap:'.5rem', flexWrap:'wrap', marginTop:'.5rem' }}>
-                              <SelectInput
-                                required
-                                value={order.motorista?._id || selectedDriverId}
-                                onChange={(e) => handleUpdateOrder(order._id, { motorista: e.target.value as any })}
-                              >
-                                {drivers.map(d => (
-                                  <option key={d._id} value={d._id}>{d.username}</option>
-                                ))}
-                              </SelectInput>
-
-                              <DeleteOrderButton onClick={() => handleDeleteOrder(order._id)}>Excluir</DeleteOrderButton>
-                            </div>
-                          </OrderCard>
-                        ))}
-                    </OrdersGrid>
-                  ) : (
-                    <p>Nenhum pedido pendente.</p>
-                  )}
-
-                  {/* Seção Concluídos */}
                   <Section>
                     <SectionHeader>
-                      <h3>Concluídos</h3>
+                      <OrdersSectionTitle>Concluídos</OrdersSectionTitle>
                       <span>Total: {completedOrders.length}</span>
                     </SectionHeader>
 
-                    {/* Renderiza somente a página visível */}
-                    {visibleCompleted.map(order => (
-                      <OrderCard key={order._id} status={order.status}>
-                        <h3>Pedido #{order.orderNumber} - {order.clientName}</h3>
-                        <p><strong>Endereço:</strong> {order.address}, {order.addressNumber} - {order.neighborhood} - {order.city}{order.cep ? ` - CEP ${order.cep}` : ''}</p>
-                        <p><strong>Contato:</strong> {order.contactName} ({order.contactNumber})</p>
-                        <p><strong>CNPJ/CPF:</strong> {order.cnpjCpf || '-'}</p>
-                        <p><strong>Placa:</strong> <span style={{ textTransform: 'uppercase' }}>{order.placa || '-'}</span></p>
-                        <p><strong>Tipo:</strong> {order.type}</p>
+                    {visibleCompleted.length ? (
+                      <OrdersGrid>
+                        {visibleCompleted.map(renderOrderCard)}
+                      </OrdersGrid>
+                    ) : (
+                      <EmptyState>Nenhum pedido concluído para o motorista selecionado.</EmptyState>
+                    )}
 
-                        {((order.cacambas?.length ?? 0) > 0) && (
-                          <CacambaSection>
-                            <h4>Caçambas Registradas:</h4>
-                            <CacambaList
-                              cacambas={order.cacambas || []}
-                              onImageClick={setModalImage}
-                            />
-                          </CacambaSection>
-                        )}
-
-                        {((order.imageUrls?.length ?? 0) > 0) && (
-                          <div>
-                            <h4>Imagens Anexadas:</h4>
-                            <ImageContainer>
-                              {(order.imageUrls ?? []).map((url, i) => (
-                                <OrderImage
-                                  key={i}
-                                  src={`${apiUrl}${url}`}
-                                  alt={`Imagem ${i + 1}`}
-                                  onClick={() => setModalImage(`${apiUrl}${url}`)}
-                                />
-                              ))}
-                            </ImageContainer>
-                          </div>
-                        )}
-
-                        <div style={{ display:'flex', gap:'.5rem', flexWrap:'wrap', marginTop:'.5rem' }}>
-                          <DeleteOrderButton onClick={() => handleDeleteOrder(order._id)}>Excluir</DeleteOrderButton>
-                          {order.status === 'concluido' && (
-                            <ActionButton
-                              type="button"
-                              onClick={async () => {
-                                const { downloadOrderPdf } = await import('../utils/orderPdf');
-                                downloadOrderPdf(order);
-                              }}
-                              style={{ background:'#2563eb' }}
-                            >
-                              Baixar Pedido
-                            </ActionButton>
-                          )}
-                        </div>
-                      </OrderCard>
-                    ))}
-
-                    {/* Paginação */}
                     {completedOrders.length > PAGE_SIZE && (
                       <PaginationBar>
                         <span>
@@ -972,9 +1396,9 @@ const AdminPage: React.FC = () => {
                       </PaginationBar>
                     )}
                   </Section>
-                </SectionContainer>
+                </>
               )}
-            </div>
+            </OrdersPage>
           )}
 
           {activeTab === 'motoristas' && (
