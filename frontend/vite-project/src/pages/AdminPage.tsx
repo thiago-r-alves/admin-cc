@@ -346,17 +346,6 @@ const OrderTypeBadge = styled.span`
   text-transform: uppercase;
 `;
 
-const StatusBadge = styled.span<{ status: IOrder['status'] }>`
-  color: ${({ status }) =>
-    status === 'concluido' ? '#15803d' :
-    status === 'em_andamento' ? '#1d4ed8' :
-    status === 'cancelado' ? '#b91c1c' :
-    '#b91c1c'};
-  font-size: 0.72rem;
-  font-weight: 900;
-  text-transform: uppercase;
-`;
-
 const OrderCardBody = styled.div`
   padding: 1.25rem;
 `;
@@ -814,13 +803,6 @@ const sidebarItems: Array<{ key: AdminTab; label: string }> = [
   { key: 'motoristas', label: 'Motoristas' },
 ];
 
-const statusLabels: Record<IOrder['status'], string> = {
-  pendente: 'Aguardando',
-  em_andamento: 'Em andamento',
-  concluido: 'Concluído',
-  cancelado: 'Cancelado',
-};
-
 const typeLabels: Record<IOrder['type'], string> = {
   entrega: 'Entrega',
   retirada: 'Retirada',
@@ -1132,9 +1114,8 @@ const AdminPage: React.FC = () => {
         <OrderCardHeader>
           <OrderHeaderMeta>
             <OrderNumber>#{order.orderNumber ?? '-'}</OrderNumber>
-            <OrderTypeBadge>{typeLabels[order.type] ?? order.type}</OrderTypeBadge>
           </OrderHeaderMeta>
-          <StatusBadge status={order.status}>{statusLabels[order.status]}</StatusBadge>
+          <OrderTypeBadge>{typeLabels[order.type] ?? order.type}</OrderTypeBadge>
         </OrderCardHeader>
 
         <OrderCardBody>
@@ -1304,10 +1285,6 @@ const AdminPage: React.FC = () => {
           {activeTab === 'pedidos' && (
             <OrdersPage>
               <OrdersHeader>
-                <OrdersTitleBlock>
-                  <h1>Monitor de Pedidos</h1>
-                  <p>Acompanhamento em tempo real da operação de campo.</p>
-                </OrdersTitleBlock>
                 <AddOrderButton type="button" onClick={() => setIsOrderModalOpen(true)}>
                   + Adicionar Pedido
                 </AddOrderButton>
