@@ -88,18 +88,6 @@ const ModalBody = styled.div`
   -webkit-overflow-scrolling: touch;
 `;
 
-const SectionTitle = styled.h3`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0 0 1.1rem;
-  color: #e30613;
-  font-size: 0.78rem;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-`;
-
 const FieldGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr;
@@ -186,13 +174,6 @@ const Button = styled.button<{ $variant?: 'primary' | 'secondary' }>`
     width: 100%;
   }
 `;
-
-const DriverIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path d="M20 21a8 8 0 0 0-16 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2" />
-  </svg>
-);
 
 interface CreateDriverModalProps {
   onClose: () => void;

@@ -2,133 +2,273 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import type { ICacamba, OrderType } from '../interfaces';
 
-// Styled Components
 const ModalOverlay = styled.div`
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 50;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: rgba(17, 24, 39, 0.62);
+
+  @media (max-width: 768px) {
+    align-items: stretch;
+    padding: 0;
+  }
 `;
 
 const ModalContent = styled.div`
-  background-color: white;
-  border-radius: 0.5rem;
-  padding: 1.5rem;
-  width: 100%;
-  max-width: 28rem;
-  margin: 0 1rem;
+  width: min(720px, 94vw);
+  max-height: min(90dvh, 760px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+
+  @media (max-width: 768px) {
+    width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+`;
+
+const ModalHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex: 0 0 auto;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #fee2e2;
+  background: #ffffff;
+`;
+
+const TitleWrap = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+`;
+
+const TitleAccent = styled.span`
+  width: 4px;
+  height: 28px;
+  border-radius: 999px;
+  background: #e30613;
 `;
 
 const Title = styled.h2`
-  font-size: 1.25rem;
-  font-weight: bold;
-  margin: 0 0 1rem 0;
-  color: #1f2937;
+  margin: 0;
+  color: #111827;
+  font-size: 1.2rem;
+  font-weight: 900;
+`;
+
+const CloseButton = styled.button`
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 1.55rem;
+  line-height: 1;
+  transition: background 0.18s ease, color 0.18s ease;
+
+  &:hover {
+    background: #fff1f2;
+    color: #e30613;
+  }
 `;
 
 const Form = styled.form`
+  min-height: 0;
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: 1rem;
 `;
 
-const FormGroup = styled.div`
+const ModalBody = styled.div`
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 1.25rem;
+  -webkit-overflow-scrolling: touch;
+`;
+
+const Section = styled.section`
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid #f3f4f6;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+`;
+
+const SectionTitle = styled.h3`
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  color: #e30613;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+`;
+
+const FieldGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const Field = styled.div<{ $span?: 1 | 2 }>`
+  min-width: 0;
+  grid-column: span ${({ $span }) => $span || 1};
+
+  @media (max-width: 640px) {
+    grid-column: span 1;
+  }
 `;
 
 const Label = styled.label`
   display: block;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #374151;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.4rem;
+  color: #4b5563;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
 `;
 
 const Input = styled.input`
   width: 100%;
-  padding: 0.5rem 0.75rem;
+  min-height: 43px;
+  box-sizing: border-box;
+  padding: 0.65rem 0.8rem;
   border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  font-size: 1rem;
-      width: -webkit-fill-available;
-  
+  border-radius: 2px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 0.9rem;
+
+  &::placeholder {
+    color: #9ca3af;
+  }
+
   &:focus {
     outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    border-color: #e30613;
+    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
   }
 `;
 
 const Select = styled.select`
   width: 100%;
-  padding: 0.5rem 0.75rem;
+  min-height: 43px;
+  box-sizing: border-box;
+  padding: 0.65rem 0.8rem;
   border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  font-size: 1rem;
-  background-color: white;
-  
+  border-radius: 2px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 0.9rem;
+
   &:focus {
     outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    border-color: #e30613;
+    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
   }
+`;
+
+const TypeBadge = styled.div`
+  min-height: 43px;
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #fecaca;
+  border-radius: 2px;
+  background: #fff5f5;
+  color: #e30613;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+`;
+
+const FileInputWrap = styled.div`
+  display: grid;
+  gap: 0.55rem;
+`;
+
+const FileHint = styled.small`
+  color: #6b7280;
+  font-size: 0.78rem;
 `;
 
 const ErrorMessage = styled.div`
   color: #dc2626;
   font-size: 0.875rem;
   background-color: #fef2f2;
-  padding: 0.5rem;
-  border-radius: 0.375rem;
+  padding: 0.75rem;
+  border-radius: 4px;
   border: 1px solid #fecaca;
 `;
 
-const ButtonGroup = styled.div`
+const ModalFooter = styled.div`
   display: flex;
+  justify-content: flex-end;
   gap: 0.75rem;
+  flex: 0 0 auto;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid #fee2e2;
+  background: #ffffff;
+
+  @media (max-width: 560px) {
+    flex-direction: column-reverse;
+  }
 `;
 
-const SubmitButton = styled.button`
-  flex: 1;
-  background-color: #2563eb;
-  color: white;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 0.375rem;
-  font-size: 1rem;
+const Button = styled.button<{ $variant?: 'primary' | 'secondary' }>`
+  min-width: 150px;
+  min-height: 42px;
+  padding: 0.75rem 1rem;
+  border: 1px solid ${({ $variant }) => ($variant === 'primary' ? '#e30613' : '#d8b4b4')};
+  border-radius: 2px;
+  background: ${({ $variant }) => ($variant === 'primary' ? '#e30613' : '#ffffff')};
+  color: ${({ $variant }) => ($variant === 'primary' ? '#ffffff' : '#6b1f1f')};
   cursor: pointer;
-  transition: background-color 0.2s;
-  
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+
   &:hover:not(:disabled) {
-    background-color: #1d4ed8;
+    background: ${({ $variant }) => ($variant === 'primary' ? '#c9000b' : '#fff1f2')};
+    border-color: #e30613;
+    color: ${({ $variant }) => ($variant === 'primary' ? '#ffffff' : '#e30613')};
   }
-  
+
   &:disabled {
-    opacity: 0.5;
+    opacity: 0.55;
     cursor: not-allowed;
   }
-`;
 
-const CancelButton = styled.button`
-  flex: 1;
-  background-color: #d1d5db;
-  color: #374151;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 0.375rem;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  
-  &:hover {
-    background-color: #9ca3af;
+  @media (max-width: 560px) {
+    width: 100%;
   }
 `;
 
@@ -144,7 +284,6 @@ const CacambaForm: React.FC<CacambaFormProps> = (props) => {
   const { orderId, orderType, onCacambaAdded, onClose, beforeUploadFiles } = props;
   const [numero, setNumero] = useState('');
   const [horaServicoDigitos, setHoraServicoDigitos] = useState('');
-  const [tipo, setTipo] = useState<OrderType>(orderType);
   const [local, setLocal] = useState<'via_publica' | 'canteiro_obra'>('via_publica');
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
@@ -191,7 +330,7 @@ const CacambaForm: React.FC<CacambaFormProps> = (props) => {
     try {
       const formData = new FormData();
       formData.append('numero', numero);
-      formData.append('tipo', tipo);
+      formData.append('tipo', orderType);
       formData.append('local', local);
       formData.append('horaServicoDigitos', horaServicoDigitos);
       files.forEach(file => formData.append('image', file));
@@ -215,7 +354,6 @@ const CacambaForm: React.FC<CacambaFormProps> = (props) => {
       // Reset form
       setNumero('');
       setHoraServicoDigitos('');
-      setTipo(orderType);
       setLocal('via_publica');
       setFiles([]);
       setError('');
@@ -227,95 +365,101 @@ const CacambaForm: React.FC<CacambaFormProps> = (props) => {
   };
 
   return (
-    <ModalOverlay>
-      <ModalContent>
-        <Title>Registrar Caçamba</Title>
+    <ModalOverlay onClick={onClose}>
+      <ModalContent onClick={(e) => e.stopPropagation()}>
+        <ModalHeader>
+          <TitleWrap>
+            <TitleAccent />
+            <Title>Registrar Caçamba</Title>
+          </TitleWrap>
+          <CloseButton type="button" onClick={onClose} aria-label="Fechar modal">
+            ×
+          </CloseButton>
+        </ModalHeader>
 
         <Form onSubmit={handleSubmit}>
-          <FormGroup>
-            <Label>
-              Número da Caçamba
-            </Label>
-            <Input
-              type="text"
-              value={numero}
-              onChange={(e) => setNumero(e.target.value)}
-              placeholder="Ex: 501"
-              required
-            />
-          </FormGroup>
+          <ModalBody>
+            <Section>
+              <SectionTitle>Dados da Caçamba</SectionTitle>
+              <FieldGrid>
+                <Field>
+                  <Label htmlFor="cacamba-numero">Número da Caçamba</Label>
+                  <Input
+                    id="cacamba-numero"
+                    type="text"
+                    value={numero}
+                    onChange={(e) => setNumero(e.target.value)}
+                    placeholder="Ex: 501"
+                    required
+                  />
+                </Field>
 
-          <FormGroup>
-            <Label>3 Últimos Dígitos da Ordem de serviço</Label>
-            <Input
-              type="text"
-              value={horaServicoDigitos}
-              onChange={(e) => setHoraServicoDigitos(e.target.value)}
-              placeholder="Ex: 123"
-              maxLength={3}
-              inputMode="numeric"
-              pattern="[0-9]{3}"
-              required
-            />
-          </FormGroup>
+                <Field>
+                  <Label htmlFor="cacamba-os">3 últimos dígitos da OS</Label>
+                  <Input
+                    id="cacamba-os"
+                    type="text"
+                    value={horaServicoDigitos}
+                    onChange={(e) => setHoraServicoDigitos(e.target.value)}
+                    placeholder="Ex: 123"
+                    maxLength={3}
+                    inputMode="numeric"
+                    pattern="[0-9]{3}"
+                    required
+                  />
+                </Field>
 
-          <FormGroup>
-            <Label>
-              Tipo
-            </Label>
-            <Select
-              value={tipo}
-              onChange={e => setTipo(e.target.value as OrderType)}
-              required
-            >
-              {orderType === 'entrega' && <option value="entrega">Entrega</option>}
-              {orderType === 'retirada' && <option value="retirada">Retirada</option>}
-            </Select>
-          </FormGroup>
+                <Field>
+                  <Label>Tipo</Label>
+                  <TypeBadge>{orderType === 'entrega' ? 'Entrega' : 'Retirada'}</TypeBadge>
+                </Field>
 
-          <FormGroup>
-            <Label>
-              Local
-            </Label>
-            <Select
-              value={local}
-              onChange={e => setLocal(e.target.value as 'via_publica' | 'canteiro_obra')}
-              required
-            >
-              <option value="via_publica">Via pública</option>
-              <option value="canteiro_obra">Canteiro de obra</option>
-            </Select>
-          </FormGroup>
+                <Field>
+                  <Label htmlFor="cacamba-local">Local</Label>
+                  <Select
+                    id="cacamba-local"
+                    value={local}
+                    onChange={e => setLocal(e.target.value as 'via_publica' | 'canteiro_obra')}
+                    required
+                  >
+                    <option value="via_publica">Via pública</option>
+                    <option value="canteiro_obra">Canteiro de obra</option>
+                  </Select>
+                </Field>
+              </FieldGrid>
+            </Section>
 
-          <FormGroup>
-            <Label>Imagem</Label>
-            <Input
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={handleFileChange}
-              onClick={() => setError('')}
-            />
-          </FormGroup>
+            <Section>
+              <SectionTitle>Imagem</SectionTitle>
+              <FileInputWrap>
+                <Label htmlFor="cacamba-imagem">Foto da caçamba</Label>
+                <Input
+                  id="cacamba-imagem"
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  onClick={() => setError('')}
+                />
+                <FileHint>
+                  {files.length > 0
+                    ? `${files.length} arquivo${files.length > 1 ? 's' : ''} selecionado${files.length > 1 ? 's' : ''}.`
+                    : 'Selecione uma ou mais imagens para registrar a caçamba.'}
+                </FileHint>
+              </FileInputWrap>
+            </Section>
 
-          {error && (
-            <ErrorMessage>{error}</ErrorMessage>
-          )}
+            {error && <ErrorMessage>{error}</ErrorMessage>}
+          </ModalBody>
 
-          <ButtonGroup>
-            <SubmitButton
-              type="submit"
-              disabled={loading}
-            >
-              {loading ? 'Registrando...' : 'Registrar'}
-            </SubmitButton>
-            <CancelButton
-              type="button"
-              onClick={onClose}
-            >
+          <ModalFooter>
+            <Button type="button" onClick={onClose}>
               Cancelar
-            </CancelButton>
-          </ButtonGroup>
+            </Button>
+            <Button type="submit" $variant="primary" disabled={loading}>
+              {loading ? 'Registrando...' : 'Registrar'}
+            </Button>
+          </ModalFooter>
         </Form>
       </ModalContent>
     </ModalOverlay>
