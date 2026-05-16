@@ -562,12 +562,10 @@ const DriverPage: React.FC = () => {
 
   useEffect(() => {
     if (role === 'motorista') {
-      // Checa estado atual sem disparar prompt
       checkSubscriptionStatus();
     }
   }, [role]);
 
-  // (Duplicated handleUpdateCacamba removed - original earlier in file is used)
 
   const handleCompleteOrder = async (orderId: string) => {
     try {
@@ -578,9 +576,11 @@ const DriverPage: React.FC = () => {
         fetchDriverOrders();
       } else {
         console.error('Erro ao concluir pedido');
+        alert('Erro ao concluir pedido.');
       }
     } catch (error) {
       console.error('Erro de rede:', error);
+      alert('Erro de rede ao concluir pedido.');
     }
   };
 
