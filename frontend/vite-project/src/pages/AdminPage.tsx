@@ -1009,9 +1009,11 @@ const AdminPage: React.FC = () => {
       ...options?.headers,
     };
     const response = await fetch(url, { ...options, headers });
-    if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) {
       alert('Acesso negado ou sessão inválida. Faça login novamente.');
       localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('token_expires_at');
       window.location.href = '/';
       throw new Error('Authentication failed');
     }
