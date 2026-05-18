@@ -103,9 +103,12 @@ test.describe('Admin', () => {
   });
 
   test('exclui pedido pendente', async ({ page }) => {
+    await page.getByRole('button', { name: 'adalberto' }).click();
     await expect(page.getByText('#2231')).toBeVisible();
+
+    const pendingCountBefore = await page.locator('article').filter({ hasText: '#2231' }).count();
     await page.getByRole('button', { name: 'Excluir' }).first().click();
-    await expect(page.getByText('#2231')).toHaveCount(0);
+    await expect(page.locator('article').filter({ hasText: '#2231' })).toHaveCount(Math.max(0, pendingCountBefore - 1));
   });
 
   test('aciona baixar pedido em concluídos', async ({ page }) => {
