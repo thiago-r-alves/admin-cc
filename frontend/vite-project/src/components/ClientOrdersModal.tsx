@@ -152,6 +152,12 @@ const ReportSummary = styled.div`
   font-weight: 800;
 `;
 
+const ReportLine = styled.div`
+  & + & {
+    margin-top: 0.2rem;
+  }
+`;
+
 const OrderCard = styled.article`
   overflow: hidden;
   border: 1px solid #fecaca;
@@ -330,6 +336,15 @@ const formatDateTime = (value?: string) => {
   return new Date(value).toLocaleString('pt-BR');
 };
 
+const getDriverName = (order: IOrder) => {
+  if (!order.motorista) return 'Não informado';
+  if (typeof order.motorista === 'string') return order.motorista;
+  if (typeof order.motorista === 'object' && 'username' in order.motorista) {
+    return String((order.motorista as { username?: string }).username || 'Não informado');
+  }
+  return 'Não informado';
+};
+
 const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose, startDate, endDate, type }) => {
   const [orders, setOrders] = useState<IOrder[]>([]);
   const [modalImage, setModalImage] = useState<string | null>(null);
@@ -370,6 +385,8 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose, 
       .filter((c) => c.tipo === 'retirada' && typeof c.price === 'number' && Number.isFinite(c.price))
       .reduce((sum, c) => sum + Number(c.price), 0);
   const clientTotal = orders.reduce((sum, order) => sum + getOrderTotal(order), 0);
+  const filteredOrderCount = orders.length;
+  const filteredCacambaCount = orders.reduce((sum, order) => sum + (order.cacambas?.length || 0), 0);
   const startLabel = formatFilterDate(startDate);
   const endLabel = formatFilterDate(endDate);
   const reportLabel = startLabel && endLabel
@@ -413,7 +430,11 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose, 
         </ModalHeader>
 
         <ModalBody>
-          <ReportSummary>{reportLabel}</ReportSummary>
+          <ReportSummary>
+            <ReportLine>{reportLabel}</ReportLine>
+            <ReportLine>Quantidade total de pedidos: {filteredOrderCount}</ReportLine>
+            <ReportLine>Quantidade total de caçambas: {filteredCacambaCount}</ReportLine>
+          </ReportSummary>
           <OrdersList>
             {orders.length > 0 ? (
               orders.map(order => {
@@ -458,6 +479,14 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose, 
                         <InfoBlock>
                           <InfoLabel>{conclusionLabel}</InfoLabel>
                           <InfoValue>{conclusionDate}</InfoValue>
+                        </InfoBlock>
+                        <InfoBlock>
+                          <InfoLabel>Motorista</InfoLabel>
+                          <InfoValue>{getDriverName(order)}</InfoValue>
+                        </InfoBlock>
+                        <InfoBlock>
+                          <InfoLabel>Placa do caminhão</InfoLabel>
+                          <InfoValue>{order.placa || 'Não informada'}</InfoValue>
                         </InfoBlock>
                       </InfoGrid>
 

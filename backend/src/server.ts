@@ -883,6 +883,10 @@ app.get('/clients/:id/orders', authenticateToken, isAdmin, async (req, res) => {
 
     const orders = await OrderModel.find(query)
       .populate('cacambas')
+      .populate({
+        path: 'motorista',
+        select: 'username',
+      })
       .sort({ createdAt: -1 });
 
     res.status(200).json(orders);
