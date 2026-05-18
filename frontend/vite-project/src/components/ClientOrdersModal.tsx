@@ -110,6 +110,36 @@ const OrdersList = styled.div`
   -webkit-overflow-scrolling: touch;
 `;
 
+const HeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+`;
+
+const DownloadButton = styled.button`
+  min-height: 34px;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid #2563eb;
+  border-radius: 6px;
+  background: #2563eb;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  transition: background 0.18s ease, border-color 0.18s ease;
+
+  &:hover:enabled {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+`;
+
 const ReportSummary = styled.div`
   margin: 0 1.25rem;
   padding: 0.8rem 0.9rem;
@@ -345,6 +375,19 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose, 
     ? `Total do cliente (Retiradas) no período de ${startLabel} até ${endLabel}: ${formatCurrency(clientTotal)}`
     : `Total do cliente (Retiradas): ${formatCurrency(clientTotal)}`;
 
+  const handleDownload = async () => {
+    if (!orders.length) return;
+    const { downloadClientOrdersPdf } = await import('../utils/clientOrdersPdf');
+    await downloadClientOrdersPdf({
+      client,
+      orders,
+      startDate,
+      endDate,
+      type,
+      clientTotal,
+    });
+  };
+
   return (
     <ModalOverlay onClick={onClose}>
       {modalImage && (
@@ -359,9 +402,14 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose, 
             <TitleAccent />
             <Title>Pedidos de {client.clientName}</Title>
           </TitleWrap>
-          <CloseButton type="button" onClick={onClose} aria-label="Fechar modal">
-            ×
-          </CloseButton>
+          <HeaderActions>
+            <DownloadButton type="button" onClick={handleDownload} disabled={orders.length === 0}>
+              Baixar
+            </DownloadButton>
+            <CloseButton type="button" onClick={onClose} aria-label="Fechar modal">
+              ×
+            </CloseButton>
+          </HeaderActions>
         </ModalHeader>
 
         <ModalBody>

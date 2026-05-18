@@ -118,11 +118,15 @@ const FilterSelect = styled.select`
 const SearchIcon = styled.span`
   position: absolute;
   left: 0.9rem;
-  top: 50%;
+  top: calc(50% + 0.65rem);
   transform: translateY(-50%);
   display: inline-flex;
   color: #9ca3af;
   pointer-events: none;
+
+  @media (max-width: 720px) {
+    top: 50%;
+  }
 `;
 
 const SearchInput = styled.input`
