@@ -70,6 +70,7 @@ test.describe('Motorista', () => {
     await card.getByRole('button', { name: 'Editar' }).first().click();
 
     await page.locator('input').first().fill('436');
+    await page.locator('label', { hasText: 'Tipo de conteúdo' }).locator('xpath=following::select[1]').selectOption('Entulho limpo');
     await page.getByRole('button', { name: /Salvar/i }).click();
     await expect(card.getByText('#436')).toBeVisible();
 
@@ -133,6 +134,7 @@ test.describe('Motorista', () => {
     await expect(card.getByText('#435')).toBeVisible();
     await card.getByRole('button', { name: 'Editar' }).first().click();
     await page.locator('input').first().fill('999');
+    await page.locator('label', { hasText: 'Tipo de conteúdo' }).locator('xpath=following::select[1]').selectOption('Entulho limpo');
     await page.getByRole('button', { name: /Salvar/i }).click();
     await expect(card.getByText('#435')).toBeVisible();
     await expect(card.getByText('#999')).toHaveCount(0);
