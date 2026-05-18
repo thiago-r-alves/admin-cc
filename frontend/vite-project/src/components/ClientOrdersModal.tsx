@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import type { IClient, IOrder } from '../interfaces';
 import CacambaList from './CacambaList';
 import ImageModal from './ImageModal';
+import { downloadClientOrdersPdf } from '../utils/clientOrdersPdf';
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -377,7 +378,6 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose, 
 
   const handleDownload = async () => {
     if (!orders.length) return;
-    const { downloadClientOrdersPdf } = await import('../utils/clientOrdersPdf');
     await downloadClientOrdersPdf({
       client,
       orders,
