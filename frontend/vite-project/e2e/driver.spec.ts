@@ -11,31 +11,31 @@ test.describe('Motorista', () => {
     await page.goto('/motorista');
   });
 
-  test('renderiza pedidos ativos sem preço de admin', async ({ page }) => {
+  test('renderiza pedidos ativos sem preco de admin', async ({ page }) => {
     await expect(page.getByText('Painel do Motorista')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Pedidos Ativos' })).toBeVisible();
     await expect(page.getByText('#2231')).toBeVisible();
     await expect(page.getByText(/R\$/)).toHaveCount(0);
   });
 
-  test('abre modal de registrar caçamba com badge do tipo', async ({ page }) => {
+  test('abre modal de registrar cacamba com badge do tipo', async ({ page }) => {
     await page.getByRole('button', { name: /\+ Adicionar Caçamba/i }).first().click();
     await expect(page.getByText('Registrar Caçamba')).toBeVisible();
     await expect(page.getByText('Dados da Caçamba')).toBeVisible();
     await expect(page.locator('form').getByText(/Retirada|Entrega/).last()).toBeVisible();
   });
 
-  test('exibe ação de concluir pedido quando há pelo menos uma caçamba', async ({ page }) => {
+  test('exibe acao de concluir pedido quando ha pelo menos uma cacamba', async ({ page }) => {
     await expect(page.getByRole('button', { name: 'Concluir Pedido' })).toBeVisible();
   });
 
-  test('oculta concluir pedido quando não há caçamba', async ({ page }) => {
+  test('oculta concluir pedido quando nao ha cacamba', async ({ page }) => {
     const emptyCard = page.locator('article', { hasText: '#2232' }).first();
     await expect(emptyCard).toBeVisible();
     await expect(emptyCard.getByRole('button', { name: 'Concluir Pedido' })).toHaveCount(0);
   });
 
-  test('registra caçamba com sucesso', async ({ page }) => {
+  test('registra cacamba com sucesso', async ({ page }) => {
     const card = page.locator('article', { hasText: '#2232' }).first();
     await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
 
@@ -54,7 +54,7 @@ test.describe('Motorista', () => {
     await expect(card.getByText('#999')).toBeVisible();
   });
 
-  test('valida erro ao registrar caçamba sem imagem', async ({ page }) => {
+  test('valida erro ao registrar cacamba sem imagem', async ({ page }) => {
     const card = page.locator('article', { hasText: '#2232' }).first();
     await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
 
@@ -65,7 +65,34 @@ test.describe('Motorista', () => {
     await expect(page.getByText('Imagem é obrigatória')).toBeVisible();
   });
 
-  test('edita e exclui caçamba', async ({ page }) => {
+  test('retirada exige tipo de conteudo no cadastro de cacamba', async ({ page }) => {
+    const card = page.locator('article', { hasText: '#2231' }).first();
+    await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
+
+    let postCount = 0;
+    await page.route('**/driver/orders/*/cacambas', async (route) => {
+      if (route.request().method() === 'POST') {
+        postCount += 1;
+      }
+      await route.fallback();
+    });
+
+    await page.locator('#cacamba-numero').fill('556');
+    await page.locator('#cacamba-os').fill('556');
+    await page.locator('#cacamba-imagem').setInputFiles({
+      name: 'cacamba.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wn8x9QAAAAASUVORK5CYII=',
+        'base64',
+      ),
+    });
+    await page.getByRole('button', { name: 'Registrar' }).click();
+
+    expect(postCount).toBe(0);
+  });
+
+  test('edita e exclui cacamba', async ({ page }) => {
     const card = page.locator('article', { hasText: '#2231' }).first();
     await card.getByRole('button', { name: 'Editar' }).first().click();
 
@@ -84,7 +111,7 @@ test.describe('Motorista', () => {
     await expect(page.locator('article', { hasText: '#2231' })).toHaveCount(0);
   });
 
-  test('mantém pedido ativo quando concluir falha (500)', async ({ page }) => {
+  test('mantem pedido ativo quando concluir falha (500)', async ({ page }) => {
     await page.route('**/driver/orders/*/complete', async (route) => {
       await route.fulfill({
         status: 500,
@@ -98,7 +125,7 @@ test.describe('Motorista', () => {
     await expect(page.locator('article', { hasText: '#2231' })).toHaveCount(1);
   });
 
-  test('mantém caçamba quando exclusão falha (500)', async ({ page }) => {
+  test('mantem cacamba quando exclusao falha (500)', async ({ page }) => {
     await page.route('**/cacambas/*', async (route) => {
       if (route.request().method() === 'DELETE') {
         await route.fulfill({
@@ -117,7 +144,7 @@ test.describe('Motorista', () => {
     await expect(card.getByText('#435')).toBeVisible();
   });
 
-  test('mantém dados da caçamba quando edição falha (500)', async ({ page }) => {
+  test('mantem dados da cacamba quando edicao falha (500)', async ({ page }) => {
     await page.route('**/cacambas/*', async (route) => {
       if (route.request().method() === 'PATCH') {
         await route.fulfill({
@@ -140,12 +167,12 @@ test.describe('Motorista', () => {
     await expect(card.getByText('#999')).toHaveCount(0);
   });
 
-  test('logout limpa sessão e volta para login', async ({ page }) => {
+  test('logout limpa sessao e volta para login', async ({ page }) => {
     await page.getByRole('button', { name: 'Sair' }).click();
     await expect(page).toHaveURL(/\/$/, { timeout: 15000 });
   });
 
-  test('ver rota abre Google Maps com endereço do pedido', async ({ page }) => {
+  test('ver rota abre google maps com endereco do pedido', async ({ page }) => {
     await page.evaluate(() => {
       (window as any).__openedUrls = [];
       window.open = ((url?: string | URL | undefined) => {

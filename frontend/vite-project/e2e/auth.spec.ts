@@ -39,4 +39,15 @@ test.describe('Autenticação', () => {
     await page.getByRole('button', { name: /Mostrar senha|Ocultar senha/ }).click();
     await expect(password).toHaveAttribute('type', 'text');
   });
+
+  test('nao redireciona quando sessao local expirada', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('token', 'fake.token.value');
+      localStorage.setItem('role', 'admin');
+      localStorage.setItem('token_expires_at', String(Date.now() - 60_000));
+    });
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible();
+  });
 });

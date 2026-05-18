@@ -78,6 +78,35 @@ test.describe('Admin', () => {
     await expect(page.getByText(/Pedidos de/i)).toHaveCount(0);
   });
 
+  test('modal de pedidos do cliente mostra motorista, placa e resumo expandido', async ({ page, isMobile }) => {
+    await openMenuIfMobile(page, isMobile);
+    await page.getByRole('button', { name: 'Clientes' }).click();
+
+    await page.getByRole('button', { name: /^Pedidos$/ }).nth(1).click();
+
+    await expect(page.getByText(/Total do cliente \(Retiradas\)/i)).toBeVisible();
+    await expect(page.getByText(/Motorista/i).first()).toBeVisible();
+    await expect(page.getByText(/adalberto/i).first()).toBeVisible();
+    await expect(page.getByText(/Placa do caminhão/i).first()).toBeVisible();
+    await expect(page.getByText(/FT02E29|ABC1D23/i).first()).toBeVisible();
+  });
+
+  test('modal de pedidos do cliente permite baixar pdf consolidado', async ({ page, isMobile, browserName }) => {
+    test.skip(browserName === 'webkit', 'Download no WebKit do CI pode ser inconsistente para jsPDF blob.');
+    await openMenuIfMobile(page, isMobile);
+    await page.getByRole('button', { name: 'Clientes' }).click();
+
+    await page.getByRole('button', { name: /^Pedidos$/ }).nth(1).click();
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Baixar' }).click(),
+    ]);
+    const filename = download.suggestedFilename();
+    expect(filename).toContain('relatorio_pedidos_');
+    expect(filename).toContain('3GK_HOLDING_E_PARTICIPACOES_OBRA_1');
+  });
+
   test('navega para motoristas e exibe lista', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
     await page.getByRole('button', { name: 'Motoristas' }).click();
