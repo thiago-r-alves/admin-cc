@@ -102,63 +102,6 @@ const ModalBody = styled.div`
   overflow: hidden;
 `;
 
-const FiltersContainer = styled.div`
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.85rem;
-  flex: 0 0 auto;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid #f3f4f6;
-  background: #fffafa;
-
-  @media (max-width: 900px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  @media (max-width: 560px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const FormGroup = styled.div`
-  min-width: 0;
-`;
-
-const Label = styled.label`
-  display: block;
-  margin-bottom: 0.35rem;
-  color: #4b5563;
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.02em;
-`;
-
-const fieldStyles = `
-  width: 100%;
-  min-height: 39px;
-  box-sizing: border-box;
-  padding: 0.58rem 0.65rem;
-  border: 1px solid #d8b4b4;
-  border-radius: 4px;
-  background: #ffffff;
-  color: #374151;
-  font-size: 0.88rem;
-
-  &:focus {
-    outline: none;
-    border-color: #e30613;
-    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
-  }
-`;
-
-const Input = styled.input`
-  ${fieldStyles}
-`;
-
-const Select = styled.select`
-  ${fieldStyles}
-`;
-
 const OrdersList = styled.div`
   min-height: 0;
   flex: 1 1 auto;
@@ -307,6 +250,9 @@ const ImageLayer = styled.div``;
 interface ClientOrdersModalProps {
   client: IClient;
   onClose: () => void;
+  startDate?: string;
+  endDate?: string;
+  type?: 'entrega' | 'retirada';
 }
 
 const typeLabels: Record<IOrder['type'], string> = {
@@ -331,24 +277,20 @@ const formatDateTime = (value?: string) => {
   return new Date(value).toLocaleString('pt-BR');
 };
 
-const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose }) => {
+const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose, startDate, endDate, type }) => {
   const [orders, setOrders] = useState<IOrder[]>([]);
   const [modalImage, setModalImage] = useState<string | null>(null);
-  const [filters, setFilters] = useState({
-    startDate: '',
-    endDate: '',
-    type: '',
-    local: '',
-  });
+
 
   useEffect(() => {
     const fetchOrders = async () => {
       const query = new URLSearchParams();
       const apiUrl = import.meta.env.VITE_API_URL;
-      if (filters.startDate) query.append('startDate', filters.startDate);
-      if (filters.endDate) query.append('endDate', filters.endDate);
-      if (filters.type) query.append('type', filters.type);
-      if (filters.local) query.append('local', filters.local);
+      if (startDate && endDate) {
+        query.append('startDate', startDate);
+        query.append('endDate', endDate);
+      }
+      if (type) query.append('type', type);
 
       const response = await fetch(`${apiUrl}/clients/${client._id}/orders?${query.toString()}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
@@ -360,11 +302,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose }
     };
 
     fetchOrders();
-  }, [client._id, filters]);
-
-  const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  };
+  }, [client._id, startDate, endDate, type]);
 
   const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -388,33 +326,6 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose }
         </ModalHeader>
 
         <ModalBody>
-          <FiltersContainer>
-            <FormGroup>
-              <Label htmlFor="orders-start-date">Data Inicial</Label>
-              <Input id="orders-start-date" type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} />
-            </FormGroup>
-            <FormGroup>
-              <Label htmlFor="orders-end-date">Data Final</Label>
-              <Input id="orders-end-date" type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} />
-            </FormGroup>
-            <FormGroup>
-              <Label htmlFor="orders-type">Tipo</Label>
-              <Select id="orders-type" name="type" value={filters.type} onChange={handleFilterChange}>
-                <option value="">Todos</option>
-                <option value="entrega">Entrega</option>
-                <option value="retirada">Retirada</option>
-              </Select>
-            </FormGroup>
-            <FormGroup>
-              <Label htmlFor="orders-local">Local</Label>
-              <Select id="orders-local" name="local" value={filters.local} onChange={handleFilterChange}>
-                <option value="">Todos</option>
-                <option value="via_publica">Via pública</option>
-                <option value="canteiro_obra">Canteiro de obra</option>
-              </Select>
-            </FormGroup>
-          </FiltersContainer>
-
           <OrdersList>
             {orders.length > 0 ? (
               orders.map(order => {

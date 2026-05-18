@@ -319,6 +319,27 @@ export const setupMockApi = async (page: Page) => {
     }
 
     if (pathname === '/clients' && method === 'GET') {
+      const startDate = searchParams.get('startDate');
+      const endDate = searchParams.get('endDate');
+
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+
+        const concludedClientIds = new Set(
+          orders
+            .filter((o) => o.status === 'concluido')
+            .filter((o) => {
+              const updated = new Date(o.updatedAt).getTime();
+              return updated >= start.getTime() && updated <= end.getTime();
+            })
+            .map((o) => o.clientId),
+        );
+
+        return json(route, clients.filter((c) => concludedClientIds.has(c._id)));
+      }
+
       return json(route, clients);
     }
     if (pathname === '/clients' && method === 'POST') {
@@ -359,6 +380,9 @@ export const setupMockApi = async (page: Page) => {
     if (/^\/clients\/[^/]+\/orders$/.test(pathname) && method === 'GET') {
       const clientId = pathname.split('/')[2];
       let filtered = orders.filter((o) => o.clientId === clientId);
+      if (searchParams.get('status')) {
+        filtered = filtered.filter((o) => o.status === searchParams.get('status'));
+      }
       if (searchParams.get('type')) {
         filtered = filtered.filter((o) => o.type === searchParams.get('type'));
       }

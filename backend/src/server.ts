@@ -294,6 +294,81 @@ app.delete('/orders/:id', authenticateToken, isAdmin, async (req, res) => {
 // Listar todos os clientes
 app.get('/clients', authenticateToken, isAdmin, async (req: express.Request, res: express.Response) => {
     try {
+        const { startDate, endDate, type } = req.query;
+        const hasTypeFilter = typeof type === 'string' && (type === 'entrega' || type === 'retirada');
+
+        if (startDate && endDate) {
+            const start = new Date(startDate as string);
+            const end = new Date(endDate as string);
+            end.setHours(23, 59, 59, 999);
+
+            const ordersQuery: any = {
+                status: 'concluido',
+                updatedAt: { $gte: start, $lte: end },
+            };
+            if (hasTypeFilter) {
+                ordersQuery.type = type;
+            }
+
+            const concludedOrders = await OrderModel.find(ordersQuery)
+                .select('clientId updatedAt')
+                .lean();
+
+            const firstCompletionByClient = new Map<string, number>();
+
+            for (const order of concludedOrders as Array<{ clientId?: unknown; updatedAt?: Date | string }>) {
+                const clientId = String(order.clientId ?? '');
+                if (!clientId) continue;
+
+                const updatedAtMs = new Date(order.updatedAt ?? 0).getTime();
+                if (!Number.isFinite(updatedAtMs)) continue;
+
+                const current = firstCompletionByClient.get(clientId);
+                if (current === undefined || updatedAtMs < current) {
+                    firstCompletionByClient.set(clientId, updatedAtMs);
+                }
+            }
+
+            const clientIds = Array.from(firstCompletionByClient.keys());
+            if (!clientIds.length) {
+                return res.status(200).json([]);
+            }
+
+            const clients = await ClientModel.find({ _id: { $in: clientIds } }).lean();
+            const clientById = new Map(clients.map(client => [String(client._id), client]));
+
+            const sortedClients = clientIds
+                .map((id) => ({
+                    client: clientById.get(id),
+                    firstCompletion: firstCompletionByClient.get(id) ?? 0,
+                }))
+                .filter((item): item is { client: any; firstCompletion: number } => Boolean(item.client))
+                .sort((a, b) => {
+                    if (b.firstCompletion !== a.firstCompletion) {
+                        return b.firstCompletion - a.firstCompletion;
+                    }
+                    const aName = String(a.client.clientName ?? '').toLocaleLowerCase('pt-BR');
+                    const bName = String(b.client.clientName ?? '').toLocaleLowerCase('pt-BR');
+                    return aName.localeCompare(bName, 'pt-BR');
+                })
+                .map((item) => item.client);
+
+            return res.status(200).json(sortedClients);
+        }
+
+        if (hasTypeFilter) {
+            const typedOrders = await OrderModel.find({ type }).select('clientId').lean();
+            const clientIds = Array.from(
+                new Set(
+                    typedOrders
+                        .map((o: any) => String(o.clientId))
+                        .filter(Boolean)
+                )
+            );
+            const clients = await ClientModel.find({ _id: { $in: clientIds } }).sort({ clientName: 1 });
+            return res.status(200).json(clients);
+        }
+
         const clients = await ClientModel.find().sort({ clientName: 1 }); // Alterado de 'name' para 'clientName'
         res.status(200).json(clients);
     } catch (error) {
@@ -685,7 +760,7 @@ server.listen(port, () => {
 app.get('/clients/:id/orders', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { startDate, endDate, type, local } = req.query;
+    const { startDate, endDate, type, local, status } = req.query;
 
     const query: any = { clientId: id };
 
@@ -700,6 +775,10 @@ app.get('/clients/:id/orders', authenticateToken, isAdmin, async (req, res) => {
     // Filtro de tipo de pedido
     if (type) {
       query.type = type;
+    }
+
+    if (status) {
+      query.status = status;
     }
     
     // Filtro de local da caçamba (requer uma consulta mais complexa)

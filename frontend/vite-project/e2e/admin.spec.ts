@@ -60,17 +60,19 @@ test.describe('Admin', () => {
     await expect(page.getByText('3GK HOLDING E PARTICIPACOES OBRA 1').first()).toBeVisible();
   });
 
-  test('navega para clientes, abre modal de pedidos e aplica filtro', async ({ page, isMobile }) => {
+  test('navega para clientes, abre modal de pedidos e aplica filtro externo de tipo', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
     await page.getByRole('button', { name: 'Clientes' }).click();
     await expect(page.getByText('Gerenciamento de Clientes')).toBeVisible();
+    await page.locator('#clients-order-type').selectOption('retirada');
     await page.locator('button', { hasText: /^Pedidos$/ }).nth(1).click();
 
     await expect(page.getByRole('button', { name: 'Fechar modal' })).toBeVisible();
-    await expect(page.getByText('Data Inicial')).toBeVisible();
-    await expect(page.getByText('Tipo')).toBeVisible();
-    await page.locator('#orders-type').selectOption('retirada');
+    await expect(page.locator('#orders-type')).toHaveCount(0);
+    await expect(page.locator('#orders-local')).toHaveCount(0);
+    await expect(page.locator('#orders-status')).toHaveCount(0);
     await expect(page.getByText('Pedido #1500')).toHaveCount(0);
+    await expect(page.getByText('Pedido #2231')).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Fechar modal' }).click();
     await expect(page.getByText(/Pedidos de/i)).toHaveCount(0);
@@ -85,12 +87,19 @@ test.describe('Admin', () => {
   });
 
   test('reatribui motorista e mantém pedido acessível no novo filtro', async ({ page }) => {
-    await expect(page.getByText('#2231')).toBeVisible();
-    const orderCard = page.locator('div', { hasText: '#2231' }).first();
-    await orderCard.locator('select').first().selectOption('drv-2');
+    const firstOrderNumber = (await page.getByText(/#\d+/).first().innerText()).trim();
+    const reassignSelect = page.locator('select').first();
+    const patchOrder = page.waitForResponse(
+      (r) => /\/orders\/[^/]+$/.test(new URL(r.url()).pathname) && r.request().method() === 'PATCH',
+      { timeout: 15_000 },
+    );
+    await Promise.all([
+      patchOrder,
+      reassignSelect.selectOption('drv-2'),
+    ]);
 
     await page.getByRole('button', { name: 'jhonatan' }).click();
-    await expect(page.getByText('#2231')).toBeVisible();
+    await expect(page.getByText(firstOrderNumber)).toBeVisible();
   });
 
   test('exclui pedido pendente', async ({ page }) => {
@@ -293,6 +302,19 @@ test.describe('Admin', () => {
 
     await expect(page.getByText('PFF INOVA IND E COM DE MAQ OBRA 1')).toBeVisible();
     await expect(page.getByText('3GK HOLDING E PARTICIPACOES OBRA 1')).toHaveCount(0);
+  });
+
+  test('filtra clientes por período de conclusão', async ({ page, isMobile }) => {
+    await openMenuIfMobile(page, isMobile);
+    await page.getByRole('button', { name: 'Clientes' }).click();
+    await expect(page.getByText('3GK HOLDING E PARTICIPACOES OBRA 1')).toBeVisible();
+    await expect(page.getByText('PFF INOVA IND E COM DE MAQ OBRA 1')).toBeVisible();
+
+    await page.locator('#clients-start-date').fill('2026-05-16');
+    await page.locator('#clients-end-date').fill('2026-05-16');
+
+    await expect(page.getByText('3GK HOLDING E PARTICIPACOES OBRA 1')).toBeVisible();
+    await expect(page.getByText('PFF INOVA IND E COM DE MAQ OBRA 1')).toHaveCount(0);
   });
 
   test('não envia criação de cliente sem campos obrigatórios', async ({ page, isMobile }) => {

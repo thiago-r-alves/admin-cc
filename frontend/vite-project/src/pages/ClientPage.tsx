@@ -27,7 +27,7 @@ const Title = styled.h2`
 
 const Toolbar = styled.div`
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 0.8rem;
 
   @media (max-width: 720px) {
@@ -40,10 +40,78 @@ const SearchWrap = styled.div`
   position: relative;
   flex: 1 1 auto;
   min-width: 260px;
+  padding-top: 1.3rem;
 
   @media (max-width: 720px) {
     width: 100%;
     min-width: 0;
+    padding-top: 0;
+  }
+`;
+
+const DateField = styled.div`
+  flex: 0 0 auto;
+  min-width: 150px;
+
+  @media (max-width: 720px) {
+    width: 100%;
+    min-width: 0;
+  }
+`;
+
+const TypeField = styled.div`
+  flex: 0 0 auto;
+  min-width: 160px;
+
+  @media (max-width: 720px) {
+    width: 100%;
+    min-width: 0;
+  }
+`;
+
+const DateLabel = styled.label`
+  display: block;
+  margin-bottom: 0.3rem;
+  color: #6b7280;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+`;
+
+const DateInput = styled.input`
+  width: 100%;
+  min-height: 43px;
+  box-sizing: border-box;
+  padding: 0.58rem 0.65rem;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 0.88rem;
+
+  &:focus {
+    outline: none;
+    border-color: #e30613;
+    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
+  }
+`;
+
+const FilterSelect = styled.select`
+  width: 100%;
+  min-height: 43px;
+  box-sizing: border-box;
+  padding: 0.58rem 0.65rem;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 0.88rem;
+
+  &:focus {
+    outline: none;
+    border-color: #e30613;
+    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
   }
 `;
 
@@ -102,6 +170,46 @@ const AddButton = styled.button`
   }
 `;
 
+const ClearButton = styled.button`
+  flex: 0 0 auto;
+  min-height: 43px;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d8b4b4;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #6b1f1f;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+
+  &:hover {
+    background: #fff1f2;
+    border-color: #e30613;
+    color: #e30613;
+  }
+
+  @media (max-width: 720px) {
+    width: 100%;
+  }
+`;
+
+const ToolbarActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-top: 1.3rem;
+
+  @media (max-width: 720px) {
+    width: 100%;
+    padding-top: 0;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+`;
+
 const LoadingState = styled.div`
   padding: 1.2rem;
   border: 1px dashed #fecaca;
@@ -118,11 +226,30 @@ const ClientPage: React.FC = () => {
   const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<IClient | null>(null);
   const [search, setSearch] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [orderType, setOrderType] = useState('');
   const apiUrl = import.meta.env.VITE_API_URL;
+  const currentFilters = {
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
+    type: orderType || undefined,
+  };
 
-  const fetchClients = async () => {
+
+  const fetchClients = async (filters?: { startDate?: string; endDate?: string; type?: string }) => {
     try {
-      const response = await fetch(`${apiUrl}/clients`, {
+      const query = new URLSearchParams();
+      if (filters?.startDate && filters?.endDate) {
+        query.append('startDate', filters.startDate);
+        query.append('endDate', filters.endDate);
+      }
+      if (filters?.type) {
+        query.append('type', filters.type);
+      }
+
+      const url = query.toString() ? `${apiUrl}/clients?${query.toString()}` : `${apiUrl}/clients`;
+      const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
@@ -142,9 +269,22 @@ const ClientPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchClients();
+    void fetchClients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (startDate && endDate) {
+      void fetchClients(currentFilters);
+      return;
+    }
+    if (orderType) {
+      void fetchClients(currentFilters);
+      return;
+    }
+    void fetchClients(currentFilters);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, orderType]);
 
   const handleAddClient = async (clientData: Omit<IClient, '_id'>) => {
     try {
@@ -158,7 +298,7 @@ const ClientPage: React.FC = () => {
       });
 
       if (response.ok) {
-        fetchClients();
+        fetchClients(currentFilters);
         setShowForm(false);
       } else {
         console.error('Erro ao criar cliente');
@@ -182,7 +322,7 @@ const ClientPage: React.FC = () => {
       });
 
       if (response.ok) {
-        fetchClients();
+        fetchClients(currentFilters);
         setEditingClient(null);
         setShowForm(false);
       } else {
@@ -206,7 +346,7 @@ const ClientPage: React.FC = () => {
       });
 
       if (response.ok) {
-        fetchClients();
+        fetchClients(currentFilters);
       } else {
         console.error('Erro ao excluir cliente');
       }
@@ -223,6 +363,13 @@ const ClientPage: React.FC = () => {
   const handleViewOrdersClick = (client: IClient) => {
     setSelectedClient(client);
     setIsOrdersModalOpen(true);
+  };
+
+  const handleClearFilters = () => {
+    setStartDate('');
+    setEndDate('');
+    setOrderType('');
+    setSearch('');
   };
 
   const norm = (s: unknown) =>
@@ -261,6 +408,41 @@ const ClientPage: React.FC = () => {
 
       {!showForm && (
         <Toolbar>
+          <DateField>
+            <DateLabel htmlFor="clients-start-date">Data Inicial</DateLabel>
+            <DateInput
+              id="clients-start-date"
+              type="date"
+              lang="pt-BR"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </DateField>
+
+          <DateField>
+            <DateLabel htmlFor="clients-end-date">Data Final</DateLabel>
+            <DateInput
+              id="clients-end-date"
+              type="date"
+              lang="pt-BR"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </DateField>
+
+          <TypeField>
+            <DateLabel htmlFor="clients-order-type">Tipo</DateLabel>
+            <FilterSelect
+              id="clients-order-type"
+              value={orderType}
+              onChange={(e) => setOrderType(e.target.value)}
+            >
+              <option value="">Todos</option>
+              <option value="entrega">Colocação</option>
+              <option value="retirada">Retirada</option>
+            </FilterSelect>
+          </TypeField>
+
           <SearchWrap>
             <SearchIcon aria-hidden="true">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
@@ -276,9 +458,15 @@ const ClientPage: React.FC = () => {
             />
           </SearchWrap>
 
-          <AddButton onClick={() => setShowForm(true)}>
-            + Adicionar Cliente
-          </AddButton>
+          <ToolbarActions>
+            <ClearButton type="button" onClick={handleClearFilters}>
+              Limpar Filtro
+            </ClearButton>
+
+            <AddButton onClick={() => setShowForm(true)}>
+              + Adicionar Cliente
+            </AddButton>
+          </ToolbarActions>
         </Toolbar>
       )}
 
@@ -309,6 +497,9 @@ const ClientPage: React.FC = () => {
       {isOrdersModalOpen && selectedClient && (
         <ClientOrdersModal
           client={selectedClient}
+          startDate={currentFilters.startDate}
+          endDate={currentFilters.endDate}
+          type={currentFilters.type as 'entrega' | 'retirada' | undefined}
           onClose={() => setIsOrdersModalOpen(false)}
         />
       )}

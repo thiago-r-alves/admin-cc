@@ -924,10 +924,18 @@ const AdminPage: React.FC = () => {
     [orders, selectedDriverId]
   );
 
-  const pendingOrders = useMemo(
-    () => driverOrders.filter(o => o.status !== 'concluido'),
-    [driverOrders]
-  );
+  const pendingOrders = useMemo(() => {
+    const pending = driverOrders.filter(o => o.status !== 'concluido');
+    return [...pending].sort((a, b) => {
+      const aTime = new Date((a as any).createdAt ?? 0).getTime();
+      const bTime = new Date((b as any).createdAt ?? 0).getTime();
+      if (aTime !== bTime) return bTime - aTime;
+
+      const an = typeof a.orderNumber === 'number' ? a.orderNumber : -Infinity;
+      const bn = typeof b.orderNumber === 'number' ? b.orderNumber : -Infinity;
+      return bn - an;
+    });
+  }, [driverOrders]);
   const pendingCountByDriver = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const driver of drivers) counts[driver._id] = 0;
