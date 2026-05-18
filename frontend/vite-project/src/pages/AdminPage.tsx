@@ -4,6 +4,7 @@ import type { ICacamba, IDriver, IOrder } from '../interfaces';
 import CreateOrderModal from '../components/CreateOrderModal';
 import CreateDriverModal from '../components/CreateDriverModal';
 import CacambaList from '../components/CacambaList';
+import CacambaMetaModal from '../components/CacambaMetaModal';
 import ClientPage from './ClientPage';
 // socket.io-client and PDF download will be dynamically imported to avoid parsing on initial load
 
@@ -312,13 +313,14 @@ const OrderNumber = styled.span`
   font-size: 1rem;
 `;
 
-const OrderTypeBadge = styled.span`
+const OrderTypeBadge = styled.span<{ $type: IOrder['type'] }>`
   display: inline-flex;
   align-items: center;
   min-height: 24px;
   border-radius: 4px;
-  background: #374151;
-  color: #ffffff;
+  background: ${({ $type }) => ($type === 'retirada' ? '#fee2e2' : '#dcfce7')};
+  color: ${({ $type }) => ($type === 'retirada' ? '#b91c1c' : '#166534')};
+  border: 1px solid ${({ $type }) => ($type === 'retirada' ? '#fecaca' : '#bbf7d0')};
   padding: 0.25rem 0.55rem;
   font-size: 0.68rem;
   font-weight: 900;
@@ -602,10 +604,14 @@ const SectionContainer = styled.div`
 
 const DeleteOrderButton = styled(Button)`
   padding: 0.75rem 1rem;
-  background-color: #ef4444;
+  background-color: #e30613;
   font-size: 0.82rem;
   font-weight: 900;
   text-transform: uppercase;
+
+  &:hover {
+    background-color: #c9000b;
+  }
 
   @media (max-width: 768px) {
     flex: 1 1 140px;
@@ -623,7 +629,7 @@ const SelectInput = styled.select`
 `;
 
 const ActionButton = styled.button`
-  background-color: #3b82f6;
+  background-color: #374151;
   color: white;
   padding: 0.75rem 1rem;
   border: none;
@@ -635,11 +641,19 @@ const ActionButton = styled.button`
   transition: background-color 0.2s;
   
   &:hover {
-    background-color: #2563eb;
+    background-color: #1f2937;
   }
 
   @media (max-width: 768px) {
     flex: 1 1 140px;
+  }
+`;
+
+const DownloadOrderButton = styled(ActionButton)`
+  background-color: #2563eb;
+
+  &:hover {
+    background-color: #1d4ed8;
   }
 `;
 
@@ -914,6 +928,10 @@ const AdminPage: React.FC = () => {
   const [isDriverModalOpen, setIsDriverModalOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<IDriver | null>(null);
   const [modalImage, setModalImage] = useState<string | null>(null);
+  const [cacambaMetaModal, setCacambaMetaModal] = useState<{
+    mode: 'contentType' | 'price';
+    cacamba: ICacamba;
+  } | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string>(''); // NOVO
   const [completedPage, setCompletedPage] = useState(1);
   const PAGE_SIZE = 5;
@@ -1096,6 +1114,32 @@ const AdminPage: React.FC = () => {
     }
   };
 
+  const handleUpdateCacambaMeta = async (
+    cacambaId: string,
+    updates: { contentType?: string; price?: number }
+  ) => {
+    const response = await authenticatedFetch(`${apiUrl}/cacambas/${cacambaId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || 'Erro ao atualizar dados da caçamba.');
+    }
+
+    const updated = data?.cacamba as ICacamba | undefined;
+    if (!updated?._id) {
+      throw new Error('Resposta inválida ao atualizar caçamba.');
+    }
+
+    setOrders((prev) =>
+      prev.map((order) => ({
+        ...order,
+        cacambas: (order.cacambas || []).map((c) => (c._id === updated._id ? { ...c, ...updated } : c)),
+      }))
+    );
+  };
+
   // Funções de Gerenciamento de Motoristas
   const handleEditDriver = (driver: IDriver) => {
     setEditingDriver(driver);
@@ -1140,11 +1184,15 @@ const AdminPage: React.FC = () => {
     window.location.href = '/';
   };
 
-  const renderCompletedCacambas = (cacambas: ICacamba[]) => (
+  const renderCompletedCacambas = (order: IOrder, cacambas: ICacamba[]) => (
     <CacambaList
       cacambas={cacambas}
       onImageClick={setModalImage}
       showTitle={false}
+      adminMetaActions={order.type === 'retirada'}
+      canEditPrice={order.type === 'retirada' && order.status === 'concluido'}
+      onEditContentType={(cacamba) => setCacambaMetaModal({ mode: 'contentType', cacamba })}
+      onEditPrice={(cacamba) => setCacambaMetaModal({ mode: 'price', cacamba })}
     />
   );
 
@@ -1160,7 +1208,7 @@ const AdminPage: React.FC = () => {
           <OrderHeaderMeta>
             <OrderNumber>#{order.orderNumber ?? '-'}</OrderNumber>
           </OrderHeaderMeta>
-          <OrderTypeBadge>{typeLabels[order.type] ?? order.type}</OrderTypeBadge>
+          <OrderTypeBadge $type={order.type}>{typeLabels[order.type] ?? order.type}</OrderTypeBadge>
         </OrderCardHeader>
 
         <OrderCardBody>
@@ -1199,11 +1247,14 @@ const AdminPage: React.FC = () => {
           {((order.cacambas?.length ?? 0) > 0) && (
             <CacambaSection>
               {order.status === 'concluido' ? (
-                renderCompletedCacambas(order.cacambas || [])
+                renderCompletedCacambas(order, order.cacambas || [])
               ) : (
                 <CacambaList
                   cacambas={order.cacambas || []}
                   onImageClick={setModalImage}
+                  adminMetaActions={order.type === 'retirada'}
+                  canEditPrice={false}
+                  onEditContentType={(cacamba) => setCacambaMetaModal({ mode: 'contentType', cacamba })}
                 />
               )}
             </CacambaSection>
@@ -1246,16 +1297,15 @@ const AdminPage: React.FC = () => {
             <OrderActions>
               <DeleteOrderButton onClick={() => handleDeleteOrder(order._id)}>Excluir</DeleteOrderButton>
               {order.status === 'concluido' && (
-                <ActionButton
+                <DownloadOrderButton
                   type="button"
                   onClick={async () => {
                     const { downloadOrderPdf } = await import('../utils/orderPdf');
                     downloadOrderPdf(order);
                   }}
-                  style={{ background:'#2563eb' }}
                 >
                   Baixar Pedido
-                </ActionButton>
+                </DownloadOrderButton>
               )}
             </OrderActions>
           </OrderFooter>
@@ -1272,6 +1322,16 @@ const AdminPage: React.FC = () => {
       <GlobalStyle />
       <AdminContainer>
         {modalImage && <ImageModal url={modalImage} onClose={() => setModalImage(null)} />}
+        {cacambaMetaModal && (
+          <CacambaMetaModal
+            mode={cacambaMetaModal.mode}
+            cacamba={cacambaMetaModal.cacamba}
+            onClose={() => setCacambaMetaModal(null)}
+            onSave={async (updates) => {
+              await handleUpdateCacambaMeta(cacambaMetaModal.cacamba._id, updates);
+            }}
+          />
+        )}
 
         <AdminShell>
           <Sidebar $open={isSidebarOpen}>

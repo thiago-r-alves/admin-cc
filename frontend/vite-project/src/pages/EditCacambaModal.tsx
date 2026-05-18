@@ -1,6 +1,6 @@
 import React, { useState } from 'react'; // Remova 'useEffect' daqui
 import styled from 'styled-components';
-import type { ICacamba, OrderType } from '../interfaces';
+import { CACAMBA_CONTENT_TYPES, type CacambaContentType, type ICacamba, type OrderType } from '../interfaces';
 
 const ModalOverlay = styled.div`
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -68,9 +68,11 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
   const [numero, setNumero] = useState(props.cacamba.numero);
   const [horaServicoDigitos, setHoraServicoDigitos] = useState(props.cacamba.horaServicoDigitos || '');
   const [tipo, setTipo] = useState<'entrega' | 'retirada'>(forcedTipo);
+  const [contentType, setContentType] = useState<CacambaContentType | ''>((props.cacamba.contentType || '') as CacambaContentType | '');
   const [formData, setFormData] = useState({ local: props.cacamba.local || 'via_publica' });
   const [file, setFile] = useState<File | null>(null);
   const [imgError, setImgError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false); // <-- ADICIONADO
 
   const apiUrl = import.meta.env.VITE_API_URL; // <-- ADICIONADO
@@ -116,6 +118,7 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
+    setFormError(null);
     setSaving(true);
 
     try {
@@ -123,6 +126,14 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
       fd.append('numero', numero);
       fd.append('horaServicoDigitos', horaServicoDigitos);
       fd.append('tipo', tipo);
+      if (forcedTipo === 'retirada') {
+        if (!contentType) {
+          setFormError('Tipo de conteúdo é obrigatório para retirada.');
+          setSaving(false);
+          return;
+        }
+        fd.append('contentType', contentType);
+      }
       fd.append('local', formData.local || ''); // Adicionar fallback para string vazia
       if (file) fd.append('image', file);
 
@@ -191,6 +202,22 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
             </Select>
           </FormGroup>
 
+          {forcedTipo === 'retirada' && (
+            <FormGroup>
+              <Label>Tipo de conteúdo</Label>
+              <Select
+                value={contentType}
+                onChange={e => setContentType(e.target.value as CacambaContentType | '')}
+                required
+              >
+                <option value="">Selecione...</option>
+                {CACAMBA_CONTENT_TYPES.map((option) => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </Select>
+            </FormGroup>
+          )}
+
           <FormGroup>
             <Label>Local</Label>
             <Select name="local" value={formData.local} onChange={handleChange}>
@@ -214,6 +241,7 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
             <SubmitButton type="submit" disabled={saving}>{saving ? 'Salvando...' : 'Salvar Alterações'}</SubmitButton>
             <CancelButton type="button" onClick={props.onClose} disabled={saving}>Cancelar</CancelButton>
           </ButtonGroup>
+          {formError && <ErrorText>{formError}</ErrorText>}
         </Form>
       </ModalContent>
     </ModalOverlay>

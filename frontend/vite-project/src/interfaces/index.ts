@@ -19,10 +19,30 @@ export interface IDriver {
   username: string;
 }
 
+export const CACAMBA_CONTENT_TYPES = [
+  'Entulho limpo',
+  'Entulho misto',
+  'Entulho com madeira',
+  'Terra',
+  'Madeira limpa',
+  'Madeira mista',
+  'Madeira MDF',
+  'Lixo diversos',
+  'Gesso',
+  'Gesso acartonado',
+  'PMTFGP',
+  'Sucatas',
+  'Residuos contaminados',
+] as const;
+
+export type CacambaContentType = typeof CACAMBA_CONTENT_TYPES[number];
+
 export interface ICacamba {
   _id: string;
   numero: string;
   tipo: 'entrega' | 'retirada';
+  contentType?: CacambaContentType;
+  price?: number;
   local?: string;
   orderId: string;
   imageUrl?: string;

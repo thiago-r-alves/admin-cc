@@ -88,6 +88,26 @@ const ServiceOrder = styled.p`
   }
 `;
 
+const ContentTypeInfo = styled.p`
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  color: #374151;
+
+  strong {
+    color: #111827;
+  }
+`;
+
+const PriceInfo = styled.p`
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  color: #374151;
+
+  strong {
+    color: #111827;
+  }
+`;
+
 const ImageContainer = styled.div`
   margin-left: 0.35rem;
   flex: 0 0 auto;
@@ -102,13 +122,18 @@ const CacambaImage = styled.img`
   background: #fff;
 `;
 
+const ActionRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+`;
+
 const ActionButton = styled.button<{ color?: string }>`
   background-color: ${({ color }) => color || '#3b82f6'};
   color: white;
   border: none;
   border-radius: 4px;
   padding: 0.42rem 0.9rem;
-  margin-right: 8px;
   font-size: 0.9rem;
   font-weight: 800;
   cursor: pointer;
@@ -126,6 +151,10 @@ interface CacambaListProps {
   onEdit?: (cacamba: ICacamba) => void;
   onDelete?: (cacambaId: string) => void;
   showTitle?: boolean;
+  adminMetaActions?: boolean;
+  canEditPrice?: boolean;
+  onEditContentType?: (cacamba: ICacamba) => void;
+  onEditPrice?: (cacamba: ICacamba) => void;
 }
 
 const CacambaList: React.FC<CacambaListProps> = ({
@@ -134,6 +163,10 @@ const CacambaList: React.FC<CacambaListProps> = ({
   onEdit,
   onDelete,
   showTitle = true,
+  adminMetaActions = false,
+  canEditPrice = false,
+  onEditContentType,
+  onEditPrice,
 }) => {
   if (cacambas.length === 0) {
     return <EmptyState>Nenhuma caçamba registrada ainda</EmptyState>;
@@ -192,6 +225,18 @@ const CacambaList: React.FC<CacambaListProps> = ({
                   <strong>Ordem de serviço:</strong> {cacamba.horaServicoDigitos}
                 </ServiceOrder>
               )}
+
+              {cacamba.contentType && (
+                <ContentTypeInfo>
+                  <strong>Conteúdo:</strong> {cacamba.contentType}
+                </ContentTypeInfo>
+              )}
+
+              {typeof cacamba.price === 'number' && Number.isFinite(cacamba.price) && (
+                <PriceInfo>
+                  <strong>Valor:</strong> {cacamba.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </PriceInfo>
+              )}
             </InfoSection>
 
             <ImageContainer>
@@ -216,14 +261,24 @@ const CacambaList: React.FC<CacambaListProps> = ({
             </ImageContainer>
           </CardContent>
 
-          <div>
+          <ActionRow>
             {onEdit && <ActionButton onClick={() => onEdit(cacamba)}>Editar</ActionButton>}
             {onDelete && (
               <ActionButton color="#ef4444" onClick={() => onDelete(cacamba._id)}>
                 Excluir
               </ActionButton>
             )}
-          </div>
+            {adminMetaActions && cacamba.tipo === 'retirada' && onEditContentType && (
+              <ActionButton color="#374151" onClick={() => onEditContentType(cacamba)}>
+                Editar conteúdo
+              </ActionButton>
+            )}
+            {adminMetaActions && canEditPrice && cacamba.tipo === 'retirada' && onEditPrice && (
+              <ActionButton color="#2563eb" onClick={() => onEditPrice(cacamba)}>
+                {typeof cacamba.price === 'number' ? 'Editar valor' : 'Adicionar valor'}
+              </ActionButton>
+            )}
+          </ActionRow>
         </CacambaCard>
       ))}
     </Container>

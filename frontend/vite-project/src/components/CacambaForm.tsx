@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import type { ICacamba, OrderType } from '../interfaces';
+import { CACAMBA_CONTENT_TYPES, type CacambaContentType, type ICacamba, type OrderType } from '../interfaces';
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -285,6 +285,7 @@ const CacambaForm: React.FC<CacambaFormProps> = (props) => {
   const [numero, setNumero] = useState('');
   const [horaServicoDigitos, setHoraServicoDigitos] = useState('');
   const [local, setLocal] = useState<'via_publica' | 'canteiro_obra'>('via_publica');
+  const [contentType, setContentType] = useState<CacambaContentType | ''>('');
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');             // ErrorMessage único
@@ -323,6 +324,10 @@ const CacambaForm: React.FC<CacambaFormProps> = (props) => {
       setError('Imagem é obrigatória');
       return;
     }
+    if (orderType === 'retirada' && !contentType) {
+      setError('Tipo de conteúdo é obrigatório para retirada.');
+      return;
+    }
 
     setLoading(true);
     setError('');
@@ -333,6 +338,9 @@ const CacambaForm: React.FC<CacambaFormProps> = (props) => {
       formData.append('tipo', orderType);
       formData.append('local', local);
       formData.append('horaServicoDigitos', horaServicoDigitos);
+      if (orderType === 'retirada') {
+        formData.append('contentType', contentType);
+      }
       files.forEach(file => formData.append('image', file));
       const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -355,6 +363,7 @@ const CacambaForm: React.FC<CacambaFormProps> = (props) => {
       setNumero('');
       setHoraServicoDigitos('');
       setLocal('via_publica');
+      setContentType('');
       setFiles([]);
       setError('');
     } catch (err) {
@@ -426,6 +435,23 @@ const CacambaForm: React.FC<CacambaFormProps> = (props) => {
                     <option value="canteiro_obra">Canteiro de obra</option>
                   </Select>
                 </Field>
+
+                {orderType === 'retirada' && (
+                  <Field $span={2}>
+                    <Label htmlFor="cacamba-content-type">Tipo de conteúdo</Label>
+                    <Select
+                      id="cacamba-content-type"
+                      value={contentType}
+                      onChange={e => setContentType(e.target.value as CacambaContentType | '')}
+                      required
+                    >
+                      <option value="">Selecione...</option>
+                      {CACAMBA_CONTENT_TYPES.map((option) => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </Select>
+                  </Field>
+                )}
               </FieldGrid>
             </Section>
 

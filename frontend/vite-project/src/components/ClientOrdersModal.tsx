@@ -110,6 +110,17 @@ const OrdersList = styled.div`
   -webkit-overflow-scrolling: touch;
 `;
 
+const ReportSummary = styled.div`
+  margin: 0 1.25rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #fffafa;
+  color: #111827;
+  font-size: 0.92rem;
+  font-weight: 800;
+`;
+
 const OrderCard = styled.article`
   overflow: hidden;
   border: 1px solid #fecaca;
@@ -221,6 +232,17 @@ const SectionTitle = styled.h4`
   font-weight: 900;
 `;
 
+const OrderTotals = styled.div`
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed #f1d4d4;
+  display: flex;
+  justify-content: flex-end;
+  color: #111827;
+  font-size: 0.9rem;
+  font-weight: 900;
+`;
+
 const ImageContainer = styled.div`
   display: flex;
   flex-wrap: wrap;
@@ -305,6 +327,23 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose, 
   }, [client._id, startDate, endDate, type]);
 
   const apiUrl = import.meta.env.VITE_API_URL;
+  const formatCurrency = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const formatFilterDate = (value?: string) => {
+    if (!value) return '';
+    const [year, month, day] = value.split('-');
+    if (!year || !month || !day) return '';
+    return `${day}/${month}/${year}`;
+  };
+  const getOrderTotal = (order: IOrder) =>
+    (order.cacambas || [])
+      .filter((c) => c.tipo === 'retirada' && typeof c.price === 'number' && Number.isFinite(c.price))
+      .reduce((sum, c) => sum + Number(c.price), 0);
+  const clientTotal = orders.reduce((sum, order) => sum + getOrderTotal(order), 0);
+  const startLabel = formatFilterDate(startDate);
+  const endLabel = formatFilterDate(endDate);
+  const reportLabel = startLabel && endLabel
+    ? `Total do cliente (Retiradas) no período de ${startLabel} até ${endLabel}: ${formatCurrency(clientTotal)}`
+    : `Total do cliente (Retiradas): ${formatCurrency(clientTotal)}`;
 
   return (
     <ModalOverlay onClick={onClose}>
@@ -326,6 +365,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose, 
         </ModalHeader>
 
         <ModalBody>
+          <ReportSummary>{reportLabel}</ReportSummary>
           <OrdersList>
             {orders.length > 0 ? (
               orders.map(order => {
@@ -381,6 +421,9 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose, 
                             onImageClick={setModalImage}
                             showTitle={false}
                           />
+                          <OrderTotals>
+                            Total do pedido: {formatCurrency(getOrderTotal(order))}
+                          </OrderTotals>
                         </CacambaSection>
                       )}
 

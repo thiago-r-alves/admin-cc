@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 import connectDB from './db';
 import { UserModel, IUser } from './models/User';
 import { OrderModel } from './models/Order';
-import { CacambaModel, ICacamba } from './models/Cacamba';
+import { CACAMBA_CONTENT_TYPES, CacambaContentType, CacambaModel, ICacamba } from './models/Cacamba';
 import { ClientModel } from './models/Client';
 import multer from 'multer';
 import './gridfs';
@@ -148,6 +148,24 @@ const orderTypes = ['entrega', 'retirada'] as const;
 const isOrderType = (value: unknown): value is typeof orderTypes[number] =>
   orderTypes.includes(value as typeof orderTypes[number]);
 
+const isValidCacambaContentType = (value: unknown): value is CacambaContentType =>
+  typeof value === 'string' &&
+  (CACAMBA_CONTENT_TYPES as readonly string[]).includes(value);
+
+const parseLocalDate = (dateStr: string) => {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d, 0, 0, 0, 0);
+};
+
+const buildLocalDateRange = (startDate: string, endDate: string) => {
+  const start = parseLocalDate(startDate);
+  const end = parseLocalDate(endDate);
+  if (!start || !end) return null;
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+};
+
 // POST /orders
 app.post('/orders', authenticateToken, isAdmin, async (req, res) => {
   try {
@@ -222,7 +240,7 @@ app.get('/orders', authenticateToken, isAdmin, async (req, res) => {
             },
             {
                 path: 'cacambas',
-                select: 'numero tipo imageUrl createdAt local horaServicoDigitos' // ADICIONADO horaServicoDigitos
+                select: 'numero tipo contentType price imageUrl createdAt local horaServicoDigitos'
             }
         ]).sort({ priority: -1, createdAt: 1 });
         return res.status(200).json(orders);
@@ -298,9 +316,11 @@ app.get('/clients', authenticateToken, isAdmin, async (req: express.Request, res
         const hasTypeFilter = typeof type === 'string' && (type === 'entrega' || type === 'retirada');
 
         if (startDate && endDate) {
-            const start = new Date(startDate as string);
-            const end = new Date(endDate as string);
-            end.setHours(23, 59, 59, 999);
+            const range = buildLocalDateRange(String(startDate), String(endDate));
+            if (!range) {
+                return res.status(400).json({ message: 'Período de datas inválido.' });
+            }
+            const { start, end } = range;
 
             const ordersQuery: any = {
                 status: 'concluido',
@@ -535,7 +555,7 @@ app.get('/driver/orders', authenticateToken, isDriver, async (req: Authenticated
     try {
         const orders = await OrderModel.find({ motorista: req.userData?.userId }).populate({
             path: 'cacambas',
-            select: 'numero tipo imageUrl createdAt'
+            select: 'numero tipo contentType imageUrl createdAt local horaServicoDigitos'
         }).sort({ priority: -1, createdAt: 1 });
         return res.status(200).json(orders);
     } catch (error) {
@@ -551,7 +571,7 @@ app.post('/driver/orders/:id/cacambas',
   upload.single('image'),
   async (req: AuthenticatedRequest, res) => {
     const { id } = req.params;
-    const { numero, local, horaServicoDigitos } = req.body; // ADICIONADO horaServicoDigitos
+    const { numero, local, horaServicoDigitos, contentType } = req.body;
 
     const order = await OrderModel.findOne({ _id: id, motorista: req.userData?.userId });
     if (!order) {
@@ -569,6 +589,16 @@ app.post('/driver/orders/:id/cacambas',
     }
 
     const finalTipo: 'entrega' | 'retirada' = order.type === 'retirada' ? 'retirada' : 'entrega';
+    const normalizedContentType = typeof contentType === 'string' ? contentType.trim() : '';
+
+    if (finalTipo === 'retirada') {
+      if (!normalizedContentType) {
+        return res.status(400).json({ message: 'Tipo de conteúdo é obrigatório para retiradas.' });
+      }
+      if (!isValidCacambaContentType(normalizedContentType)) {
+        return res.status(400).json({ message: 'Tipo de conteúdo inválido para retirada.' });
+      }
+    }
 
     try {
       let imageUrl: string | undefined;
@@ -587,6 +617,7 @@ app.post('/driver/orders/:id/cacambas',
       const cacamba = await CacambaModel.create({
         numero: numero.trim(),
         tipo: finalTipo,
+        ...(finalTipo === 'retirada' ? { contentType: normalizedContentType } : {}),
         local,
         horaServicoDigitos, // ADICIONADO
         orderId: order._id,
@@ -656,23 +687,81 @@ app.patch('/driver/orders/:id/complete', authenticateToken, isDriver, async (req
 // Editar caçamba (motorista) – GRIDFS
 app.patch('/cacambas/:id',
   authenticateToken,
-  isDriver,
   upload.single('image'),
-  async (req, res) => {
+  async (req: AuthenticatedRequest, res) => {
     try {
       const { id } = req.params;
-      const { numero, tipo, local, horaServicoDigitos } = req.body; // ADICIONADO horaServicoDigitos
+      const { numero, tipo, local, horaServicoDigitos, contentType, price } = req.body;
+
+      if (!req.userData) {
+        return res.status(401).json({ message: 'Usuário não autenticado.' });
+      }
+
+      const existing = await CacambaModel.findById(id);
+      if (!existing) return res.status(404).json({ message: 'Caçamba não encontrada' });
+
+      const order = await OrderModel.findById(existing.orderId).select('motorista type status');
+      if (!order) return res.status(404).json({ message: 'Pedido da caçamba não encontrado.' });
+
+      const isAdminUser = req.userData.role === 'admin';
+      const isDriverOwner =
+        req.userData.role === 'motorista' &&
+        String(order.motorista || '') === String(req.userData.userId || '');
+
+      if (!isAdminUser && !isDriverOwner) {
+        return res.status(403).json({ message: 'Sem permissão para editar esta caçamba.' });
+      }
 
       const updates: any = {};
-      if (numero) updates.numero = numero;
-      if (tipo) updates.tipo = (tipo === 'retirada' ? 'retirada' : 'entrega');
-      if (local) updates.local = local;
-      if (horaServicoDigitos) {
-        // Validar horaServicoDigitos se fornecido
-        if (!/^\d{3}$/.test(horaServicoDigitos)) {
+      const orderType: 'entrega' | 'retirada' = order.type === 'retirada' ? 'retirada' : 'entrega';
+
+      if (numero !== undefined) updates.numero = String(numero).trim();
+      if (tipo !== undefined) updates.tipo = (tipo === 'retirada' ? 'retirada' : 'entrega');
+      if (local !== undefined) updates.local = local;
+
+      if (horaServicoDigitos !== undefined) {
+        const digits = String(horaServicoDigitos);
+        if (!/^\d{3}$/.test(digits)) {
           return res.status(400).json({ message: 'Ordem de serviço deve conter exatamente 3 dígitos.' });
         }
-        updates.horaServicoDigitos = horaServicoDigitos; // ADICIONADO
+        updates.horaServicoDigitos = digits;
+      }
+
+      if (contentType !== undefined) {
+        const normalizedContentType = String(contentType).trim();
+        if (orderType === 'retirada') {
+          if (!normalizedContentType) {
+            return res.status(400).json({ message: 'Tipo de conteúdo é obrigatório para retirada.' });
+          }
+          if (!isValidCacambaContentType(normalizedContentType)) {
+            return res.status(400).json({ message: 'Tipo de conteúdo inválido para retirada.' });
+          }
+          updates.contentType = normalizedContentType;
+        }
+      }
+
+      if (orderType === 'retirada' && contentType === undefined) {
+        const existingContentType = String(existing.contentType || '').trim();
+        if (!existingContentType) {
+          return res.status(400).json({ message: 'Tipo de conteúdo é obrigatório para retirada.' });
+        }
+      }
+
+      if (price !== undefined) {
+        if (!isAdminUser) {
+          return res.status(403).json({ message: 'Somente admin pode atualizar valor da caçamba.' });
+        }
+        if (orderType !== 'retirada') {
+          return res.status(400).json({ message: 'Valor por caçamba é permitido apenas para retirada.' });
+        }
+        if (order.status !== 'concluido') {
+          return res.status(400).json({ message: 'Valor por caçamba só pode ser definido em pedido concluído.' });
+        }
+        const parsedPrice = Number(price);
+        if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+          return res.status(400).json({ message: 'Valor da caçamba inválido.' });
+        }
+        updates.price = parsedPrice;
       }
 
       if (req.file) {
@@ -684,9 +773,7 @@ app.patch('/cacambas/:id',
         const fileId = await uploadBufferToGridFS(outBuf, filename, contentType);
         updates.imageUrl = `/files/${fileId.toString()}`;
 
-        // Remove imagem antiga para liberar espaço
-        const current = await CacambaModel.findById(id).lean();
-        const oldId = extractGridFsIdFromUrl(current?.imageUrl);
+        const oldId = extractGridFsIdFromUrl(existing.imageUrl);
         if (oldId) {
           try { await getBucket().delete(new ObjectId(oldId)); } catch {}
         }
@@ -766,9 +853,13 @@ app.get('/clients/:id/orders', authenticateToken, isAdmin, async (req, res) => {
 
     // Filtro de data
     if (startDate && endDate) {
+      const range = buildLocalDateRange(String(startDate), String(endDate));
+      if (!range) {
+        return res.status(400).json({ message: 'Período de datas inválido.' });
+      }
       query.createdAt = {
-        $gte: new Date(startDate as string),
-        $lte: new Date(endDate as string),
+        $gte: range.start,
+        $lte: range.end,
       };
     }
 
