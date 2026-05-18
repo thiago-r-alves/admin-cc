@@ -4,6 +4,9 @@ import React, { Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
+
 const AdminPage = React.lazy(() => import('./pages/AdminPage'));
 const DriverPage = React.lazy(() => import('./pages/DriverPage'));
 
@@ -18,6 +21,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         </Routes>
       </Suspense>
     </BrowserRouter>
+    <Analytics />
+    <SpeedInsights />
   </React.StrictMode>,
 );
 
