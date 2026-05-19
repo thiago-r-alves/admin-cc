@@ -5,9 +5,6 @@ test.describe('Motorista', () => {
   test.beforeEach(async ({ page }) => {
     await setupMockApi(page);
     await seedSession(page, 'motorista');
-    page.on('dialog', async (dialog) => {
-      await dialog.accept();
-    });
     await page.goto('/motorista');
   });
 
@@ -102,12 +99,14 @@ test.describe('Motorista', () => {
     await expect(card.getByText('#436')).toBeVisible();
 
     await card.getByRole('button', { name: 'Excluir' }).first().click();
+    await page.getByRole('button', { name: 'Excluir' }).last().click();
     await expect(card.getByText('#436')).toHaveCount(0);
   });
 
   test('conclui pedido e remove da lista de ativos', async ({ page }) => {
     const card = page.locator('article', { hasText: '#2231' }).first();
     await card.getByRole('button', { name: 'Concluir Pedido' }).click();
+    await page.getByRole('button', { name: 'Concluir' }).last().click();
     await expect(page.locator('article', { hasText: '#2231' })).toHaveCount(0);
   });
 
@@ -122,6 +121,7 @@ test.describe('Motorista', () => {
 
     const card = page.locator('article', { hasText: '#2231' }).first();
     await card.getByRole('button', { name: 'Concluir Pedido' }).click();
+    await page.getByRole('button', { name: 'Concluir' }).last().click();
     await expect(page.locator('article', { hasText: '#2231' })).toHaveCount(1);
   });
 
@@ -141,6 +141,7 @@ test.describe('Motorista', () => {
     const card = page.locator('article', { hasText: '#2231' }).first();
     await expect(card.getByText('#435')).toBeVisible();
     await card.getByRole('button', { name: 'Excluir' }).first().click();
+    await page.getByRole('button', { name: 'Excluir' }).last().click();
     await expect(card.getByText('#435')).toBeVisible();
   });
 
@@ -169,6 +170,7 @@ test.describe('Motorista', () => {
 
   test('logout limpa sessao e volta para login', async ({ page }) => {
     await page.getByRole('button', { name: 'Sair' }).click();
+    await page.getByRole('button', { name: 'Sair' }).last().click();
     await expect(page).toHaveURL(/\/$/, { timeout: 15000 });
   });
 

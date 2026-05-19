@@ -135,6 +135,17 @@ const FieldHint = styled.p`
   font-size: 0.75rem;
 `;
 
+const Feedback = styled.div<{ $tone: 'success' | 'error' }>`
+  margin: 0 1.5rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid ${({ $tone }) => ($tone === 'success' ? '#86efac' : '#fecaca')};
+  background: ${({ $tone }) => ($tone === 'success' ? '#f0fdf4' : '#fff1f2')};
+  color: ${({ $tone }) => ($tone === 'success' ? '#166534' : '#b91c1c')};
+  font-size: 0.85rem;
+  font-weight: 800;
+`;
+
 const ModalFooter = styled.div`
   display: flex;
   justify-content: flex-end;
@@ -184,6 +195,7 @@ interface CreateDriverModalProps {
 const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ onClose, onDriverCreated, editingDriver }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [feedback, setFeedback] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
   const apiUrl = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
@@ -207,8 +219,10 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ onClose, onDriver
 
     const response = await fetch(url, { ...options, headers });
     if (response.status === 401 || response.status === 403) {
-      alert('Acesso negado ou sessão inválida. Faça login novamente.');
+      setFeedback({ tone: 'error', message: 'Acesso negado ou sessão inválida. Faça login novamente.' });
       localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('token_expires_at');
       window.location.href = '/';
       throw new Error('Authentication failed');
     }
@@ -231,15 +245,15 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ onClose, onDriver
         const data = await response.json();
 
         if (response.ok) {
-          alert('Motorista atualizado com sucesso!');
+          setFeedback({ tone: 'success', message: 'Motorista atualizado com sucesso.' });
           onDriverCreated();
-          onClose();
+          setTimeout(() => onClose(), 250);
         } else {
-          alert(data.message || 'Erro ao atualizar motorista.');
+          setFeedback({ tone: 'error', message: data.message || 'Erro ao atualizar motorista.' });
         }
       } catch (err) {
         console.error(err);
-        alert('Erro ao atualizar motorista.');
+        setFeedback({ tone: 'error', message: 'Erro ao atualizar motorista.' });
       }
       return;
     }
@@ -252,15 +266,15 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ onClose, onDriver
       const data = await response.json();
 
       if (response.ok) {
-        alert('Motorista cadastrado com sucesso!');
+        setFeedback({ tone: 'success', message: 'Motorista cadastrado com sucesso.' });
         onDriverCreated();
-        onClose();
+        setTimeout(() => onClose(), 250);
       } else {
-        alert(data.message || 'Erro ao cadastrar motorista.');
+        setFeedback({ tone: 'error', message: data.message || 'Erro ao cadastrar motorista.' });
       }
     } catch (err) {
       console.error(err);
-      alert('Erro ao cadastrar motorista.');
+      setFeedback({ tone: 'error', message: 'Erro ao cadastrar motorista.' });
     }
   };
 
@@ -273,6 +287,7 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ onClose, onDriver
             ×
           </CloseButton>
         </ModalHeader>
+        {feedback && <Feedback $tone={feedback.tone}>{feedback.message}</Feedback>}
 
         <Form onSubmit={handleSubmit}>
           <ModalBody>

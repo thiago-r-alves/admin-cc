@@ -4,6 +4,8 @@ import type { IOrder, ICacamba, OrderType } from '../interfaces';
 import CacambaForm from '../components/CacambaForm';
 import CacambaList from '../components/CacambaList';
 import EditCacambaModal from './EditCacambaModal';
+import ActionConfirmModal from '../components/ActionConfirmModal';
+import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 // socket.io-client will be dynamically imported to avoid parsing on initial load
 
 const DriverContainer = styled.div`
@@ -345,16 +347,31 @@ const DriverPage: React.FC = () => {
   const [role] = useState<string | null>(() => localStorage.getItem('role'));
   const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
   const [pushError, setPushError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  const [confirmState, setConfirmState] = useState<{
+    title: string;
+    description: string;
+    variant: 'danger' | 'warning' | 'info';
+    confirmLabel: string;
+    onConfirm: () => Promise<void> | void;
+  } | null>(null);
   
   // Defina a apiUrl aqui, lendo do .env
   const apiUrl = import.meta.env.VITE_API_URL;
   const socketRef = React.useRef<any>(null);
+  const clearSessionAndRedirect = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('token_expires_at');
+    window.location.href = '/';
+  };
 
   const authenticatedFetch = async (url: string, options?: RequestInit) => {
     const token = localStorage.getItem('token');
     if (!token) {
-      alert('Sessão expirada. Por favor, faça login novamente.');
-      window.location.href = '/';
+      setFeedback({ tone: 'error', message: 'Sessão expirada. Por favor, faça login novamente.' });
+      clearSessionAndRedirect();
       throw new Error('Token not found');
     }
     const headers = {
@@ -363,9 +380,8 @@ const DriverPage: React.FC = () => {
     };
     const response = await fetch(url, { ...options, headers });
     if (response.status === 401 || response.status === 403) {
-      alert('Acesso negado ou sessão inválida. Faça login novamente.');
-      localStorage.removeItem('token');
-      window.location.href = '/';
+      setFeedback({ tone: 'error', message: 'Acesso negado ou sessão inválida. Faça login novamente.' });
+      clearSessionAndRedirect();
       throw new Error('Authentication failed');
     }
     return response;
@@ -568,20 +584,32 @@ const DriverPage: React.FC = () => {
 
 
   const handleCompleteOrder = async (orderId: string) => {
-    try {
-      const response = await authenticatedFetch(`${apiUrl}/driver/orders/${orderId}/complete`, {
-        method: 'PATCH',
-      });
-      if (response.ok) {
-        fetchDriverOrders();
-      } else {
-        console.error('Erro ao concluir pedido');
-        alert('Erro ao concluir pedido.');
-      }
-    } catch (error) {
-      console.error('Erro de rede:', error);
-      alert('Erro de rede ao concluir pedido.');
-    }
+    setConfirmState({
+      title: 'Concluir pedido',
+      description: 'Deseja concluir este pedido agora?',
+      variant: 'warning',
+      confirmLabel: 'Concluir',
+      onConfirm: async () => {
+        setConfirmLoading(true);
+        try {
+          const response = await authenticatedFetch(`${apiUrl}/driver/orders/${orderId}/complete`, {
+            method: 'PATCH',
+          });
+          if (response.ok) {
+            setFeedback({ tone: 'success', message: 'Pedido concluído com sucesso.' });
+            fetchDriverOrders();
+            setConfirmState(null);
+          } else {
+            setFeedback({ tone: 'error', message: 'Erro ao concluir pedido.' });
+          }
+        } catch (error) {
+          console.error('Erro de rede:', error);
+          setFeedback({ tone: 'error', message: 'Erro de rede ao concluir pedido.' });
+        } finally {
+          setConfirmLoading(false);
+        }
+      },
+    });
   };
 
   const handleAddCacamba = (orderId: string, orderType: OrderType) => {
@@ -613,19 +641,43 @@ const DriverPage: React.FC = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    localStorage.removeItem('token_expires_at');
-    window.location.href = '/';
+    setConfirmState({
+      title: 'Sair do sistema',
+      description: 'Deseja encerrar a sessão atual?',
+      variant: 'warning',
+      confirmLabel: 'Sair',
+      onConfirm: async () => clearSessionAndRedirect(),
+    });
   };
 
   // Handler para excluir caçamba
   const handleDeleteCacamba = async (cacambaId: string) => {
-    if (!window.confirm('Deseja realmente excluir esta caçamba?')) return;
-    await authenticatedFetch(`${apiUrl}/cacambas/${cacambaId}`, {
-      method: 'DELETE',
+    setConfirmState({
+      title: 'Excluir caçamba',
+      description: 'Deseja realmente excluir esta caçamba?',
+      variant: 'danger',
+      confirmLabel: 'Excluir',
+      onConfirm: async () => {
+        setConfirmLoading(true);
+        try {
+          const response = await authenticatedFetch(`${apiUrl}/cacambas/${cacambaId}`, {
+            method: 'DELETE',
+          });
+          if (response.ok) {
+            setFeedback({ tone: 'success', message: 'Caçamba excluída com sucesso.' });
+            fetchDriverOrders();
+            setConfirmState(null);
+          } else {
+            setFeedback({ tone: 'error', message: 'Erro ao excluir caçamba.' });
+          }
+        } catch (error) {
+          console.error(error);
+          setFeedback({ tone: 'error', message: 'Erro ao excluir caçamba.' });
+        } finally {
+          setConfirmLoading(false);
+        }
+      },
     });
-    fetchDriverOrders();
   };
 
   const handleOpenEditModal = (cacamba: ICacamba, orderType: OrderType) => {
@@ -693,6 +745,11 @@ const DriverPage: React.FC = () => {
   return (
     <DriverContainer>
       <DriverShell>
+        <ActionFeedbackBanner
+          message={feedback?.message}
+          tone={feedback?.tone}
+          onClose={() => setFeedback(null)}
+        />
         <DriverHeader>
           <HeaderText>
             <PageTitle>Painel do Motorista</PageTitle>
@@ -819,6 +876,20 @@ const DriverPage: React.FC = () => {
       )}
 
       {modalImage && <ImageModal url={modalImage} onClose={() => setModalImage(null)} />}
+      {confirmState && (
+        <ActionConfirmModal
+          open
+          title={confirmState.title}
+          description={confirmState.description}
+          confirmLabel={confirmState.confirmLabel}
+          variant={confirmState.variant}
+          loading={confirmLoading}
+          onClose={() => {
+            if (!confirmLoading) setConfirmState(null);
+          }}
+          onConfirm={confirmState.onConfirm}
+        />
+      )}
     </DriverContainer>
   );
 };

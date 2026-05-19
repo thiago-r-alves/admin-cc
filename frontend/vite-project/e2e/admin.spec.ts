@@ -11,9 +11,6 @@ test.describe('Admin', () => {
   test.beforeEach(async ({ page }) => {
     await setupMockApi(page);
     await seedSession(page, 'admin');
-    page.on('dialog', async (dialog) => {
-      await dialog.accept();
-    });
     await page.goto('/admin');
   });
 
@@ -213,7 +210,7 @@ test.describe('Admin', () => {
     await expect(page.getByText('Dados obrigatórios inválidos (teste).')).toBeVisible();
   });
 
-  test('mostra alerta 400 ao falhar reatribuição de motorista', async ({ page }) => {
+  test('mostra erro 400 ao falhar reatribuição de motorista', async ({ page }) => {
     await page.route('**/orders/*', async (route) => {
       if (route.request().method() === 'PATCH') {
         await route.fulfill({
@@ -226,21 +223,12 @@ test.describe('Admin', () => {
       await route.fallback();
     });
 
-    await page.evaluate(() => {
-      (window as any).__alerts = [];
-      window.alert = ((message?: string) => {
-        (window as any).__alerts.push(String(message ?? ''));
-      }) as typeof window.alert;
-    });
-
     const orderCard = page.locator('div', { hasText: '#2231' }).first();
     await orderCard.locator('select').first().selectOption('drv-2');
-    await expect
-      .poll(async () => page.evaluate(() => ((window as any).__alerts as string[]).join(' | ')))
-      .toContain('Motorista inválido (teste).');
+    await expect(page.getByText('Motorista inválido (teste).')).toBeVisible();
   });
 
-  test('mostra alerta ao falhar reatribuição de motorista', async ({ page }) => {
+  test('mostra erro ao falhar reatribuição de motorista', async ({ page }) => {
     await page.route('**/orders/*', async (route) => {
       if (route.request().method() === 'PATCH') {
         await route.fulfill({
@@ -253,23 +241,12 @@ test.describe('Admin', () => {
       await route.fallback();
     });
 
-    await page.evaluate(() => {
-      (window as any).__alerts = [];
-      window.alert = ((message?: string) => {
-        (window as any).__alerts.push(String(message ?? ''));
-      }) as typeof window.alert;
-    });
-
     const orderCard = page.locator('div', { hasText: '#2231' }).first();
     await orderCard.locator('select').first().selectOption('drv-2');
-    await expect
-      .poll(async () =>
-        page.evaluate(() => ((window as any).__alerts as string[]).join(' | ')),
-      )
-      .toContain('Erro ao reatribuir (teste).');
+    await expect(page.getByText('Erro ao reatribuir (teste).')).toBeVisible();
   });
 
-  test('mostra alerta ao falhar exclusão de pedido', async ({ page }) => {
+  test('mostra erro ao falhar exclusão de pedido', async ({ page }) => {
     await page.route('**/orders/*', async (route) => {
       if (route.request().method() === 'DELETE') {
         await route.fulfill({
@@ -282,20 +259,10 @@ test.describe('Admin', () => {
       await route.fallback();
     });
 
-    await page.evaluate(() => {
-      (window as any).__alerts = [];
-      window.alert = ((message?: string) => {
-        (window as any).__alerts.push(String(message ?? ''));
-      }) as typeof window.alert;
-    });
-
     await expect(page.getByText('#2231')).toBeVisible();
     await page.getByRole('button', { name: 'Excluir' }).first().click();
-    await expect
-      .poll(async () =>
-        page.evaluate(() => ((window as any).__alerts as string[]).join(' | ')),
-      )
-      .toContain('Erro ao excluir pedido (teste).');
+    await page.getByRole('button', { name: 'Excluir' }).last().click();
+    await expect(page.getByText('Erro ao excluir pedido (teste).')).toBeVisible();
     await expect(page.getByText('#2231')).toBeVisible();
   });
 
@@ -320,6 +287,7 @@ test.describe('Admin', () => {
     await expect(page.getByText('CLIENTE E2E EDITADO')).toBeVisible();
 
     await page.getByRole('button', { name: 'Excluir' }).first().click();
+    await page.getByRole('button', { name: 'Excluir' }).last().click();
     await expect(page.getByText('CLIENTE E2E EDITADO')).toHaveCount(0);
   });
 
@@ -456,6 +424,7 @@ test.describe('Admin', () => {
     await expect(page.getByText('motorista-e2e-editado')).toBeVisible();
 
     await page.getByRole('button', { name: 'Excluir' }).last().click();
+    await page.getByRole('button', { name: 'Excluir' }).last().click();
     await expect(page.getByText('motorista-e2e-editado')).toHaveCount(0);
   });
 
@@ -476,7 +445,7 @@ test.describe('Admin', () => {
     expect(postCount).toBe(0);
   });
 
-  test('mostra alerta ao falhar criação de motorista (500)', async ({ page, isMobile }) => {
+  test('mostra erro ao falhar criação de motorista (500)', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
     await page.getByRole('button', { name: 'Motoristas' }).click();
     await page.getByRole('button', { name: /\+ Adicionar Motorista/i }).click();
@@ -493,23 +462,13 @@ test.describe('Admin', () => {
       await route.fallback();
     });
 
-    await page.evaluate(() => {
-      (window as any).__alerts = [];
-      window.alert = ((message?: string) => {
-        (window as any).__alerts.push(String(message ?? ''));
-      }) as typeof window.alert;
-    });
-
     await page.locator('#driver-username').fill('motorista-erro');
     await page.locator('#driver-password').fill('123456');
     await page.getByRole('button', { name: 'Cadastrar' }).click();
-
-    await expect
-      .poll(async () => page.evaluate(() => ((window as any).__alerts as string[]).join(' | ')))
-      .toContain('Erro ao cadastrar motorista (teste).');
+    await expect(page.getByText('Erro ao cadastrar motorista (teste).')).toBeVisible();
   });
 
-  test('mostra alerta ao falhar edição de motorista (500)', async ({ page, isMobile }) => {
+  test('mostra erro ao falhar edição de motorista (500)', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
     await page.getByRole('button', { name: 'Motoristas' }).click();
 
@@ -525,23 +484,13 @@ test.describe('Admin', () => {
       await route.fallback();
     });
 
-    await page.evaluate(() => {
-      (window as any).__alerts = [];
-      window.alert = ((message?: string) => {
-        (window as any).__alerts.push(String(message ?? ''));
-      }) as typeof window.alert;
-    });
-
     await page.getByRole('button', { name: 'Editar' }).first().click();
     await page.locator('#driver-username').fill('driver-erro');
     await page.getByRole('button', { name: 'Atualizar' }).click();
-
-    await expect
-      .poll(async () => page.evaluate(() => ((window as any).__alerts as string[]).join(' | ')))
-      .toContain('Erro ao atualizar motorista (teste).');
+    await expect(page.getByText('Erro ao atualizar motorista (teste).')).toBeVisible();
   });
 
-  test('mostra alerta ao falhar exclusão de motorista (500)', async ({ page, isMobile }) => {
+  test('mostra erro ao falhar exclusão de motorista (500)', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
     await page.getByRole('button', { name: 'Motoristas' }).click();
 
@@ -557,22 +506,15 @@ test.describe('Admin', () => {
       await route.fallback();
     });
 
-    await page.evaluate(() => {
-      (window as any).__alerts = [];
-      window.alert = ((message?: string) => {
-        (window as any).__alerts.push(String(message ?? ''));
-      }) as typeof window.alert;
-    });
-
     await page.getByRole('button', { name: 'Excluir' }).first().click();
-    await expect
-      .poll(async () => page.evaluate(() => ((window as any).__alerts as string[]).join(' | ')))
-      .toContain('Erro ao excluir motorista (teste).');
+    await page.getByRole('button', { name: 'Excluir' }).last().click();
+    await expect(page.getByText('Erro ao excluir motorista (teste).')).toBeVisible();
   });
 
   test('logout limpa sessão e volta para login', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
     await page.getByRole('button', { name: 'Sair' }).click();
+    await page.getByRole('button', { name: 'Sair' }).last().click();
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole('button', { name: 'Entrar' })).toBeVisible();
   });

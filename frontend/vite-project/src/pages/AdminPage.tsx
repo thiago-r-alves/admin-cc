@@ -5,6 +5,8 @@ import CreateOrderModal from '../components/CreateOrderModal';
 import CreateDriverModal from '../components/CreateDriverModal';
 import CacambaList from '../components/CacambaList';
 import CacambaMetaModal from '../components/CacambaMetaModal';
+import ActionConfirmModal from '../components/ActionConfirmModal';
+import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import ClientPage from './ClientPage';
 // socket.io-client and PDF download will be dynamically imported to avoid parsing on initial load
 
@@ -934,7 +936,27 @@ const AdminPage: React.FC = () => {
   } | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string>(''); // NOVO
   const [completedPage, setCompletedPage] = useState(1);
+  const [feedback, setFeedback] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  const [confirmState, setConfirmState] = useState<{
+    title: string;
+    description: string;
+    variant: 'danger' | 'warning' | 'info';
+    confirmLabel: string;
+    onConfirm: () => Promise<void> | void;
+  } | null>(null);
   const PAGE_SIZE = 5;
+  const clearSessionAndRedirect = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('token_expires_at');
+    window.location.href = '/';
+  };
+
+  const openConfirm = (payload: NonNullable<typeof confirmState>) => {
+    setConfirmState(payload);
+    setConfirmLoading(false);
+  };
 
   // Pedidos do motorista selecionado (aceita motorista como id ou objeto populado)
   const driverOrders = useMemo(
@@ -999,8 +1021,8 @@ const AdminPage: React.FC = () => {
   const authenticatedFetch = async (url: string, options?: RequestInit) => {
     const token = localStorage.getItem('token');
     if (!token) {
-      alert('Sessão expirada. Por favor, faça login novamente.');
-      window.location.href = '/';
+      setFeedback({ tone: 'error', message: 'Sessão expirada. Por favor, faça login novamente.' });
+      clearSessionAndRedirect();
       throw new Error('Token not found');
     }
     const headers = {
@@ -1010,11 +1032,8 @@ const AdminPage: React.FC = () => {
     };
     const response = await fetch(url, { ...options, headers });
     if (response.status === 401) {
-      alert('Acesso negado ou sessão inválida. Faça login novamente.');
-      localStorage.removeItem('token');
-      localStorage.removeItem('role');
-      localStorage.removeItem('token_expires_at');
-      window.location.href = '/';
+      setFeedback({ tone: 'error', message: 'Acesso negado ou sessão inválida. Faça login novamente.' });
+      clearSessionAndRedirect();
       throw new Error('Authentication failed');
     }
     return response;
@@ -1086,34 +1105,45 @@ const AdminPage: React.FC = () => {
       });
       const data = await response.json();
       if (response.ok) {
-        alert('Pedido atualizado!');
+        setFeedback({ tone: 'success', message: 'Pedido atualizado.' });
         fetchData();
       } else {
-        alert(data.message || 'Erro ao atualizar pedido.');
+        setFeedback({ tone: 'error', message: data.message || 'Erro ao atualizar pedido.' });
       }
     } catch (err) {
       console.error(err);
-      alert('Erro ao atualizar pedido.');
+      setFeedback({ tone: 'error', message: 'Erro ao atualizar pedido.' });
     }
   };
 
   const handleDeleteOrder = async (orderId: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir este pedido?')) return;
-    try {
-      const response = await authenticatedFetch(`${apiUrl}/orders/${orderId}`, {
-        method: 'DELETE',
-      });
-      if (response.ok) {
-        alert('Pedido excluído com sucesso!');
-        fetchData();
-      } else {
-        const data = await response.json();
-        alert(data.message || 'Erro ao excluir pedido.');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Erro ao excluir pedido.');
-    }
+    openConfirm({
+      title: 'Excluir pedido',
+      description: 'Tem certeza que deseja excluir este pedido?',
+      variant: 'danger',
+      confirmLabel: 'Excluir',
+      onConfirm: async () => {
+        setConfirmLoading(true);
+        try {
+          const response = await authenticatedFetch(`${apiUrl}/orders/${orderId}`, {
+            method: 'DELETE',
+          });
+          if (response.ok) {
+            setFeedback({ tone: 'success', message: 'Pedido excluído com sucesso.' });
+            fetchData();
+            setConfirmState(null);
+          } else {
+            const data = await response.json();
+            setFeedback({ tone: 'error', message: data.message || 'Erro ao excluir pedido.' });
+          }
+        } catch (err) {
+          console.error(err);
+          setFeedback({ tone: 'error', message: 'Erro ao excluir pedido.' });
+        } finally {
+          setConfirmLoading(false);
+        }
+      },
+    });
   };
 
   const handleUpdateCacambaMeta = async (
@@ -1149,22 +1179,34 @@ const AdminPage: React.FC = () => {
   };
 
   const handleDeleteDriver = async (driverId: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir este motorista? Todos os pedidos associados precisarão ser reatribuídos.')) return;
-    try {
-      const response = await authenticatedFetch(`${apiUrl}/drivers/${driverId}`, {
-        method: 'DELETE',
-      });
-      if (response.ok) {
-        alert('Motorista excluído com sucesso!');
-        fetchData();
-      } else {
-        const data = await response.json();
-        alert(data.message || 'Erro ao excluir motorista.');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Erro ao excluir motorista.');
-    }
+    openConfirm({
+      title: 'Excluir motorista',
+      description:
+        'Tem certeza que deseja excluir este motorista? Todos os pedidos associados precisarão ser reatribuídos.',
+      variant: 'danger',
+      confirmLabel: 'Excluir',
+      onConfirm: async () => {
+        setConfirmLoading(true);
+        try {
+          const response = await authenticatedFetch(`${apiUrl}/drivers/${driverId}`, {
+            method: 'DELETE',
+          });
+          if (response.ok) {
+            setFeedback({ tone: 'success', message: 'Motorista excluído com sucesso.' });
+            fetchData();
+            setConfirmState(null);
+          } else {
+            const data = await response.json();
+            setFeedback({ tone: 'error', message: data.message || 'Erro ao excluir motorista.' });
+          }
+        } catch (err) {
+          console.error(err);
+          setFeedback({ tone: 'error', message: 'Erro ao excluir motorista.' });
+        } finally {
+          setConfirmLoading(false);
+        }
+      },
+    });
   };
 
   // Após carregar drivers: definir driver inicial
@@ -1180,10 +1222,15 @@ const AdminPage: React.FC = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    localStorage.removeItem('token_expires_at');
-    window.location.href = '/';
+    openConfirm({
+      title: 'Sair do sistema',
+      description: 'Deseja encerrar a sessão atual?',
+      variant: 'warning',
+      confirmLabel: 'Sair',
+      onConfirm: async () => {
+        clearSessionAndRedirect();
+      },
+    });
   };
 
   const renderCompletedCacambas = (order: IOrder, cacambas: ICacamba[]) => (
@@ -1382,6 +1429,11 @@ const AdminPage: React.FC = () => {
           />
 
             <ContentContainer>
+          <ActionFeedbackBanner
+            message={feedback?.message}
+            tone={feedback?.tone}
+            onClose={() => setFeedback(null)}
+          />
           {activeTab === 'clientes' && (
             <ClientPage />
           )}
@@ -1550,6 +1602,20 @@ const AdminPage: React.FC = () => {
             onClose={() => { setIsDriverModalOpen(false); setEditingDriver(null); }}
             onDriverCreated={fetchData}
             editingDriver={editingDriver}
+          />
+        )}
+        {confirmState && (
+          <ActionConfirmModal
+            open
+            title={confirmState.title}
+            description={confirmState.description}
+            confirmLabel={confirmState.confirmLabel}
+            variant={confirmState.variant}
+            loading={confirmLoading}
+            onClose={() => {
+              if (!confirmLoading) setConfirmState(null);
+            }}
+            onConfirm={confirmState.onConfirm}
           />
         )}
       </AdminContainer>

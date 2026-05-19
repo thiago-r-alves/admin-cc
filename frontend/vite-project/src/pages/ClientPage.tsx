@@ -3,6 +3,8 @@ import styled from 'styled-components';
 import ClientList from '../components/ClientList';
 import ClientForm from '../components/ClientForm';
 import ClientOrdersModal from '../components/ClientOrdersModal';
+import ActionConfirmModal from '../components/ActionConfirmModal';
+import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import type { IClient } from '../interfaces';
 
 const Container = styled.div`
@@ -233,6 +235,9 @@ const ClientPage: React.FC = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [orderType, setOrderType] = useState('');
+  const [feedback, setFeedback] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  const [confirmDeleteClientId, setConfirmDeleteClientId] = useState<string | null>(null);
   const apiUrl = import.meta.env.VITE_API_URL;
   const currentFilters = {
     startDate: startDate || undefined,
@@ -338,11 +343,14 @@ const ClientPage: React.FC = () => {
   };
 
   const handleDeleteClient = async (id: string) => {
-    const shouldDelete = window.confirm('Tem certeza que deseja excluir este cliente?');
-    if (!shouldDelete) return;
+    setConfirmDeleteClientId(id);
+  };
 
+  const handleConfirmDeleteClient = async () => {
+    if (!confirmDeleteClientId) return;
+    setConfirmLoading(true);
     try {
-      const response = await fetch(`${apiUrl}/clients/${id}`, {
+      const response = await fetch(`${apiUrl}/clients/${confirmDeleteClientId}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -350,12 +358,18 @@ const ClientPage: React.FC = () => {
       });
 
       if (response.ok) {
+        setFeedback({ tone: 'success', message: 'Cliente excluído com sucesso.' });
         fetchClients(currentFilters);
+        setConfirmDeleteClientId(null);
       } else {
-        console.error('Erro ao excluir cliente');
+        const data = await response.json().catch(() => ({} as any));
+        setFeedback({ tone: 'error', message: data.message || 'Erro ao excluir cliente.' });
       }
     } catch (error) {
       console.error('Erro ao excluir cliente:', error);
+      setFeedback({ tone: 'error', message: 'Erro ao excluir cliente.' });
+    } finally {
+      setConfirmLoading(false);
     }
   };
 
@@ -406,6 +420,11 @@ const ClientPage: React.FC = () => {
 
   return (
     <Container>
+      <ActionFeedbackBanner
+        message={feedback?.message}
+        tone={feedback?.tone}
+        onClose={() => setFeedback(null)}
+      />
       <Header>
         <Title>Gerenciamento de Clientes</Title>
       </Header>
@@ -507,6 +526,18 @@ const ClientPage: React.FC = () => {
           onClose={() => setIsOrdersModalOpen(false)}
         />
       )}
+      <ActionConfirmModal
+        open={Boolean(confirmDeleteClientId)}
+        title="Excluir cliente"
+        description="Tem certeza que deseja excluir este cliente?"
+        variant="danger"
+        confirmLabel="Excluir"
+        loading={confirmLoading}
+        onClose={() => {
+          if (!confirmLoading) setConfirmDeleteClientId(null);
+        }}
+        onConfirm={handleConfirmDeleteClient}
+      />
     </Container>
   );
 };
