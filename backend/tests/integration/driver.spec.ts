@@ -1,0 +1,295 @@
+import request from 'supertest';
+import { loadApp, ensureUsers, signToken } from '../helpers/app';
+import { ClientModel } from '../../src/models/Client';
+import { OrderModel } from '../../src/models/Order';
+import { CacambaModel } from '../../src/models/Cacamba';
+import { UserModel } from '../../src/models/User';
+
+const tinyPng = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wn8x9QAAAAASUVORK5CYII=',
+  'base64',
+);
+
+describe('Driver APIs', () => {
+  let nextOrderNumber = 2000;
+  const createOrderForDriver = async (driverId: string, type: 'entrega' | 'retirada' = 'retirada') => {
+    const client = await ClientModel.create({
+      clientName: 'Cliente D',
+      contactName: 'Contato D',
+      contactNumber: '123',
+      neighborhood: 'Centro',
+      address: 'Rua D',
+      addressNumber: '10',
+    });
+    return OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: client._id,
+      clientName: client.clientName,
+      contactName: client.contactName,
+      contactNumber: client.contactNumber,
+      neighborhood: client.neighborhood,
+      address: client.address,
+      addressNumber: client.addressNumber,
+      type,
+      status: 'pendente',
+      motorista: driverId,
+    });
+  };
+
+  it('GET /driver/orders retorna apenas pedidos do motorista e sem price', async () => {
+    const app = await loadApp();
+    const { driver } = await ensureUsers();
+    const token = signToken(String(driver._id), 'motorista');
+    const order = await createOrderForDriver(String(driver._id), 'retirada');
+    const cacamba = await CacambaModel.create({
+      numero: '123',
+      tipo: 'retirada',
+      contentType: 'Entulho limpo',
+      price: 150,
+      imageUrl: '/files/507f1f77bcf86cd799439011',
+      orderId: order._id,
+      local: 'via_publica',
+      horaServicoDigitos: '123',
+    });
+    await OrderModel.findByIdAndUpdate(order._id, { $push: { cacambas: cacamba._id } });
+
+    const res = await request(app).get('/driver/orders').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].cacambas[0].price).toBeUndefined();
+  });
+
+  it('POST /driver/orders/:id/cacambas valida regras de retirada e registra com imagem', async () => {
+    const app = await loadApp();
+    const { driver } = await ensureUsers();
+    const token = signToken(String(driver._id), 'motorista');
+    const order = await createOrderForDriver(String(driver._id), 'retirada');
+
+    const missingImage = await request(app)
+      .post(`/driver/orders/${order._id}/cacambas`)
+      .set('Authorization', `Bearer ${token}`)
+      .field('numero', '001')
+      .field('horaServicoDigitos', '123')
+      .field('local', 'via_publica')
+      .field('contentType', 'Entulho limpo');
+    expect(missingImage.status).toBe(400);
+
+    const missingContent = await request(app)
+      .post(`/driver/orders/${order._id}/cacambas`)
+      .set('Authorization', `Bearer ${token}`)
+      .field('numero', '001')
+      .field('horaServicoDigitos', '123')
+      .field('local', 'via_publica')
+      .attach('image', tinyPng, 'img.png');
+    expect(missingContent.status).toBe(400);
+
+    const badContent = await request(app)
+      .post(`/driver/orders/${order._id}/cacambas`)
+      .set('Authorization', `Bearer ${token}`)
+      .field('numero', '001')
+      .field('horaServicoDigitos', '123')
+      .field('local', 'via_publica')
+      .field('contentType', 'Tipo inválido')
+      .attach('image', tinyPng, 'img.png');
+    expect(badContent.status).toBe(400);
+
+    const badOs = await request(app)
+      .post(`/driver/orders/${order._id}/cacambas`)
+      .set('Authorization', `Bearer ${token}`)
+      .field('numero', '001')
+      .field('horaServicoDigitos', '12')
+      .field('local', 'via_publica')
+      .field('contentType', 'Entulho limpo')
+      .attach('image', tinyPng, 'img.png');
+    expect(badOs.status).toBe(400);
+
+    const success = await request(app)
+      .post(`/driver/orders/${order._id}/cacambas`)
+      .set('Authorization', `Bearer ${token}`)
+      .field('numero', '001')
+      .field('horaServicoDigitos', '123')
+      .field('local', 'via_publica')
+      .field('contentType', 'Entulho limpo')
+      .attach('image', tinyPng, 'img.png');
+    expect(success.status).toBe(201);
+
+    const duplicate = await request(app)
+      .post(`/driver/orders/${order._id}/cacambas`)
+      .set('Authorization', `Bearer ${token}`)
+      .field('numero', '001')
+      .field('horaServicoDigitos', '123')
+      .field('local', 'via_publica')
+      .field('contentType', 'Entulho limpo')
+      .attach('image', tinyPng, 'img.png');
+    expect(duplicate.status).toBe(400);
+  });
+
+  it('GET /driver/orders/:id/cacambas e PATCH /driver/orders/:id/complete', async () => {
+    const app = await loadApp();
+    const { driver } = await ensureUsers();
+    const token = signToken(String(driver._id), 'motorista');
+    const order = await createOrderForDriver(String(driver._id), 'entrega');
+
+    const list = await request(app)
+      .get(`/driver/orders/${order._id}/cacambas`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(list.status).toBe(200);
+
+    const complete = await request(app)
+      .patch(`/driver/orders/${order._id}/complete`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(complete.status).toBe(200);
+  });
+
+  it('rotas do motorista retornam 404 quando pedido pertence a outro motorista', async () => {
+    const app = await loadApp();
+    const { driver } = await ensureUsers();
+    const otherDriver = await UserModel.create({ username: 'outro', password: '123', role: 'motorista' });
+    const token = signToken(String(driver._id), 'motorista');
+    const order = await createOrderForDriver(String(otherDriver._id), 'retirada');
+
+    const list404 = await request(app)
+      .get(`/driver/orders/${order._id}/cacambas`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(list404.status).toBe(404);
+
+    const complete404 = await request(app)
+      .patch(`/driver/orders/${order._id}/complete`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(complete404.status).toBe(404);
+
+    const add404 = await request(app)
+      .post(`/driver/orders/${order._id}/cacambas`)
+      .set('Authorization', `Bearer ${token}`)
+      .field('numero', '001')
+      .field('horaServicoDigitos', '123')
+      .field('local', 'via_publica')
+      .field('contentType', 'Entulho limpo')
+      .attach('image', tinyPng, 'img.png');
+    expect(add404.status).toBe(404);
+  });
+
+  it('PATCH /cacambas/:id valida permissão, tipo e preço', async () => {
+    const app = await loadApp();
+    const { admin, driver } = await ensureUsers();
+    const adminToken = signToken(String(admin._id), 'admin');
+    const driverToken = signToken(String(driver._id), 'motorista');
+    const order = await createOrderForDriver(String(driver._id), 'retirada');
+    const cacamba = await CacambaModel.create({
+      numero: '321',
+      tipo: 'retirada',
+      contentType: 'Entulho limpo',
+      imageUrl: '/files/507f1f77bcf86cd799439011',
+      orderId: order._id,
+      local: 'via_publica',
+      horaServicoDigitos: '123',
+    });
+
+    const badOs = await request(app)
+      .patch(`/cacambas/${cacamba._id}`)
+      .set('Authorization', `Bearer ${driverToken}`)
+      .field('horaServicoDigitos', '12');
+    expect(badOs.status).toBe(400);
+
+    const badContent = await request(app)
+      .patch(`/cacambas/${cacamba._id}`)
+      .set('Authorization', `Bearer ${driverToken}`)
+      .field('contentType', 'Inexistente');
+    expect(badContent.status).toBe(400);
+
+    const driverPriceForbidden = await request(app)
+      .patch(`/cacambas/${cacamba._id}`)
+      .set('Authorization', `Bearer ${driverToken}`)
+      .field('price', '100');
+    expect(driverPriceForbidden.status).toBe(403);
+
+    const adminPriceNotConcluded = await request(app)
+      .patch(`/cacambas/${cacamba._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('price', '100');
+    expect(adminPriceNotConcluded.status).toBe(400);
+
+    await OrderModel.findByIdAndUpdate(order._id, { status: 'concluido' });
+
+    const adminPriceInvalid = await request(app)
+      .patch(`/cacambas/${cacamba._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('price', '-10');
+    expect(adminPriceInvalid.status).toBe(400);
+
+    const adminPriceOk = await request(app)
+      .patch(`/cacambas/${cacamba._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('price', '200');
+    expect(adminPriceOk.status).toBe(200);
+    expect(adminPriceOk.body.cacamba.price).toBe(200);
+  });
+
+  it('DELETE /cacambas/:id remove e retorna 404 quando não existe', async () => {
+    const app = await loadApp();
+    const { driver } = await ensureUsers();
+    const token = signToken(String(driver._id), 'motorista');
+    const order = await createOrderForDriver(String(driver._id), 'entrega');
+    const cacamba = await CacambaModel.create({
+      numero: '900',
+      tipo: 'entrega',
+      imageUrl: '/files/507f1f77bcf86cd799439011',
+      orderId: order._id,
+      local: 'via_publica',
+      horaServicoDigitos: '111',
+    });
+
+    const del = await request(app)
+      .delete(`/cacambas/${cacamba._id}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(del.status).toBe(200);
+
+    const del404 = await request(app)
+      .delete(`/cacambas/${cacamba._id}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(del404.status).toBe(404);
+  });
+
+  it('GET /files/:id inválido retorna 400 e push subscription valida role/payload', async () => {
+    const app = await loadApp();
+    const { admin, driver } = await ensureUsers();
+    const adminToken = signToken(String(admin._id), 'admin');
+    const driverToken = signToken(String(driver._id), 'motorista');
+
+    const badFile = await request(app).get('/files/id-invalido');
+    expect(badFile.status).toBe(400);
+
+    const notFoundFile = await request(app).get('/files/507f1f77bcf86cd799439011');
+    expect(notFoundFile.status).toBe(404);
+
+    const badPayload = await request(app)
+      .post('/push/subscribe')
+      .set('Authorization', `Bearer ${driverToken}`)
+      .send({ subscription: {} });
+    expect(badPayload.status).toBe(400);
+
+    const wrongRole = await request(app)
+      .post('/push/subscribe')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        subscription: { endpoint: 'x', keys: { p256dh: 'a', auth: 'b' } },
+      });
+    expect(wrongRole.status).toBe(403);
+
+    const ok = await request(app)
+      .post('/push/subscribe')
+      .set('Authorization', `Bearer ${driverToken}`)
+      .send({
+        subscription: { endpoint: 'ep-1', keys: { p256dh: 'a', auth: 'b' } },
+      });
+    expect(ok.status).toBe(201);
+  });
+
+  it('role incorreto em rota de motorista retorna 403', async () => {
+    const app = await loadApp();
+    const { admin } = await ensureUsers();
+    const adminToken = signToken(String(admin._id), 'admin');
+    const res = await request(app).get('/driver/orders').set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(403);
+  });
+});

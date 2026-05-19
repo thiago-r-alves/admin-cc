@@ -838,10 +838,10 @@ const notifyDrivers = () => {
   io.emit('orders_updated');
 };
 
-// Altere para usar server.listen
-server.listen(port, () => {
-  console.log(`Servidor rodando em http://localhost:${port}`);
-});
+export const startServer = () =>
+  server.listen(port, () => {
+    console.log(`Servidor rodando em http://localhost:${port}`);
+  });
 
 // Listar pedidos de um cliente específico com filtros
 app.get('/clients/:id/orders', authenticateToken, isAdmin, async (req, res) => {
@@ -987,3 +987,5 @@ async function sendPushToDriver(driverId: string, payload: { title: string; body
     })
   );
 }
+
+export { app, server, mapPriority, parseLocalDate, buildLocalDateRange };
