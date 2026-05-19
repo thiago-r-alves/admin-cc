@@ -78,13 +78,13 @@ const HeaderButton = styled.button<{ $variant?: 'primary' | 'danger' | 'success'
   padding: 0.65rem 0.95rem;
   border: 1px solid ${({ $variant }) => {
     if ($variant === 'danger') return '#e30613';
-    if ($variant === 'success') return '#16a34a';
+    if ($variant === 'success') return '#e30613';
     return '#d8b4b4';
   }};
   border-radius: 4px;
   background: ${({ $variant }) => {
     if ($variant === 'danger') return '#e30613';
-    if ($variant === 'success') return '#16a34a';
+    if ($variant === 'success') return '#e30613';
     if ($variant === 'primary') return '#e30613';
     return '#ffffff';
   }};
@@ -99,11 +99,11 @@ const HeaderButton = styled.button<{ $variant?: 'primary' | 'danger' | 'success'
   &:hover:not(:disabled) {
     transform: translateY(-1px);
     background: ${({ $variant }) => {
-      if ($variant === 'success') return '#15803d';
+      if ($variant === 'success') return '#c9000b';
       if ($variant === 'quiet') return '#fff1f2';
       return '#c9000b';
     }};
-    border-color: ${({ $variant }) => ($variant === 'success' ? '#15803d' : '#e30613')};
+    border-color: #e30613;
     color: ${({ $variant }) => ($variant === 'quiet' ? '#e30613' : '#ffffff')};
   }
 

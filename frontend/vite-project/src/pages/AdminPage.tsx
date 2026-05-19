@@ -186,7 +186,7 @@ const OrdersHeader = styled.div`
 `;
 
 const Button = styled.button`
-  background-color: #3b82f6;
+  background-color: #e30613;
   color: white;
   padding: 0.8rem 1.2rem;
   border: none;
@@ -196,10 +196,10 @@ const Button = styled.button`
   transition: background-color 0.2s;
   
   &:hover {
-    background-color: #2563eb;
+    background-color: #c9000b;
   }
   &:disabled {
-    background-color: #9bd3ff;
+    background-color: #f39aa0;
     cursor: not-allowed;
   }
 `;
@@ -631,10 +631,10 @@ const SelectInput = styled.select`
 `;
 
 const ActionButton = styled.button`
-  background-color: #374151;
-  color: white;
+  background-color: #ffffff;
+  color: #374151;
   padding: 0.75rem 1rem;
-  border: none;
+  border: 1px solid #d1d5db;
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.82rem;
@@ -643,7 +643,9 @@ const ActionButton = styled.button`
   transition: background-color 0.2s;
   
   &:hover {
-    background-color: #1f2937;
+    background-color: #fff1f2;
+    border-color: #e30613;
+    color: #e30613;
   }
 
   @media (max-width: 768px) {
@@ -652,11 +654,7 @@ const ActionButton = styled.button`
 `;
 
 const DownloadOrderButton = styled(ActionButton)`
-  background-color: #2563eb;
-
-  &:hover {
-    background-color: #1d4ed8;
-  }
+  background-color: #ffffff;
 `;
 
 const DriverTabsBar = styled.div`

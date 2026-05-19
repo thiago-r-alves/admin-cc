@@ -128,10 +128,10 @@ const ActionRow = styled.div`
   gap: 8px;
 `;
 
-const ActionButton = styled.button<{ color?: string }>`
-  background-color: ${({ color }) => color || '#3b82f6'};
-  color: white;
-  border: none;
+const ActionButton = styled.button<{ $variant?: 'danger' | 'secondary' }>`
+  background-color: ${({ $variant }) => ($variant === 'danger' ? '#e30613' : '#ffffff')};
+  color: ${({ $variant }) => ($variant === 'danger' ? '#ffffff' : '#374151')};
+  border: 1px solid ${({ $variant }) => ($variant === 'danger' ? '#e30613' : '#d1d5db')};
   border-radius: 4px;
   padding: 0.42rem 0.9rem;
   font-size: 0.9rem;
@@ -141,7 +141,9 @@ const ActionButton = styled.button<{ color?: string }>`
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 
   &:hover {
-    background-color: ${({ color }) => (color === '#ef4444' ? '#b91c1c' : '#2563eb')};
+    background-color: ${({ $variant }) => ($variant === 'danger' ? '#c9000b' : '#fff1f2')};
+    border-color: ${({ $variant }) => ($variant === 'danger' ? '#c9000b' : '#e30613')};
+    color: ${({ $variant }) => ($variant === 'danger' ? '#ffffff' : '#e30613')};
   }
 `;
 
@@ -262,19 +264,19 @@ const CacambaList: React.FC<CacambaListProps> = ({
           </CardContent>
 
           <ActionRow>
-            {onEdit && <ActionButton onClick={() => onEdit(cacamba)}>Editar</ActionButton>}
+            {onEdit && <ActionButton $variant="secondary" onClick={() => onEdit(cacamba)}>Editar</ActionButton>}
             {onDelete && (
-              <ActionButton color="#ef4444" onClick={() => onDelete(cacamba._id)}>
+              <ActionButton $variant="danger" onClick={() => onDelete(cacamba._id)}>
                 Excluir
               </ActionButton>
             )}
             {adminMetaActions && cacamba.tipo === 'retirada' && onEditContentType && (
-              <ActionButton color="#374151" onClick={() => onEditContentType(cacamba)}>
+              <ActionButton $variant="secondary" onClick={() => onEditContentType(cacamba)}>
                 Editar conteúdo
               </ActionButton>
             )}
             {adminMetaActions && canEditPrice && cacamba.tipo === 'retirada' && onEditPrice && (
-              <ActionButton color="#2563eb" onClick={() => onEditPrice(cacamba)}>
+              <ActionButton $variant="secondary" onClick={() => onEditPrice(cacamba)}>
                 {typeof cacamba.price === 'number' ? 'Editar valor' : 'Adicionar valor'}
               </ActionButton>
             )}

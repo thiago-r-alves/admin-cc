@@ -107,13 +107,13 @@ const ActionButton = styled.button<{ $variant?: 'success' | 'danger' }>`
   gap: 0.42rem;
   min-height: 38px;
   padding: 0.6rem 0.85rem;
-  border: 1px solid ${({ $variant }) => ($variant ? 'transparent' : '#d8b4b4')};
+  border: 1px solid ${({ $variant }) => ($variant === 'danger' ? 'transparent' : '#d8b4b4')};
   border-radius: 4px;
   background: ${({ $variant }) =>
     $variant === 'danger' ? '#dc2626' :
-    $variant === 'success' ? '#16a34a' :
+    $variant === 'success' ? '#ffffff' :
     '#ffffff'};
-  color: ${({ $variant }) => ($variant ? '#ffffff' : '#374151')};
+  color: ${({ $variant }) => ($variant === 'danger' ? '#ffffff' : '#374151')};
   cursor: pointer;
   font-size: 0.78rem;
   font-weight: 900;
@@ -123,10 +123,10 @@ const ActionButton = styled.button<{ $variant?: 'success' | 'danger' }>`
   &:hover {
     background: ${({ $variant }) =>
       $variant === 'danger' ? '#b91c1c' :
-      $variant === 'success' ? '#15803d' :
+      $variant === 'success' ? '#fff1f2' :
       '#fff1f2'};
-    border-color: ${({ $variant }) => ($variant ? 'transparent' : '#e30613')};
-    color: ${({ $variant }) => ($variant ? '#ffffff' : '#e30613')};
+    border-color: ${({ $variant }) => ($variant === 'danger' ? 'transparent' : '#e30613')};
+    color: ${({ $variant }) => ($variant === 'danger' ? '#ffffff' : '#e30613')};
   }
 
   @media (max-width: 760px) {

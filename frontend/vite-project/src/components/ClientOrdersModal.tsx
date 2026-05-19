@@ -120,10 +120,10 @@ const HeaderActions = styled.div`
 const DownloadButton = styled.button`
   min-height: 34px;
   padding: 0.45rem 0.75rem;
-  border: 1px solid #2563eb;
+  border: 1px solid #d1d5db;
   border-radius: 6px;
-  background: #2563eb;
-  color: #ffffff;
+  background: #ffffff;
+  color: #374151;
   cursor: pointer;
   font-size: 0.78rem;
   font-weight: 900;
@@ -131,8 +131,9 @@ const DownloadButton = styled.button`
   transition: background 0.18s ease, border-color 0.18s ease;
 
   &:hover:enabled {
-    background: #1d4ed8;
-    border-color: #1d4ed8;
+    background: #fff1f2;
+    border-color: #e30613;
+    color: #e30613;
   }
 
   &:disabled {
@@ -197,7 +198,7 @@ const OrderDate = styled.span`
   font-weight: 800;
 `;
 
-const TypeBadge = styled.span`
+const TypeBadge = styled.span<{ $type: 'entrega' | 'retirada' | string }>`
   flex: 0 0 auto;
   min-height: 28px;
   display: inline-flex;
@@ -205,8 +206,9 @@ const TypeBadge = styled.span`
   justify-content: center;
   padding: 0.35rem 0.6rem;
   border-radius: 4px;
-  background: #23324a;
-  color: #ffffff;
+  background: ${({ $type }) => ($type === 'retirada' ? '#fee2e2' : '#dcfce7')};
+  color: ${({ $type }) => ($type === 'retirada' ? '#b91c1c' : '#166534')};
+  border: 1px solid ${({ $type }) => ($type === 'retirada' ? '#fecaca' : '#bbf7d0')};
   font-size: 0.72rem;
   font-weight: 900;
   letter-spacing: 0.03em;
@@ -449,7 +451,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose, 
                       <OrderHeading>
                         Pedido #{order.orderNumber ?? '-'} <OrderDate>- {formatDate(order.createdAt)}</OrderDate>
                       </OrderHeading>
-                      <TypeBadge>{typeLabels[order.type] ?? order.type}</TypeBadge>
+                      <TypeBadge $type={order.type}>{typeLabels[order.type] ?? order.type}</TypeBadge>
                     </OrderCardHeader>
 
                     <OrderCardBody>

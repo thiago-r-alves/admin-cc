@@ -27,7 +27,7 @@ const Header = styled.div<{ $variant: Variant }>`
   border-bottom: 1px solid #fee2e2;
   border-left: 4px solid
     ${({ $variant }) =>
-      $variant === 'danger' ? '#dc2626' : $variant === 'warning' ? '#d97706' : '#2563eb'};
+      $variant === 'danger' ? '#dc2626' : $variant === 'warning' ? '#374151' : '#374151'};
 `;
 
 const Title = styled.h3`
@@ -58,10 +58,10 @@ const Button = styled.button<{ $variant?: Variant }>`
   padding: 0.6rem 0.85rem;
   border: 1px solid
     ${({ $variant }) =>
-      $variant === 'danger' ? '#dc2626' : $variant === 'warning' ? '#d97706' : '#d1d5db'};
+      $variant === 'danger' ? '#dc2626' : $variant === 'warning' ? '#374151' : '#d1d5db'};
   border-radius: 4px;
   background: ${({ $variant }) =>
-    $variant === 'danger' ? '#dc2626' : $variant === 'warning' ? '#d97706' : '#ffffff'};
+    $variant === 'danger' ? '#dc2626' : $variant === 'warning' ? '#374151' : '#ffffff'};
   color: ${({ $variant }) => ($variant ? '#ffffff' : '#374151')};
   cursor: pointer;
   font-size: 0.8rem;
@@ -120,4 +120,3 @@ const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
 };
 
 export default ActionConfirmModal;
-

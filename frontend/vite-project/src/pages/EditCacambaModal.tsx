@@ -37,7 +37,7 @@ const Button = styled.button`
   font-size: 1rem;
 `;
 const SubmitButton = styled(Button)`
-  background-color: #2563eb; color: white;
+  background-color: #e30613; color: white;
 `;
 const CancelButton = styled(Button)`
   background-color: #e5e7eb;

@@ -99,7 +99,7 @@ const ButtonGroup = styled.div`
 
 const SubmitButton = styled.button`
   flex: 1;
-  background-color: #2563eb;
+  background-color: #e30613;
   color: white;
   padding: 0.5rem 1rem;
   border: none;
@@ -109,7 +109,7 @@ const SubmitButton = styled.button`
   transition: background-color 0.2s;
   
   &:hover:not(:disabled) {
-    background-color: #1d4ed8;
+    background-color: #c9000b;
   }
   
   &:disabled {
