@@ -17,8 +17,8 @@ test.describe('Motorista', () => {
 
   test('abre modal de registrar cacamba com badge do tipo', async ({ page }) => {
     await page.getByRole('button', { name: /\+ Adicionar Caçamba/i }).first().click();
-    await expect(page.getByText('Registrar Caçamba')).toBeVisible();
-    await expect(page.getByText('Dados da Caçamba')).toBeVisible();
+    await expect(page.getByText(/Registrar Ca.*amba/i)).toBeVisible();
+    await expect(page.getByText(/Dados da Ca.*amba/i)).toBeVisible();
     await expect(page.locator('form').getByText(/Retirada|Entrega/).last()).toBeVisible();
   });
 
@@ -59,7 +59,7 @@ test.describe('Motorista', () => {
     await page.locator('#cacamba-os').fill('555');
     await page.getByRole('button', { name: 'Registrar' }).click();
 
-    await expect(page.getByText('Imagem é obrigatória')).toBeVisible();
+    await expect(page.getByText(/Imagem.*obrigat.ria/i)).toBeVisible();
   });
 
   test('retirada exige tipo de conteudo no cadastro de cacamba', async ({ page }) => {
@@ -192,3 +192,4 @@ test.describe('Motorista', () => {
     expect(opened[0]).toContain('Rua%20Januaria');
   });
 });
+

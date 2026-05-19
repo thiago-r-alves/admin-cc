@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import type { IClient } from '../interfaces';
+import { Button as UIButton, Field as UIField, SelectInput, TextInput } from '../components/ui';
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -60,22 +61,15 @@ const Title = styled.h2`
   font-weight: 900;
 `;
 
-const CloseButton = styled.button`
+const CloseButton = styled(UIButton)`
   width: 34px;
   height: 34px;
-  border: 0;
+  min-height: 34px;
+  min-width: 34px;
+  padding: 0;
   border-radius: 6px;
-  background: transparent;
-  color: #6b7280;
-  cursor: pointer;
   font-size: 1.55rem;
   line-height: 1;
-  transition: background 0.18s ease, color 0.18s ease;
-
-  &:hover {
-    background: #fff1f2;
-    color: #e30613;
-  }
 `;
 
 const Form = styled.form`
@@ -128,61 +122,12 @@ const FieldGrid = styled.div`
   }
 `;
 
-const Field = styled.div<{ $span?: 1 | 2 }>`
+const GridField = styled.div<{ $span?: 1 | 2 }>`
   min-width: 0;
   grid-column: span ${({ $span }) => $span || 1};
 
   @media (max-width: 680px) {
     grid-column: span 1;
-  }
-`;
-
-const Label = styled.label`
-  display: block;
-  margin-bottom: 0.4rem;
-  color: #4b5563;
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.02em;
-`;
-
-const Input = styled.input`
-  width: 100%;
-  min-height: 43px;
-  box-sizing: border-box;
-  padding: 0.65rem 0.8rem;
-  border: 1px solid #d1d5db;
-  border-radius: 2px;
-  background: #ffffff;
-  color: #374151;
-  font-size: 0.9rem;
-
-  &::placeholder {
-    color: #9ca3af;
-  }
-
-  &:focus {
-    outline: none;
-    border-color: #e30613;
-    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
-  }
-`;
-
-const Select = styled.select`
-  width: 100%;
-  min-height: 43px;
-  box-sizing: border-box;
-  padding: 0.65rem 0.8rem;
-  border: 1px solid #d1d5db;
-  border-radius: 2px;
-  background: #ffffff;
-  color: #374151;
-  font-size: 0.9rem;
-
-  &:focus {
-    outline: none;
-    border-color: #e30613;
-    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
   }
 `;
 
@@ -208,26 +153,8 @@ const ModalFooter = styled.div`
   }
 `;
 
-const Button = styled.button<{ $variant?: 'primary' | 'secondary' }>`
+const FooterButton = styled(UIButton)`
   min-width: 150px;
-  min-height: 42px;
-  padding: 0.75rem 1rem;
-  border: 1px solid ${({ $variant }) => ($variant === 'primary' ? '#e30613' : '#d8b4b4')};
-  border-radius: 2px;
-  background: ${({ $variant }) => ($variant === 'primary' ? '#e30613' : '#ffffff')};
-  color: ${({ $variant }) => ($variant === 'primary' ? '#ffffff' : '#6b1f1f')};
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
-
-  &:hover {
-    background: ${({ $variant }) => ($variant === 'primary' ? '#c9000b' : '#fff1f2')};
-    border-color: #e30613;
-    color: ${({ $variant }) => ($variant === 'primary' ? '#ffffff' : '#e30613')};
-  }
 
   @media (max-width: 560px) {
     width: 100%;
@@ -355,8 +282,8 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
       <ModalContent onClick={(e) => e.stopPropagation()}>
         <ModalHeader>
           <Title>Gerenciamento de Clientes</Title>
-          <CloseButton type="button" aria-label="Fechar modal" onClick={onCancel}>
-            Ã—
+          <CloseButton type="button" variant="ghost" aria-label="Fechar modal" onClick={onCancel}>
+            ×
           </CloseButton>
         </ModalHeader>
 
@@ -368,109 +295,116 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
                 Dados do Cliente
               </SectionTitle>
               <FieldGrid>
-                <Field>
-                  <Label htmlFor="clientName">Nome do Cliente</Label>
-                  <Input
-                    id="clientName"
-                    name="clientName"
-                    type="text"
-                    value={formData.clientName}
-                    onChange={handleChange}
-                    placeholder="RazÃ£o Social ou Nome Completo"
-                    required
-                  />
-                </Field>
+                <GridField>
+                  <UIField label="Nome do Cliente" htmlFor="clientName">
+                    <TextInput
+                      id="clientName"
+                      name="clientName"
+                      type="text"
+                      value={formData.clientName}
+                      onChange={handleChange}
+                      placeholder="Razão Social ou Nome Completo"
+                      required
+                    />
+                  </UIField>
+                </GridField>
 
-                <Field>
-                  <Label htmlFor="cnpjCpf">CNPJ/CPF</Label>
-                  <Input
-                    id="cnpjCpf"
-                    name="cnpjCpf"
-                    type="text"
-                    value={formData.cnpjCpf}
-                    onChange={handleChange}
-                    placeholder="00.000.000/0000-00 ou 000.000.000-00"
-                  />
-                </Field>
+                <GridField>
+                  <UIField label="CNPJ/CPF" htmlFor="cnpjCpf">
+                    <TextInput
+                      id="cnpjCpf"
+                      name="cnpjCpf"
+                      type="text"
+                      value={formData.cnpjCpf}
+                      onChange={handleChange}
+                      placeholder="00.000.000/0000-00 ou 000.000.000-00"
+                    />
+                  </UIField>
+                </GridField>
               </FieldGrid>
             </Section>
 
             <Section>
               <SectionTitle>
                 <SectionIcon name="pin" />
-                LocalizaÃ§Ã£o
+                Localização
               </SectionTitle>
               <FieldGrid>
-                <Field>
-                  <Label htmlFor="cep">CEP</Label>
-                  <Input
-                    id="cep"
-                    name="cep"
-                    type="text"
-                    value={formData.cep}
-                    onChange={handleCepChange}
-                    placeholder="00000-000"
-                    maxLength={9}
-                    inputMode="numeric"
-                  />
-                  {isFetchingCep && <FetchingHint>Buscando endereÃ§o...</FetchingHint>}
-                </Field>
+                <GridField>
+                  <UIField label="CEP" htmlFor="cep">
+                    <TextInput
+                      id="cep"
+                      name="cep"
+                      type="text"
+                      value={formData.cep}
+                      onChange={handleCepChange}
+                      placeholder="00000-000"
+                      maxLength={9}
+                      inputMode="numeric"
+                    />
+                  </UIField>
+                  {isFetchingCep && <FetchingHint>Buscando endereço...</FetchingHint>}
+                </GridField>
 
-                <Field>
-                  <Label htmlFor="address">Logradouro</Label>
-                  <Input
-                    id="address"
-                    name="address"
-                    type="text"
-                    value={formData.address}
-                    onChange={handleChange}
-                    placeholder="Rua, Avenida, PraÃ§a..."
-                    required
-                  />
-                </Field>
+                <GridField>
+                  <UIField label="Logradouro" htmlFor="address">
+                    <TextInput
+                      id="address"
+                      name="address"
+                      type="text"
+                      value={formData.address}
+                      onChange={handleChange}
+                      placeholder="Rua, Avenida, Praça..."
+                      required
+                    />
+                  </UIField>
+                </GridField>
 
-                <Field $span={2}>
-                  <Label htmlFor="addressNumber">NÃºmero</Label>
-                  <Input
-                    id="addressNumber"
-                    name="addressNumber"
-                    type="text"
-                    value={formData.addressNumber}
-                    onChange={handleChange}
-                    placeholder="NÃºmero, Bloco, Sala"
-                  />
-                </Field>
+                <GridField $span={2}>
+                  <UIField label="Número" htmlFor="addressNumber">
+                    <TextInput
+                      id="addressNumber"
+                      name="addressNumber"
+                      type="text"
+                      value={formData.addressNumber}
+                      onChange={handleChange}
+                      placeholder="Número, Bloco, Sala"
+                    />
+                  </UIField>
+                </GridField>
 
-                <Field>
-                  <Label htmlFor="neighborhood">Bairro</Label>
-                  <Input
-                    id="neighborhood"
-                    name="neighborhood"
-                    type="text"
-                    value={formData.neighborhood}
-                    onChange={handleChange}
-                    placeholder="Nome do Bairro"
-                    required
-                  />
-                </Field>
+                <GridField>
+                  <UIField label="Bairro" htmlFor="neighborhood">
+                    <TextInput
+                      id="neighborhood"
+                      name="neighborhood"
+                      type="text"
+                      value={formData.neighborhood}
+                      onChange={handleChange}
+                      placeholder="Nome do Bairro"
+                      required
+                    />
+                  </UIField>
+                </GridField>
 
-                <Field>
-                  <Label htmlFor="city">Cidade</Label>
-                  <Select
-                    id="city"
-                    name="city"
-                    value={formData.city}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">Selecione...</option>
-                    <option value="SÃ£o JosÃ© dos Campos">SÃ£o JosÃ© dos Campos</option>
-                    <option value="JacareÃ­">JacareÃ­</option>
-                    <option value="CaÃ§apava">CaÃ§apava</option>
-                    <option value="Jambeiro">Jambeiro</option>
-                    <option value="Monteiro Lobato">Monteiro Lobato</option>
-                  </Select>
-                </Field>
+                <GridField>
+                  <UIField label="Cidade" htmlFor="city">
+                    <SelectInput
+                      id="city"
+                      name="city"
+                      value={formData.city}
+                      onChange={handleChange}
+                      required
+                    >
+                      <option value="">Selecione...</option>
+                      <option value="São José dos Campos">São José dos Campos</option>
+                      <option value="Jacareí">Jacareí</option>
+                      <option value="Caçapava">Caçapava</option>
+                      <option value="Jambeiro">Jambeiro</option>
+                      <option value="Monteiro Lobato">Monteiro Lobato</option>
+                    </SelectInput>
+                  </UIField>
+                </GridField>
               </FieldGrid>
             </Section>
 
@@ -480,42 +414,44 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
                 Contato
               </SectionTitle>
               <FieldGrid>
-                <Field>
-                  <Label htmlFor="contactName">Nome do Contato</Label>
-                  <Input
-                    id="contactName"
-                    name="contactName"
-                    type="text"
-                    value={formData.contactName}
-                    onChange={handleChange}
-                    placeholder="ResponsÃ¡vel no local"
-                    required
-                  />
-                </Field>
+                <GridField>
+                  <UIField label="Nome do Contato" htmlFor="contactName">
+                    <TextInput
+                      id="contactName"
+                      name="contactName"
+                      type="text"
+                      value={formData.contactName}
+                      onChange={handleChange}
+                      placeholder="Responsável no local"
+                      required
+                    />
+                  </UIField>
+                </GridField>
 
-                <Field>
-                  <Label htmlFor="contactNumber">NÃºmero do Contato</Label>
-                  <Input
-                    id="contactNumber"
-                    name="contactNumber"
-                    type="text"
-                    value={formData.contactNumber}
-                    onChange={handleChange}
-                    placeholder="(00) 00000-0000"
-                    required
-                  />
-                </Field>
+                <GridField>
+                  <UIField label="Número do Contato" htmlFor="contactNumber">
+                    <TextInput
+                      id="contactNumber"
+                      name="contactNumber"
+                      type="text"
+                      value={formData.contactNumber}
+                      onChange={handleChange}
+                      placeholder="(00) 00000-0000"
+                      required
+                    />
+                  </UIField>
+                </GridField>
               </FieldGrid>
             </Section>
           </ModalBody>
 
           <ModalFooter>
-            <Button type="submit" $variant="primary">
+            <FooterButton type="submit" variant="primary">
               {initialData ? 'Atualizar' : 'Cadastrar'}
-            </Button>
-            <Button type="button" $variant="secondary" onClick={onCancel}>
+            </FooterButton>
+            <FooterButton type="button" variant="secondary" onClick={onCancel}>
               Cancelar
-            </Button>
+            </FooterButton>
           </ModalFooter>
         </Form>
       </ModalContent>

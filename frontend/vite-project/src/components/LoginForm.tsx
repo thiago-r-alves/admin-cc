@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { Button as UIButton, TextInput } from '../components/ui';
 
 const FormWrapper = styled.div`
   display: flex;
@@ -81,7 +82,7 @@ const FieldIcon = styled.span`
   color: #4b5563;
 `;
 
-const PasswordToggle = styled.button`
+const PasswordToggle = styled(UIButton)`
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -107,7 +108,7 @@ const PasswordToggle = styled.button`
   }
 `;
 
-const Input = styled.input`
+const Input = styled(TextInput)`
   width: 100%;
   min-width: 0;
   border: 0;
@@ -127,7 +128,7 @@ const Input = styled.input`
   }
 `;
 
-const Button = styled.button`
+const Button = styled(UIButton)`
   width: 100%;
   min-height: 46px;
   margin-top: 0.35rem;
@@ -267,3 +268,4 @@ const LoginForm: React.FC<LoginFormProps> = ({
 };
 
 export default LoginForm;
+
