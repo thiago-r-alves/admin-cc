@@ -1,4 +1,4 @@
-import dotenv from 'dotenv';
+﻿import dotenv from 'dotenv';
 dotenv.config();
 
 import express from 'express';
@@ -23,6 +23,28 @@ import { buildLocalDateRange, mapPriority } from './utils/order';
 import { pipeline } from 'stream';
 import { promisify } from 'util';
 const pipe = promisify(pipeline);
+
+const buildClosureDateRange = (startDate: unknown, endDate: unknown) => {
+  if (!startDate || !endDate) return null;
+  return buildLocalDateRange(String(startDate), String(endDate));
+};
+
+const buildClosureOrdersQuery = (range: { start: Date; end: Date }) => ({
+  status: 'concluido' as const,
+  type: 'retirada' as const,
+  updatedAt: { $gte: range.start, $lte: range.end },
+});
+
+const buildClientIdMatch = (id: string) => {
+  const trimmed = String(id || '').trim();
+  if (!trimmed) return [{ clientId: trimmed }];
+  if (ObjectId.isValid(trimmed)) {
+    return [{ clientId: trimmed }, { clientId: new ObjectId(trimmed) }];
+  }
+  return [{ clientId: trimmed }];
+};
+
+const CLOSURE_DEBUG = String(process.env.CLOSURE_DEBUG || '').toLowerCase() === 'true';
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -290,90 +312,165 @@ app.delete('/orders/:id', authenticateToken, isAdmin, async (req, res) => {
 
 // Listar todos os clientes
 app.get('/clients', authenticateToken, isAdmin, async (req: express.Request, res: express.Response) => {
-    try {
-        const { startDate, endDate, type } = req.query;
-        const hasTypeFilter = typeof type === 'string' && (type === 'entrega' || type === 'retirada');
+  try {
+    const { startDate, endDate, type, closure } = req.query;
+    const isClosureMode = String(closure || '').toLowerCase() === 'true';
+    const hasTypeFilter = typeof type === 'string' && (type === 'entrega' || type === 'retirada');
 
-        if (startDate && endDate) {
-            const range = buildLocalDateRange(String(startDate), String(endDate));
-            if (!range) {
-                return res.status(400).json({ message: 'Período de datas inválido.' });
-            }
-            const { start, end } = range;
+    if (isClosureMode) {
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: 'Data inicial e final são obrigatórias para fechamento.' });
+      }
 
-            const ordersQuery: any = {
-                status: 'concluido',
-                updatedAt: { $gte: start, $lte: end },
-            };
-            if (hasTypeFilter) {
-                ordersQuery.type = type;
-            }
+      const range = buildClosureDateRange(startDate, endDate);
+      if (!range) {
+        return res.status(400).json({ message: 'Período de datas inválido.' });
+      }
+      const { start, end } = range;
 
-            const concludedOrders = await OrderModel.find(ordersQuery)
-                .select('clientId updatedAt')
-                .lean();
+      const aggregated = await OrderModel.aggregate([
+        { $match: buildClosureOrdersQuery({ start, end }) },
+        {
+          $project: {
+            updatedAt: 1,
+            clientIdString: { $toString: '$clientId' },
+          },
+        },
+        {
+          $group: {
+            _id: '$clientIdString',
+            latestCompletion: { $max: '$updatedAt' },
+            orderCount: { $sum: 1 },
+          },
+        },
+        {
+          $addFields: {
+            clientObjectId: {
+              $convert: {
+                input: '$_id',
+                to: 'objectId',
+                onError: null,
+                onNull: null,
+              },
+            },
+          },
+        },
+        {
+          $lookup: {
+            from: 'clients',
+            let: { cid: '$_id', oid: '$clientObjectId' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $or: [
+                      { $eq: ['$_id', '$$oid'] },
+                      { $eq: [{ $toString: '$_id' }, '$$cid'] },
+                    ],
+                  },
+                },
+              },
+            ],
+            as: 'client',
+          },
+        },
+        { $unwind: '$client' },
+        { $sort: { latestCompletion: -1, 'client.clientName': 1 } },
+      ]);
 
-            const firstCompletionByClient = new Map<string, number>();
+      if (CLOSURE_DEBUG) {
+        console.log('[CLOSURE_DEBUG] /clients?closure=true', {
+          range: { start: start.toISOString(), end: end.toISOString() },
+          count: aggregated.length,
+          clients: aggregated.map((row: any) => ({
+            clientId: row._id,
+            orderCount: row.orderCount,
+            latestCompletion: row.latestCompletion,
+          })),
+        });
+      }
 
-            for (const order of concludedOrders as Array<{ clientId?: unknown; updatedAt?: Date | string }>) {
-                const clientId = String(order.clientId ?? '');
-                if (!clientId) continue;
-
-                const updatedAtMs = new Date(order.updatedAt ?? 0).getTime();
-                if (!Number.isFinite(updatedAtMs)) continue;
-
-                const current = firstCompletionByClient.get(clientId);
-                if (current === undefined || updatedAtMs < current) {
-                    firstCompletionByClient.set(clientId, updatedAtMs);
-                }
-            }
-
-            const clientIds = Array.from(firstCompletionByClient.keys());
-            if (!clientIds.length) {
-                return res.status(200).json([]);
-            }
-
-            const clients = await ClientModel.find({ _id: { $in: clientIds } }).lean();
-            const clientById = new Map(clients.map(client => [String(client._id), client]));
-
-            const sortedClients = clientIds
-                .map((id) => ({
-                    client: clientById.get(id),
-                    firstCompletion: firstCompletionByClient.get(id) ?? 0,
-                }))
-                .filter((item): item is { client: any; firstCompletion: number } => Boolean(item.client))
-                .sort((a, b) => {
-                    if (b.firstCompletion !== a.firstCompletion) {
-                        return b.firstCompletion - a.firstCompletion;
-                    }
-                    const aName = String(a.client.clientName ?? '').toLocaleLowerCase('pt-BR');
-                    const bName = String(b.client.clientName ?? '').toLocaleLowerCase('pt-BR');
-                    return aName.localeCompare(bName, 'pt-BR');
-                })
-                .map((item) => item.client);
-
-            return res.status(200).json(sortedClients);
-        }
-
-        if (hasTypeFilter) {
-            const typedOrders = await OrderModel.find({ type }).select('clientId').lean();
-            const clientIds = Array.from(
-                new Set(
-                    typedOrders
-                        .map((o: any) => String(o.clientId))
-                        .filter(Boolean)
-                )
-            );
-            const clients = await ClientModel.find({ _id: { $in: clientIds } }).sort({ clientName: 1 });
-            return res.status(200).json(clients);
-        }
-
-        const clients = await ClientModel.find().sort({ clientName: 1 }); // Alterado de 'name' para 'clientName'
-        res.status(200).json(clients);
-    } catch (error) {
-        console.error('Erro ao buscar clientes:', error);
-        res.status(500).json({ message: 'Erro ao buscar clientes.' });
+      return res.status(200).json(aggregated.map((row: any) => row.client).filter(Boolean));
     }
+
+    if (startDate && endDate) {
+      const range = buildLocalDateRange(String(startDate), String(endDate));
+      if (!range) {
+        return res.status(400).json({ message: 'Período de datas inválido.' });
+      }
+      const { start, end } = range;
+
+      const ordersQuery: any = {
+        status: 'concluido',
+        updatedAt: { $gte: start, $lte: end },
+      };
+      if (hasTypeFilter) {
+        ordersQuery.type = type;
+      }
+
+      const concludedOrders = await OrderModel.find(ordersQuery).select('clientId updatedAt').lean();
+
+      const firstCompletionByClient = new Map<string, number>();
+
+      for (const order of concludedOrders as Array<{ clientId?: unknown; updatedAt?: Date | string }>) {
+        const clientId = String(order.clientId ?? '');
+        if (!clientId) continue;
+
+        const updatedAtMs = new Date(order.updatedAt ?? 0).getTime();
+        if (!Number.isFinite(updatedAtMs)) continue;
+
+        const current = firstCompletionByClient.get(clientId);
+        if (current === undefined || updatedAtMs < current) {
+          firstCompletionByClient.set(clientId, updatedAtMs);
+        }
+      }
+
+      const clientIds = Array.from(firstCompletionByClient.keys());
+      if (!clientIds.length) {
+        return res.status(200).json([]);
+      }
+
+      const clients = await ClientModel.find({ _id: { $in: clientIds } }).lean();
+      const clientById = new Map(clients.map(client => [String(client._id), client]));
+
+      const sortedClients = clientIds
+        .map((id) => ({
+          client: clientById.get(id),
+          firstCompletion: firstCompletionByClient.get(id) ?? 0,
+        }))
+        .filter((item): item is { client: any; firstCompletion: number } => Boolean(item.client))
+        .sort((a, b) => {
+          if (b.firstCompletion !== a.firstCompletion) {
+            return b.firstCompletion - a.firstCompletion;
+          }
+          const aName = String(a.client.clientName ?? '').toLocaleLowerCase('pt-BR');
+          const bName = String(b.client.clientName ?? '').toLocaleLowerCase('pt-BR');
+          return aName.localeCompare(bName, 'pt-BR');
+        })
+        .map((item) => item.client);
+
+      return res.status(200).json(sortedClients);
+    }
+
+    if (hasTypeFilter) {
+      const typedOrders = await OrderModel.find({ type }).select('clientId').lean();
+      const clientIds = Array.from(
+        new Set(
+          typedOrders
+            .map((o: any) => String(o.clientId))
+            .filter(Boolean),
+        ),
+      );
+      const clients = await ClientModel.find({ _id: { $in: clientIds } }).sort({ clientName: 1 });
+      return res.status(200).json(clients);
+    }
+
+    const clients = await ClientModel.find().sort({ clientName: 1 });
+    res.status(200).json(clients);
+  } catch (error) {
+    console.error('Erro ao buscar clientes:', error);
+    res.status(500).json({ message: 'Erro ao buscar clientes.' });
+  }
 });
 
 // Criar novo cliente
@@ -826,38 +923,47 @@ export const startServer = () =>
 app.get('/clients/:id/orders', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { startDate, endDate, type, local, status } = req.query;
+    const { startDate, endDate, type, local, status, closure } = req.query;
+    const isClosureMode = String(closure || '').toLowerCase() === 'true';
 
     const query: any = { clientId: id };
 
-    // Filtro de data
-    if (startDate && endDate) {
-      const range = buildLocalDateRange(String(startDate), String(endDate));
+    if (isClosureMode) {
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: 'Data inicial e final são obrigatórias para fechamento.' });
+      }
+      const range = buildClosureDateRange(startDate, endDate);
       if (!range) {
         return res.status(400).json({ message: 'Período de datas inválido.' });
       }
-      query.createdAt = {
-        $gte: range.start,
-        $lte: range.end,
-      };
+      query.$or = buildClientIdMatch(id);
+      delete query.clientId;
+      Object.assign(query, buildClosureOrdersQuery({ start: range.start, end: range.end }));
+    } else {
+      if (startDate && endDate) {
+        const range = buildLocalDateRange(String(startDate), String(endDate));
+        if (!range) {
+          return res.status(400).json({ message: 'Período de datas inválido.' });
+        }
+        query.createdAt = {
+          $gte: range.start,
+          $lte: range.end,
+        };
+      }
+
+      if (type) {
+        query.type = type;
+      }
+
+      if (status) {
+        query.status = status;
+      }
     }
 
-    // Filtro de tipo de pedido
-    if (type) {
-      query.type = type;
-    }
-
-    if (status) {
-      query.status = status;
-    }
-    
-    // Filtro de local da caçamba (requer uma consulta mais complexa)
-    if (local) {
-        // Encontra caçambas com o local especificado
-        const cacambas = await CacambaModel.find({ local: local as string }).select('_id');
-        const cacambaIds = cacambas.map(c => c._id);
-        // Filtra pedidos que contenham qualquer uma dessas caçambas
-        query.cacambas = { $in: cacambaIds };
+    if (!isClosureMode && local) {
+      const cacambas = await CacambaModel.find({ local: local as string }).select('_id');
+      const cacambaIds = cacambas.map(c => c._id);
+      query.cacambas = { $in: cacambaIds };
     }
 
     const orders = await OrderModel.find(query)
@@ -866,7 +972,7 @@ app.get('/clients/:id/orders', authenticateToken, isAdmin, async (req, res) => {
         path: 'motorista',
         select: 'username',
       })
-      .sort({ createdAt: -1 });
+      .sort(isClosureMode ? { updatedAt: -1 } : { createdAt: -1 });
 
     res.status(200).json(orders);
   } catch (error) {

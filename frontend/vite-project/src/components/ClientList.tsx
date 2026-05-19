@@ -144,7 +144,7 @@ interface ClientListProps {
   clients: IClient[];
   onEdit: (client: IClient) => void;
   onDelete: (id: string) => void;
-  onViewOrders: (client: IClient) => void;
+  onViewOrders?: (client: IClient) => void;
 }
 
 const UserIcon = () => (
@@ -238,10 +238,12 @@ const ClientList: React.FC<ClientListProps> = ({ clients, onEdit, onDelete, onVi
               <EditIcon />
               Editar
             </ActionButton>
-            <ActionButton type="button" $variant="success" onClick={() => onViewOrders(client)}>
-              <ClipboardIcon />
-              Pedidos
-            </ActionButton>
+            {onViewOrders && (
+              <ActionButton type="button" $variant="success" onClick={() => onViewOrders(client)}>
+                <ClipboardIcon />
+                Pedidos
+              </ActionButton>
+            )}
             <ActionButton type="button" $variant="danger" onClick={() => onDelete(client._id)}>
               <TrashIcon />
               Excluir

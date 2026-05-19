@@ -336,4 +336,134 @@ describe('Admin APIs', () => {
       .set('Authorization', `Bearer ${token}`);
     expect(invalidPeriod.status).toBe(400);
   });
+
+  it('Fechamento: lista e modal retornam somente retirada concluída no período (com clientId legado string/ObjectId)', async () => {
+    const app = await loadApp();
+    const { admin } = await ensureUsers();
+    const token = signToken(String(admin._id), 'admin');
+
+    const onlyEntrega = await ClientModel.create({
+      clientName: 'Somente Entrega',
+      contactName: 'Contato E',
+      contactNumber: '111',
+      neighborhood: 'N1',
+      address: 'R1',
+      addressNumber: '1',
+    });
+    const hasRetiradaObjectId = await ClientModel.create({
+      clientName: 'Retirada ObjectId',
+      contactName: 'Contato O',
+      contactNumber: '222',
+      neighborhood: 'N2',
+      address: 'R2',
+      addressNumber: '2',
+    });
+    const hasRetiradaString = await ClientModel.create({
+      clientName: 'Retirada String',
+      contactName: 'Contato S',
+      contactNumber: '333',
+      neighborhood: 'N3',
+      address: 'R3',
+      addressNumber: '3',
+    });
+    const outOfRange = await ClientModel.create({
+      clientName: 'Retirada Fora',
+      contactName: 'Contato F',
+      contactNumber: '444',
+      neighborhood: 'N4',
+      address: 'R4',
+      addressNumber: '4',
+    });
+
+    await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: onlyEntrega._id,
+      clientName: onlyEntrega.clientName,
+      contactName: onlyEntrega.contactName,
+      contactNumber: onlyEntrega.contactNumber,
+      neighborhood: onlyEntrega.neighborhood,
+      address: onlyEntrega.address,
+      addressNumber: onlyEntrega.addressNumber,
+      type: 'entrega',
+      status: 'concluido',
+      updatedAt: new Date('2026-05-16T12:00:00.000Z'),
+      createdAt: new Date('2026-05-16T08:00:00.000Z'),
+    });
+
+    await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: hasRetiradaObjectId._id,
+      clientName: hasRetiradaObjectId.clientName,
+      contactName: hasRetiradaObjectId.contactName,
+      contactNumber: hasRetiradaObjectId.contactNumber,
+      neighborhood: hasRetiradaObjectId.neighborhood,
+      address: hasRetiradaObjectId.address,
+      addressNumber: hasRetiradaObjectId.addressNumber,
+      type: 'retirada',
+      status: 'concluido',
+      updatedAt: new Date('2026-05-17T10:30:00.000Z'),
+      createdAt: new Date('2026-05-17T08:00:00.000Z'),
+    });
+
+    await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: String(hasRetiradaString._id),
+      clientName: hasRetiradaString.clientName,
+      contactName: hasRetiradaString.contactName,
+      contactNumber: hasRetiradaString.contactNumber,
+      neighborhood: hasRetiradaString.neighborhood,
+      address: hasRetiradaString.address,
+      addressNumber: hasRetiradaString.addressNumber,
+      type: 'retirada',
+      status: 'concluido',
+      updatedAt: new Date('2026-05-18T18:45:00.000Z'),
+      createdAt: new Date('2026-05-18T08:00:00.000Z'),
+    });
+
+    await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: outOfRange._id,
+      clientName: outOfRange.clientName,
+      contactName: outOfRange.contactName,
+      contactNumber: outOfRange.contactNumber,
+      neighborhood: outOfRange.neighborhood,
+      address: outOfRange.address,
+      addressNumber: outOfRange.addressNumber,
+      type: 'retirada',
+      status: 'concluido',
+      updatedAt: new Date('2026-05-25T10:00:00.000Z'),
+      createdAt: new Date('2026-05-25T08:00:00.000Z'),
+    });
+
+    const list = await request(app)
+      .get('/clients?closure=true&startDate=2026-05-15&endDate=2026-05-19')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(list.status).toBe(200);
+    const listNames = list.body.map((c: any) => c.clientName);
+    expect(listNames).toContain('Retirada ObjectId');
+    expect(listNames).toContain('Retirada String');
+    expect(listNames).not.toContain('Somente Entrega');
+    expect(listNames).not.toContain('Retirada Fora');
+
+    const modalObjectId = await request(app)
+      .get(`/clients/${hasRetiradaObjectId._id}/orders?closure=true&startDate=2026-05-15&endDate=2026-05-19`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(modalObjectId.status).toBe(200);
+    expect(modalObjectId.body.length).toBeGreaterThan(0);
+    expect(modalObjectId.body.every((o: any) => o.type === 'retirada' && o.status === 'concluido')).toBe(true);
+
+    const modalString = await request(app)
+      .get(`/clients/${hasRetiradaString._id}/orders?closure=true&startDate=2026-05-15&endDate=2026-05-19`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(modalString.status).toBe(200);
+    expect(modalString.body.length).toBeGreaterThan(0);
+    expect(modalString.body.every((o: any) => o.type === 'retirada' && o.status === 'concluido')).toBe(true);
+
+    const modalEntregaOnly = await request(app)
+      .get(`/clients/${onlyEntrega._id}/orders?closure=true&startDate=2026-05-15&endDate=2026-05-19`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(modalEntregaOnly.status).toBe(200);
+    expect(modalEntregaOnly.body).toHaveLength(0);
+  });
 });

@@ -314,6 +314,7 @@ interface ClientOrdersModalProps {
   startDate?: string;
   endDate?: string;
   type?: 'entrega' | 'retirada';
+  closureMode?: boolean;
 }
 
 const typeLabels: Record<IOrder['type'], string> = {
@@ -347,7 +348,14 @@ const getDriverName = (order: IOrder) => {
   return 'Não informado';
 };
 
-const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose, startDate, endDate, type }) => {
+const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
+  client,
+  onClose,
+  startDate,
+  endDate,
+  type,
+  closureMode = false,
+}) => {
   const [orders, setOrders] = useState<IOrder[]>([]);
   const [modalImage, setModalImage] = useState<string | null>(null);
 
@@ -361,6 +369,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose, 
         query.append('endDate', endDate);
       }
       if (type) query.append('type', type);
+      if (closureMode) query.append('closure', 'true');
 
       const response = await fetch(`${apiUrl}/clients/${client._id}/orders?${query.toString()}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
@@ -372,7 +381,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose, 
     };
 
     fetchOrders();
-  }, [client._id, startDate, endDate, type]);
+  }, [client._id, startDate, endDate, type, closureMode]);
 
   const apiUrl = import.meta.env.VITE_API_URL;
   const formatCurrency = (value: number) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -415,14 +424,14 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose, 
         </ImageLayer>
       )}
 
-      <ModalContent onClick={(event) => event.stopPropagation()}>
+      <ModalContent data-testid="client-orders-modal" onClick={(event) => event.stopPropagation()}>
         <ModalHeader>
           <TitleWrap>
             <TitleAccent />
             <Title>Pedidos de {client.clientName}</Title>
           </TitleWrap>
           <HeaderActions>
-            <DownloadButton type="button" onClick={handleDownload} disabled={orders.length === 0}>
+            <DownloadButton data-testid="client-orders-download" type="button" onClick={handleDownload} disabled={orders.length === 0}>
               Baixar
             </DownloadButton>
             <CloseButton type="button" onClick={onClose} aria-label="Fechar modal">
@@ -526,7 +535,11 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({ client, onClose, 
                 );
               })
             ) : (
-              <EmptyState>Nenhum pedido encontrado para os filtros selecionados.</EmptyState>
+              <EmptyState>
+                {closureMode
+                  ? 'Nenhum pedido encontrado para os filtros selecionados. Se o cliente apareceu na lista de fechamento, isso pode indicar inconsistência de dados legados.'
+                  : 'Nenhum pedido encontrado para os filtros selecionados.'}
+              </EmptyState>
             )}
           </OrdersList>
         </ModalBody>

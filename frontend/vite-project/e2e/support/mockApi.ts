@@ -170,6 +170,41 @@ const initialOrders: Order[] = [
     createdAt: nowIso,
     updatedAt: nowIso,
   },
+  {
+    _id: 'ord-4',
+    orderNumber: 2233,
+    clientId: 'cli-1',
+    clientName: '3GK HOLDING E PARTICIPACOES OBRA 1',
+    cnpjCpf: '39.003.660/0001-61',
+    city: 'JacareÃ­',
+    cep: '12338-500',
+    contactName: 'SR SAMIIR',
+    contactNumber: '(12) 98195-6675',
+    neighborhood: 'Jardim CalifÃ³rnia',
+    address: 'Rodovia Geraldo Scavone',
+    addressNumber: '4975',
+    placa: 'XYZ1A23',
+    type: 'retirada',
+    priority: 0,
+    status: 'concluido',
+    motorista: { _id: 'drv-1', username: 'adalberto' },
+    cacambas: [
+      {
+        _id: 'cac-4',
+        numero: '777',
+        tipo: 'retirada',
+        local: 'via_publica',
+        orderId: 'ord-4',
+        imageUrl: '/uploads/cac-4.jpg',
+        createdAt: nowIso,
+        horaServicoDigitos: '777',
+      },
+    ],
+    imageUrls: [],
+    createdAt: nowIso,
+    updatedAt: nowIso,
+    price: 320.0,
+  },
 ];
 
 const createJwt = (role: Role) => {
@@ -321,6 +356,8 @@ export const setupMockApi = async (page: Page) => {
     if (pathname === '/clients' && method === 'GET') {
       const startDate = searchParams.get('startDate');
       const endDate = searchParams.get('endDate');
+      const closure = searchParams.get('closure') === 'true';
+      const type = searchParams.get('type');
 
       if (startDate && endDate) {
         const start = new Date(startDate);
@@ -330,6 +367,8 @@ export const setupMockApi = async (page: Page) => {
         const concludedClientIds = new Set(
           orders
             .filter((o) => o.status === 'concluido')
+            .filter((o) => (closure ? o.type === 'retirada' : true))
+            .filter((o) => (type ? o.type === type : true))
             .filter((o) => {
               const updated = new Date(o.updatedAt).getTime();
               return updated >= start.getTime() && updated <= end.getTime();
@@ -379,12 +418,27 @@ export const setupMockApi = async (page: Page) => {
     }
     if (/^\/clients\/[^/]+\/orders$/.test(pathname) && method === 'GET') {
       const clientId = pathname.split('/')[2];
+      const closure = searchParams.get('closure') === 'true';
       let filtered = orders.filter((o) => o.clientId === clientId);
+      if (closure) {
+        filtered = filtered.filter((o) => o.type === 'retirada' && o.status === 'concluido');
+      }
       if (searchParams.get('status')) {
         filtered = filtered.filter((o) => o.status === searchParams.get('status'));
       }
       if (searchParams.get('type')) {
         filtered = filtered.filter((o) => o.type === searchParams.get('type'));
+      }
+      const startDate = searchParams.get('startDate');
+      const endDate = searchParams.get('endDate');
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filtered = filtered.filter((o) => {
+          const updated = new Date(o.updatedAt).getTime();
+          return updated >= start.getTime() && updated <= end.getTime();
+        });
       }
       if (searchParams.get('local')) {
         filtered = filtered.map((o) => ({

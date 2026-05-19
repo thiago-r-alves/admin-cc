@@ -9,6 +9,13 @@ type DownloadClientOrdersPdfInput = {
   clientTotal: number;
 };
 
+type BuildClientOrdersPdfOptions = {
+  output?: 'blob';
+};
+
+type BuiltPdfDownload = { filename: string };
+type BuiltPdfBlob = { filename: string; blob: Blob };
+
 const formatDateTime = (value?: string) => (value ? new Date(value).toLocaleString('pt-BR') : '-');
 
 const formatCurrency = (value: number) =>
@@ -47,7 +54,18 @@ const mapLocalLabel = (local?: string) => {
   return local || '-';
 };
 
-export async function downloadClientOrdersPdf(input: DownloadClientOrdersPdfInput) {
+export async function buildClientOrdersPdf(
+  input: DownloadClientOrdersPdfInput,
+  options: { output: 'blob' }
+): Promise<BuiltPdfBlob>;
+export async function buildClientOrdersPdf(
+  input: DownloadClientOrdersPdfInput,
+  options?: BuildClientOrdersPdfOptions
+): Promise<BuiltPdfDownload>;
+export async function buildClientOrdersPdf(
+  input: DownloadClientOrdersPdfInput,
+  options?: BuildClientOrdersPdfOptions
+): Promise<BuiltPdfDownload | BuiltPdfBlob> {
   const { client, orders, startDate, endDate, type, clientTotal } = input;
   const { jsPDF } = await import('jspdf');
   const autoTableModule = await import('jspdf-autotable');
@@ -116,5 +134,22 @@ export async function downloadClientOrdersPdf(input: DownloadClientOrdersPdfInpu
   const endFileLabel = formatFileDate(endDate);
   const periodSuffix =
     startFileLabel && endFileLabel ? `_${startFileLabel}_a_${endFileLabel}` : '';
-  doc.save(`relatorio_pedidos_${safeName}${periodSuffix}.pdf`);
+  const filename = `relatorio_pedidos_${safeName}${periodSuffix}.pdf`;
+  if (options?.output === 'blob') {
+    const blob = doc.output('blob');
+    return { filename, blob };
+  }
+  return { filename };
+}
+
+export async function downloadClientOrdersPdf(input: DownloadClientOrdersPdfInput) {
+  const { filename, blob } = await buildClientOrdersPdf(input, { output: 'blob' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }

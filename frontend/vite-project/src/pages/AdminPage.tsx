@@ -8,6 +8,7 @@ import CacambaMetaModal from '../components/CacambaMetaModal';
 import ActionConfirmModal from '../components/ActionConfirmModal';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import ClientPage from './ClientPage';
+import FechamentoPage from './FechamentoPage';
 // socket.io-client and PDF download will be dynamically imported to avoid parsing on initial load
 
 // ==========================================================
@@ -800,7 +801,7 @@ const GlobalStyle = createGlobalStyle`
   body { margin: 0; background: #f6f7fb; }
 `;
 
-type AdminTab = 'pedidos' | 'clientes' | 'motoristas';
+type AdminTab = 'pedidos' | 'clientes' | 'fechamento' | 'motoristas';
 type SidebarIconName = AdminTab | 'sair' | 'menu';
 
 const SidebarIcon = ({ name }: { name: SidebarIconName }) => {
@@ -849,6 +850,19 @@ const SidebarIcon = ({ name }: { name: SidebarIconName }) => {
     );
   }
 
+  if (name === 'fechamento') {
+    return (
+      <svg {...common}>
+        <path d="M8 2v4" />
+        <path d="M16 2v4" />
+        <rect x="3" y="4" width="18" height="18" rx="2" />
+        <path d="M3 10h18" />
+        <path d="M8 14h8" />
+        <path d="M8 18h5" />
+      </svg>
+    );
+  }
+
   if (name === 'menu') {
     return (
       <svg {...common}>
@@ -892,6 +906,7 @@ const DriverTrashIcon = () => (
 const sidebarItems: Array<{ key: AdminTab; label: string }> = [
   { key: 'pedidos', label: 'Pedidos' },
   { key: 'clientes', label: 'Clientes' },
+  { key: 'fechamento', label: 'Fechamento' },
   { key: 'motoristas', label: 'Motoristas' },
 ];
 
@@ -1434,6 +1449,10 @@ const AdminPage: React.FC = () => {
           />
           {activeTab === 'clientes' && (
             <ClientPage />
+          )}
+
+          {activeTab === 'fechamento' && (
+            <FechamentoPage />
           )}
 
           {activeTab === 'pedidos' && (

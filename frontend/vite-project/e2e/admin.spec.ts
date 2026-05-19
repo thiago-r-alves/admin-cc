@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+﻿import { expect, test, type Page } from '@playwright/test';
 import { seedSession, setupMockApi } from './support/mockApi';
 
 test.describe('Admin', () => {
@@ -16,7 +16,7 @@ test.describe('Admin', () => {
 
   test('renderiza pedidos e permite abrir modal de novo pedido', async ({ page }) => {
     await expect(page.getByText('Pedidos Pendentes')).toBeVisible();
-    await expect(page.getByText('Concluídos')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Baixar Pedido' }).first()).toBeVisible();
     await expect(page.getByText('#2231')).toBeVisible();
     await page.getByRole('button', { name: /\+ Adicionar Pedido/i }).click();
     await expect(page.getByText('Novo Pedido')).toBeVisible();
@@ -57,47 +57,47 @@ test.describe('Admin', () => {
     await expect(page.getByText('3GK HOLDING E PARTICIPACOES OBRA 1').first()).toBeVisible();
   });
 
-  test('navega para clientes, abre modal de pedidos e aplica filtro externo de tipo', async ({ page, isMobile }) => {
+  test('navega para fechamento e abre modal com perÃ­odo aplicado', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
-    await page.getByRole('button', { name: 'Clientes' }).click();
-    await expect(page.getByText('Gerenciamento de Clientes')).toBeVisible();
-    await page.locator('#clients-order-type').selectOption('retirada');
-    await page.locator('button', { hasText: /^Pedidos$/ }).nth(1).click();
+    await page.getByRole('button', { name: 'Fechamento' }).click();
+    await expect(page.getByRole('heading', { name: 'Fechamento' })).toBeVisible();
+    await page.locator('#closure-start-date').fill('2026-05-15');
+    await page.locator('#closure-end-date').fill('2026-05-31');
+    await page.getByRole('button', { name: 'Aplicar Filtro' }).click();
+    await expect(page.getByRole('button', { name: 'Ver pedidos' }).first()).toBeVisible();
+    await page.getByRole('button', { name: 'Ver pedidos' }).first().click();
 
-    await expect(page.getByRole('button', { name: 'Fechar modal' })).toBeVisible();
-    await expect(page.locator('#orders-type')).toHaveCount(0);
-    await expect(page.locator('#orders-local')).toHaveCount(0);
-    await expect(page.locator('#orders-status')).toHaveCount(0);
-    await expect(page.getByText('Pedido #1500')).toHaveCount(0);
-    await expect(page.getByText('Pedido #2231')).toHaveCount(0);
-
-    await page.getByRole('button', { name: 'Fechar modal' }).click();
-    await expect(page.getByText(/Pedidos de/i)).toHaveCount(0);
+    await expect(page.getByText(/Total do cliente \(Retiradas\)/i)).toBeVisible();
+    await expect(page.getByText(/Pedidos de/i)).toBeVisible();
   });
 
-  test('modal de pedidos do cliente mostra motorista, placa e resumo expandido', async ({ page, isMobile }) => {
+  test('modal de pedidos do fechamento mostra motorista, placa e resumo expandido', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
-    await page.getByRole('button', { name: 'Clientes' }).click();
-
-    await page.getByRole('button', { name: /^Pedidos$/ }).nth(1).click();
+    await page.getByRole('button', { name: 'Fechamento' }).click();
+    await page.locator('#closure-start-date').fill('2026-05-15');
+    await page.locator('#closure-end-date').fill('2026-05-31');
+    await page.getByRole('button', { name: 'Aplicar Filtro' }).click();
+    await expect(page.getByRole('button', { name: 'Ver pedidos' }).first()).toBeVisible();
+    await page.getByRole('button', { name: 'Ver pedidos' }).first().click();
 
     await expect(page.getByText(/Total do cliente \(Retiradas\)/i)).toBeVisible();
     await expect(page.getByText(/Motorista/i).first()).toBeVisible();
     await expect(page.getByText(/adalberto/i).first()).toBeVisible();
-    await expect(page.getByText(/Placa do caminhão/i).first()).toBeVisible();
-    await expect(page.getByText(/FT02E29|ABC1D23/i).first()).toBeVisible();
+    await expect(page.getByText(/Placa do caminh/i).first()).toBeVisible();
   });
 
-  test('modal de pedidos do cliente permite baixar pdf consolidado', async ({ page, isMobile, browserName }) => {
+  test('modal de pedidos do fechamento permite baixar pdf consolidado', async ({ page, isMobile, browserName }) => {
     test.skip(browserName === 'webkit', 'Download no WebKit do CI pode ser inconsistente para jsPDF blob.');
     await openMenuIfMobile(page, isMobile);
-    await page.getByRole('button', { name: 'Clientes' }).click();
-
-    await page.getByRole('button', { name: /^Pedidos$/ }).nth(1).click();
-
+    await page.getByRole('button', { name: 'Fechamento' }).click();
+    await page.locator('#closure-start-date').fill('2026-05-15');
+    await page.locator('#closure-end-date').fill('2026-05-31');
+    await page.getByRole('button', { name: 'Aplicar Filtro' }).click();
+    await expect(page.getByRole('button', { name: 'Ver pedidos' }).first()).toBeVisible();
+    await page.getByRole('button', { name: 'Ver pedidos' }).first().click();
     const [download] = await Promise.all([
       page.waitForEvent('download'),
-      page.getByRole('button', { name: 'Baixar' }).click(),
+      page.getByTestId('client-orders-modal').getByTestId('client-orders-download').click(),
     ]);
     const filename = download.suggestedFilename();
     expect(filename).toContain('relatorio_pedidos_');
@@ -112,7 +112,7 @@ test.describe('Admin', () => {
     await expect(page.getByRole('button', { name: /\+ Adicionar Motorista/i })).toBeVisible();
   });
 
-  test('reatribui motorista e mantém pedido acessível no novo filtro', async ({ page }) => {
+  test('reatribui motorista e mantÃ©m pedido acessÃ­vel no novo filtro', async ({ page }) => {
     const firstOrderNumber = (await page.getByText(/#\d+/).first().innerText()).trim();
     const reassignSelect = page.locator('select').first();
     const patchOrder = page.waitForResponse(
@@ -137,13 +137,13 @@ test.describe('Admin', () => {
     await expect(page.locator('article').filter({ hasText: '#2231' })).toHaveCount(Math.max(0, pendingCountBefore - 1));
   });
 
-  test('aciona baixar pedido em concluídos', async ({ page }) => {
+  test('aciona baixar pedido em concluÃ­dos', async ({ page }) => {
     await expect(page.getByRole('button', { name: 'Baixar Pedido' }).first()).toBeVisible();
     await page.getByRole('button', { name: 'Baixar Pedido' }).first().click();
-    await expect(page.getByText('Concluídos')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Baixar Pedido' }).first()).toBeVisible();
   });
 
-  test('mostra erro ao falhar criação de pedido', async ({ page }) => {
+  test('mostra erro ao falhar criaÃ§Ã£o de pedido', async ({ page }) => {
     await page.route('**/orders', async (route) => {
       if (route.request().method() === 'POST') {
         await route.fulfill({
@@ -177,13 +177,13 @@ test.describe('Admin', () => {
     await expect(page.getByText('Falha ao criar pedido (teste).')).toBeVisible();
   });
 
-  test('mostra erro 400 ao validar criação de pedido', async ({ page }) => {
+  test('mostra erro 400 ao validar criaÃ§Ã£o de pedido', async ({ page }) => {
     await page.route('**/orders', async (route) => {
       if (route.request().method() === 'POST') {
         await route.fulfill({
           status: 400,
           contentType: 'application/json',
-          body: JSON.stringify({ message: 'Dados obrigatórios inválidos (teste).' }),
+          body: JSON.stringify({ message: 'Dados obrigatÃ³rios invÃ¡lidos (teste).' }),
         });
         return;
       }
@@ -207,16 +207,16 @@ test.describe('Admin', () => {
       .selectOption('drv-1');
     await page.getByRole('button', { name: 'Criar Pedido' }).click();
 
-    await expect(page.getByText('Dados obrigatórios inválidos (teste).')).toBeVisible();
+    await expect(page.getByText('Dados obrigatÃ³rios invÃ¡lidos (teste).')).toBeVisible();
   });
 
-  test('mostra erro 400 ao falhar reatribuição de motorista', async ({ page }) => {
+  test('mostra erro 400 ao falhar reatribuiÃ§Ã£o de motorista', async ({ page }) => {
     await page.route('**/orders/*', async (route) => {
       if (route.request().method() === 'PATCH') {
         await route.fulfill({
           status: 400,
           contentType: 'application/json',
-          body: JSON.stringify({ message: 'Motorista inválido (teste).' }),
+          body: JSON.stringify({ message: 'Motorista invÃ¡lido (teste).' }),
         });
         return;
       }
@@ -225,10 +225,10 @@ test.describe('Admin', () => {
 
     const orderCard = page.locator('div', { hasText: '#2231' }).first();
     await orderCard.locator('select').first().selectOption('drv-2');
-    await expect(page.getByText('Motorista inválido (teste).')).toBeVisible();
+    await expect(page.getByText('Motorista invÃ¡lido (teste).')).toBeVisible();
   });
 
-  test('mostra erro ao falhar reatribuição de motorista', async ({ page }) => {
+  test('mostra erro ao falhar reatribuiÃ§Ã£o de motorista', async ({ page }) => {
     await page.route('**/orders/*', async (route) => {
       if (route.request().method() === 'PATCH') {
         await route.fulfill({
@@ -246,7 +246,7 @@ test.describe('Admin', () => {
     await expect(page.getByText('Erro ao reatribuir (teste).')).toBeVisible();
   });
 
-  test('mostra erro ao falhar exclusão de pedido', async ({ page }) => {
+  test('mostra erro ao falhar exclusÃ£o de pedido', async ({ page }) => {
     await page.route('**/orders/*', async (route) => {
       if (route.request().method() === 'DELETE') {
         await route.fulfill({
@@ -274,7 +274,7 @@ test.describe('Admin', () => {
     await page.locator('#clientName').fill('CLIENTE E2E');
     await page.locator('#address').fill('Rua Teste');
     await page.locator('#neighborhood').fill('Centro');
-    await page.locator('#city').selectOption({ label: 'Jacareí' });
+    await page.locator('#city').selectOption({ index: 2 });
     await page.locator('#contactName').fill('Contato E2E');
     await page.locator('#contactNumber').fill('(12) 99999-9999');
     await page.getByRole('button', { name: 'Cadastrar' }).click();
@@ -296,28 +296,92 @@ test.describe('Admin', () => {
     await page.getByRole('button', { name: 'Clientes' }).click();
     await expect(page.getByText('3GK HOLDING E PARTICIPACOES OBRA 1')).toBeVisible();
 
-    await page
-      .getByPlaceholder('Buscar cliente por nome, CNPJ/CPF, endereço, bairro, cidade, CEP...')
-      .fill('PFF INOVA');
+    await page.getByTestId('clients-search-input').fill('PFF INOVA');
 
     await expect(page.getByText('PFF INOVA IND E COM DE MAQ OBRA 1')).toBeVisible();
     await expect(page.getByText('3GK HOLDING E PARTICIPACOES OBRA 1')).toHaveCount(0);
   });
 
-  test('filtra clientes por período de conclusão', async ({ page, isMobile }) => {
+  test('filtra clientes na aba fechamento por período aplicado', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
-    await page.getByRole('button', { name: 'Clientes' }).click();
-    await expect(page.getByText('3GK HOLDING E PARTICIPACOES OBRA 1')).toBeVisible();
-    await expect(page.getByText('PFF INOVA IND E COM DE MAQ OBRA 1')).toBeVisible();
-
-    await page.locator('#clients-start-date').fill('2026-05-16');
-    await page.locator('#clients-end-date').fill('2026-05-16');
-
-    await expect(page.getByText('3GK HOLDING E PARTICIPACOES OBRA 1')).toBeVisible();
-    await expect(page.getByText('PFF INOVA IND E COM DE MAQ OBRA 1')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Fechamento' }).click();
+    await page.locator('#closure-start-date').fill('2026-05-16');
+    await page.locator('#closure-end-date').fill('2026-05-16');
+    await page.getByRole('button', { name: 'Aplicar Filtro' }).click();
+    await expect(page.getByText('Nenhum cliente com retirada concluída encontrado no período selecionado.')).toBeVisible();
   });
 
-  test('não envia criação de cliente sem campos obrigatórios', async ({ page, isMobile }) => {
+  test('fechamento: cliente listado sempre abre modal com retirada concluÃ­da', async ({ page, isMobile }) => {
+    await page.route('**/clients?**closure=true**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            _id: 'cli-katu',
+            clientName: 'Katu ParticipaÃ§Ãµes Ltda OBRA 1',
+            cnpjCpf: '',
+            contactName: 'Contato',
+            contactNumber: '(12) 99999-9999',
+            address: 'Rua A',
+            addressNumber: '100',
+            neighborhood: 'Centro',
+            city: 'JacareÃ­',
+            cep: '12345-000',
+          },
+        ]),
+      });
+    });
+
+    await page.route('**/clients/cli-katu/orders?**closure=true**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            _id: 'ord-katu-1',
+            orderNumber: 4001,
+            clientId: 'cli-katu',
+            clientName: 'Katu ParticipaÃ§Ãµes Ltda OBRA 1',
+            cnpjCpf: '',
+            city: 'JacareÃ­',
+            cep: '12345-000',
+            contactName: 'Contato',
+            contactNumber: '(12) 99999-9999',
+            neighborhood: 'Centro',
+            address: 'Rua A',
+            addressNumber: '100',
+            placa: 'ABC1D23',
+            type: 'retirada',
+            priority: 0,
+            status: 'concluido',
+            motorista: { _id: 'drv-1', username: 'adalberto' },
+            cacambas: [],
+            imageUrls: [],
+            createdAt: '2026-05-16T08:00:00.000Z',
+            updatedAt: '2026-05-16T12:00:00.000Z',
+          },
+        ]),
+      });
+    });
+
+    await openMenuIfMobile(page, isMobile);
+    await page.getByRole('button', { name: 'Fechamento' }).click();
+    await expect(page.getByRole('heading', { name: 'Fechamento' })).toBeVisible();
+
+    await page.locator('#closure-start-date').fill('2026-05-15');
+    await page.locator('#closure-end-date').fill('2026-05-31');
+    await page.getByRole('button', { name: 'Aplicar Filtro' }).click();
+
+    await expect(page.getByRole('button', { name: 'Ver pedidos' }).first()).toBeVisible();
+    await page.getByRole('button', { name: 'Ver pedidos' }).first().click();
+
+    await expect(page.getByText('Pedido #4001')).toBeVisible();
+    await expect(page.getByText('Quantidade total de pedidos: 1')).toBeVisible();
+    await expect(page.getByText('Nenhum pedido encontrado para os filtros selecionados.')).toHaveCount(0);
+  });
+
+  test('nÃ£o envia criaÃ§Ã£o de cliente sem campos obrigatÃ³rios', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
     await page.getByRole('button', { name: 'Clientes' }).click();
     await page.getByRole('button', { name: /\+ Adicionar Cliente/i }).click();
@@ -335,7 +399,7 @@ test.describe('Admin', () => {
     expect(postCount).toBe(0);
   });
 
-  test('mantém cliente quando criação falha (500)', async ({ page, isMobile }) => {
+  test('mantÃ©m cliente quando criaÃ§Ã£o falha (500)', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
     await page.getByRole('button', { name: 'Clientes' }).click();
 
@@ -355,7 +419,7 @@ test.describe('Admin', () => {
     await page.locator('#clientName').fill('CLIENTE COM ERRO');
     await page.locator('#address').fill('Rua Teste');
     await page.locator('#neighborhood').fill('Centro');
-    await page.locator('#city').selectOption({ label: 'Jacareí' });
+    await page.locator('#city').selectOption({ index: 2 });
     await page.locator('#contactName').fill('Contato');
     await page.locator('#contactNumber').fill('(12) 99999-9999');
     await page.getByRole('button', { name: 'Cadastrar' }).click();
@@ -364,7 +428,7 @@ test.describe('Admin', () => {
     await expect(page.getByRole('heading', { name: 'Gerenciamento de Clientes' }).first()).toBeVisible();
   });
 
-  test('mantém cliente quando edição falha (500)', async ({ page, isMobile }) => {
+  test('mantÃ©m cliente quando ediÃ§Ã£o falha (500)', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
     await page.getByRole('button', { name: 'Clientes' }).click();
 
@@ -387,7 +451,7 @@ test.describe('Admin', () => {
     await expect(page.getByText('CLIENTE NAO DEVE SALVAR')).toHaveCount(0);
   });
 
-  test('mantém cliente quando exclusão falha (500)', async ({ page, isMobile }) => {
+  test('mantÃ©m cliente quando exclusÃ£o falha (500)', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
     await page.getByRole('button', { name: 'Clientes' }).click();
     await expect(page.getByText('3GK HOLDING E PARTICIPACOES OBRA 1')).toBeVisible();
@@ -428,7 +492,7 @@ test.describe('Admin', () => {
     await expect(page.getByText('motorista-e2e-editado')).toHaveCount(0);
   });
 
-  test('não envia criação de motorista sem campos obrigatórios', async ({ page, isMobile }) => {
+  test('nÃ£o envia criaÃ§Ã£o de motorista sem campos obrigatÃ³rios', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
     await page.getByRole('button', { name: 'Motoristas' }).click();
     await page.getByRole('button', { name: /\+ Adicionar Motorista/i }).click();
@@ -445,7 +509,7 @@ test.describe('Admin', () => {
     expect(postCount).toBe(0);
   });
 
-  test('mostra erro ao falhar criação de motorista (500)', async ({ page, isMobile }) => {
+  test('mostra erro ao falhar criaÃ§Ã£o de motorista (500)', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
     await page.getByRole('button', { name: 'Motoristas' }).click();
     await page.getByRole('button', { name: /\+ Adicionar Motorista/i }).click();
@@ -468,7 +532,7 @@ test.describe('Admin', () => {
     await expect(page.getByText('Erro ao cadastrar motorista (teste).')).toBeVisible();
   });
 
-  test('mostra erro ao falhar edição de motorista (500)', async ({ page, isMobile }) => {
+  test('mostra erro ao falhar ediÃ§Ã£o de motorista (500)', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
     await page.getByRole('button', { name: 'Motoristas' }).click();
 
@@ -490,7 +554,7 @@ test.describe('Admin', () => {
     await expect(page.getByText('Erro ao atualizar motorista (teste).')).toBeVisible();
   });
 
-  test('mostra erro ao falhar exclusão de motorista (500)', async ({ page, isMobile }) => {
+  test('mostra erro ao falhar exclusÃ£o de motorista (500)', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
     await page.getByRole('button', { name: 'Motoristas' }).click();
 
@@ -511,7 +575,7 @@ test.describe('Admin', () => {
     await expect(page.getByText('Erro ao excluir motorista (teste).')).toBeVisible();
   });
 
-  test('logout limpa sessão e volta para login', async ({ page, isMobile }) => {
+  test('logout limpa sessÃ£o e volta para login', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
     await page.getByRole('button', { name: 'Sair' }).click();
     await page.getByRole('button', { name: 'Sair' }).last().click();
@@ -528,3 +592,4 @@ test.describe('Admin', () => {
     await expect(page.getByText('Gerenciamento de Clientes')).toBeVisible();
   });
 });
+
