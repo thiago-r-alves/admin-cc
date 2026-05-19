@@ -24,7 +24,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: frontend/vite-project/package-lock.json
 
@@ -45,8 +45,18 @@ jobs:
           path: frontend/vite-project/playwright-report
           retention-days: 14
 
-      - name: Upload Playwright Test Results
+      - name: Check Playwright Test Results dir
         if: always()
+        id: check_test_results
+        run: |
+          if [ -d "test-results" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload Playwright Test Results
+        if: always() && steps.check_test_results.outputs.exists == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: playwright-test-results

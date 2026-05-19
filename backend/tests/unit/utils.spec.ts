@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildLocalDateRange, mapPriority, parseLocalDate } from '../../src/server';
+import { buildLocalDateRange, mapPriority, parseLocalDate } from '../../src/utils/order';
 
 describe('Utils de negócio', () => {
   it('mapPriority suporta número, string e fallback', () => {
@@ -45,4 +45,3 @@ describe('Utils de negócio', () => {
     expect(Buffer.isBuffer(out.buffer)).toBe(true);
   });
 });
-

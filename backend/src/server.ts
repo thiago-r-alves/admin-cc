@@ -19,6 +19,7 @@ import webpush from 'web-push';
 import { PushSubscriptionModel, IPushSubscription } from './models/PushSubscription';
 import path from 'path';
 import { compressImage, extractGridFsIdFromUrl } from './utils/image';
+import { buildLocalDateRange, mapPriority } from './utils/order';
 import { pipeline } from 'stream';
 import { promisify } from 'util';
 const pipe = promisify(pipeline);
@@ -135,14 +136,6 @@ app.post('/login', async (req, res) => {
 // ==========================================================
 
 // Criar um novo pedido
-const mapPriority = (p: any) => {
-  if (typeof p === 'number') return p;
-  if (typeof p === 'string') {
-    const m = { baixa: 0, media: 1, alta: 2 } as const;
-    return p in m ? m[p as keyof typeof m] : 1;
-  }
-  return 1;
-};
 
 const orderTypes = ['entrega', 'retirada'] as const;
 const isOrderType = (value: unknown): value is typeof orderTypes[number] =>
@@ -151,20 +144,6 @@ const isOrderType = (value: unknown): value is typeof orderTypes[number] =>
 const isValidCacambaContentType = (value: unknown): value is CacambaContentType =>
   typeof value === 'string' &&
   (CACAMBA_CONTENT_TYPES as readonly string[]).includes(value);
-
-const parseLocalDate = (dateStr: string) => {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d, 0, 0, 0, 0);
-};
-
-const buildLocalDateRange = (startDate: string, endDate: string) => {
-  const start = parseLocalDate(startDate);
-  const end = parseLocalDate(endDate);
-  if (!start || !end) return null;
-  end.setHours(23, 59, 59, 999);
-  return { start, end };
-};
 
 // POST /orders
 app.post('/orders', authenticateToken, isAdmin, async (req, res) => {
@@ -988,4 +967,4 @@ async function sendPushToDriver(driverId: string, payload: { title: string; body
   );
 }
 
-export { app, server, mapPriority, parseLocalDate, buildLocalDateRange };
+export { app, server };
