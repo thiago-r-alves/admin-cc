@@ -6,6 +6,7 @@ import CacambaList from '../components/CacambaList';
 import EditCacambaModal from './EditCacambaModal';
 import ActionConfirmModal from '../components/ActionConfirmModal';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
+import LoadingScreen from '../components/LoadingScreen';
 // socket.io-client will be dynamically imported to avoid parsing on initial load
 
 const DriverContainer = styled.div`
@@ -740,7 +741,14 @@ const DriverPage: React.FC = () => {
 
   const activeOrders = orders.filter(order => order.status !== 'concluido');
 
-  if (loading) return <DriverContainer>Carregando pedidos...</DriverContainer>;
+  if (loading) {
+    return (
+      <LoadingScreen
+        title="Sistema carregando..."
+        subtitle="Estamos carregando os pedidos para você."
+      />
+    );
+  }
 
   return (
     <DriverContainer>

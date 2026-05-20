@@ -4,6 +4,7 @@ import ClientList from '../components/ClientList';
 import ClientForm from '../components/ClientForm';
 import ActionConfirmModal from '../components/ActionConfirmModal';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
+import LoadingScreen from '../components/LoadingScreen';
 import type { IClient } from '../interfaces';
 
 const Container = styled.div`
@@ -107,14 +108,6 @@ const AddButton = styled.button`
   @media (max-width: 720px) {
     width: 100%;
   }
-`;
-
-const LoadingState = styled.div`
-  padding: 1.2rem;
-  border: 1px dashed #fecaca;
-  border-radius: 8px;
-  background: #fffafa;
-  color: #6b7280;
 `;
 
 const ClientPage: React.FC = () => {
@@ -263,7 +256,7 @@ const ClientPage: React.FC = () => {
     });
   }, [clients, search]);
 
-  if (loading) return <LoadingState>Carregando...</LoadingState>;
+  if (loading) return <LoadingScreen fullHeight={false} />;
 
   return (
     <Container>

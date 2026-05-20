@@ -7,6 +7,7 @@ import CacambaList from '../components/CacambaList';
 import CacambaMetaModal from '../components/CacambaMetaModal';
 import ActionConfirmModal from '../components/ActionConfirmModal';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
+import LoadingScreen from '../components/LoadingScreen';
 import ClientPage from './ClientPage';
 import FechamentoPage from './FechamentoPage';
 // socket.io-client and PDF download will be dynamically imported to avoid parsing on initial load
@@ -1376,7 +1377,7 @@ const AdminPage: React.FC = () => {
     );
   };
 
-  if (loading) return <AdminContainer>Carregando...</AdminContainer>;
+  if (loading) return <LoadingScreen />;
   if (error) return <AdminContainer>Erro: {error}</AdminContainer>;
 
   return (
