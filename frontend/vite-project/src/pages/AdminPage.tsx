@@ -802,7 +802,7 @@ const GlobalStyle = createGlobalStyle`
   body { margin: 0; background: #f6f7fb; }
 `;
 
-type AdminTab = 'pedidos' | 'clientes' | 'fechamento' | 'motoristas';
+type AdminTab = 'pedidos' | 'acompanhamentos' | 'clientes' | 'fechamento' | 'motoristas';
 type SidebarIconName = AdminTab | 'sair' | 'menu';
 
 const SidebarIcon = ({ name }: { name: SidebarIconName }) => {
@@ -836,6 +836,17 @@ const SidebarIcon = ({ name }: { name: SidebarIconName }) => {
         <circle cx="9.5" cy="7" r="4" />
         <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
         <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    );
+  }
+
+  if (name === 'acompanhamentos') {
+    return (
+      <svg {...common}>
+        <path d="M3 12h3l2-4 4 8 2-4h7" />
+        <circle cx="6" cy="12" r="1" />
+        <circle cx="12" cy="16" r="1" />
+        <circle cx="17" cy="12" r="1" />
       </svg>
     );
   }
@@ -908,6 +919,7 @@ const sidebarItems: Array<{ key: AdminTab; label: string }> = [
   { key: 'pedidos', label: 'Pedidos' },
   { key: 'clientes', label: 'Clientes' },
   { key: 'fechamento', label: 'Fechamento' },
+  { key: 'acompanhamentos', label: 'Acompanhamentos' },
   { key: 'motoristas', label: 'Motoristas' },
 ];
 
@@ -971,6 +983,65 @@ const AdminPage: React.FC = () => {
     setConfirmState(payload);
     setConfirmLoading(false);
   };
+
+  const acompanhamentoCacambas = useMemo(() => {
+    type AcompanhamentoItem = {
+      numero: string;
+      numeroValue: number;
+      createdAtMs: number;
+      order: IOrder;
+      cacamba: ICacamba;
+    };
+
+    const latestByNumero = new Map<string, AcompanhamentoItem>();
+
+    for (const order of orders) {
+      for (const cacamba of order.cacambas ?? []) {
+        const numeroKey = String(cacamba.numero ?? '').trim();
+        if (!numeroKey) continue;
+
+        const createdAtMs = new Date(cacamba.createdAt ?? 0).getTime();
+        const safeCreatedAtMs = Number.isFinite(createdAtMs) ? createdAtMs : 0;
+        const numeroParsed = Number.parseInt(numeroKey, 10);
+        const numeroValue = Number.isFinite(numeroParsed) ? numeroParsed : Number.NEGATIVE_INFINITY;
+
+        const incoming: AcompanhamentoItem = {
+          numero: numeroKey,
+          numeroValue,
+          createdAtMs: safeCreatedAtMs,
+          order,
+          cacamba,
+        };
+
+        const current = latestByNumero.get(numeroKey);
+        if (!current) {
+          latestByNumero.set(numeroKey, incoming);
+          continue;
+        }
+
+        const shouldReplace =
+          safeCreatedAtMs > current.createdAtMs ||
+          (safeCreatedAtMs === current.createdAtMs &&
+            (incoming.cacamba.tipo === 'retirada' && current.cacamba.tipo !== 'retirada'));
+
+        if (shouldReplace) latestByNumero.set(numeroKey, incoming);
+      }
+    }
+
+    return [...latestByNumero.values()]
+      .filter((item) => item.cacamba.tipo === 'entrega')
+      .sort((a, b) => {
+        if (a.createdAtMs !== b.createdAtMs) return b.createdAtMs - a.createdAtMs;
+
+        const aNumeric = Number.isFinite(a.numeroValue);
+        const bNumeric = Number.isFinite(b.numeroValue);
+        if (aNumeric && bNumeric && a.numeroValue !== b.numeroValue) {
+          return b.numeroValue - a.numeroValue;
+        }
+        if (aNumeric !== bNumeric) return aNumeric ? -1 : 1;
+        return b.numero.localeCompare(a.numero, 'pt-BR', { numeric: true, sensitivity: 'base' });
+      });
+  }, [orders]);
 
   // Pedidos do motorista selecionado (aceita motorista como id ou objeto populado)
   const driverOrders = useMemo(
@@ -1454,6 +1525,86 @@ const AdminPage: React.FC = () => {
 
           {activeTab === 'fechamento' && (
             <FechamentoPage />
+          )}
+
+          {activeTab === 'acompanhamentos' && (
+            <OrdersPage>
+              <SectionContainer>
+                <OrdersSectionTitle>Acompanhamentos</OrdersSectionTitle>
+
+                {acompanhamentoCacambas.length ? (
+                  <OrdersGrid>
+                    {acompanhamentoCacambas.map(({ numero, cacamba, order }) => {
+                      const motoristaNome =
+                        typeof order.motorista === 'object' && order.motorista !== null
+                          ? (order.motorista as { username?: string }).username
+                          : '';
+                      const contato = [order.contactName, order.contactNumber].filter(Boolean).join(' - ');
+                      const localLabel =
+                        cacamba.local === 'via_publica'
+                          ? 'Via pública'
+                          : cacamba.local === 'canteiro_obra'
+                            ? 'Canteiro de obra'
+                            : '-';
+
+                      return (
+                        <OrderCard key={cacamba._id} status={order.status}>
+                          <OrderCardHeader>
+                            <OrderHeaderMeta>
+                              <OrderNumber>Caçamba #{numero}</OrderNumber>
+                            </OrderHeaderMeta>
+                            <OrderTypeBadge $type={cacamba.tipo}>{typeLabels[cacamba.tipo]}</OrderTypeBadge>
+                          </OrderCardHeader>
+
+                          <OrderCardBody>
+                            <InfoGrid>
+                              <InfoTile>
+                                <InfoLabel>Última entrega</InfoLabel>
+                                <InfoValue>
+                                  {cacamba.createdAt
+                                    ? new Date(cacamba.createdAt).toLocaleString('pt-BR')
+                                    : '-'}
+                                </InfoValue>
+                              </InfoTile>
+                              <InfoTile>
+                                <InfoLabel>Local</InfoLabel>
+                                <InfoValue>{localLabel}</InfoValue>
+                              </InfoTile>
+                              <InfoTile>
+                                <InfoLabel>Placa do caminhão</InfoLabel>
+                                <InfoValue style={{ textTransform: 'uppercase', color: '#e30613', fontWeight: 800 }}>
+                                  {order.placa || '-'}
+                                </InfoValue>
+                              </InfoTile>
+                            </InfoGrid>
+
+                            <OrderDetailsDivider />
+
+                            <OrderClientName>{order.clientName || '-'}</OrderClientName>
+                            <InfoGrid>
+                              <InfoTile>
+                                <InfoLabel>Motorista</InfoLabel>
+                                <InfoValue>{motoristaNome || '-'}</InfoValue>
+                              </InfoTile>
+                              <InfoTile>
+                                <InfoLabel>Contato</InfoLabel>
+                                <InfoValue>{contato || '-'}</InfoValue>
+                              </InfoTile>
+                              <InfoTile>
+                                <InfoLabel>Endereço</InfoLabel>
+                                <InfoValue>{formatOrderAddress(order)}</InfoValue>
+                              </InfoTile>
+                            </InfoGrid>
+                          </OrderCardBody>
+                        </OrderCard>
+                      );
+                    })}
+                  </OrdersGrid>
+                ) : (
+                  <EmptyState>Nenhuma caçamba em colocação pendente de retirada.</EmptyState>
+                )}
+              </SectionContainer>
+            </OrdersPage>
           )}
 
           {activeTab === 'pedidos' && (

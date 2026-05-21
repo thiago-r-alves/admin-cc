@@ -112,6 +112,128 @@ test.describe('Admin', () => {
     await expect(page.getByRole('button', { name: /\+ Adicionar Motorista/i })).toBeVisible();
   });
 
+  test('aba acompanhamentos mostra apenas caçambas pendentes de retirada e campos principais', async ({ page, isMobile }) => {
+    await openMenuIfMobile(page, isMobile);
+    await page.getByRole('button', { name: 'Acompanhamentos' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Acompanhamentos' })).toBeVisible();
+    await expect(page.getByText('Caçamba #415')).toBeVisible();
+    await expect(page.getByText('Caçamba #435')).toHaveCount(0);
+    await expect(page.getByText('Caçamba #777')).toHaveCount(0);
+
+    await expect(page.getByText('Placa do caminhão').first()).toBeVisible();
+    await expect(page.getByText('ABC1D23').first()).toBeVisible();
+    await expect(page.getByText('Motorista', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('adalberto').first()).toBeVisible();
+    await expect(page.getByText('Contato', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('SR SAMIIR - (12) 98195-6675').first()).toBeVisible();
+  });
+
+  test('aba acompanhamentos respeita último evento por número e ordena pela última entrega mais recente', async ({ page, isMobile }) => {
+    const mockOrders = [
+      {
+        _id: 'ord-ac-1',
+        orderNumber: 6001,
+        clientId: 'cli-1',
+        clientName: 'Cliente A',
+        cnpjCpf: '',
+        city: 'Cidade',
+        cep: '11111-111',
+        contactName: 'Contato A',
+        contactNumber: '(11) 99999-1111',
+        neighborhood: 'Bairro A',
+        address: 'Rua A',
+        addressNumber: '1',
+        placa: 'AAA1A11',
+        type: 'entrega',
+        priority: 0,
+        status: 'pendente',
+        motorista: { _id: 'drv-1', username: 'adalberto' },
+        cacambas: [
+          { _id: 'cac-ac-120-ret', numero: '120', tipo: 'retirada', local: 'via_publica', orderId: 'ord-ac-1', createdAt: '2026-05-16T09:00:00.000Z' },
+          { _id: 'cac-ac-120-ent', numero: '120', tipo: 'entrega', local: 'via_publica', orderId: 'ord-ac-1', createdAt: '2026-05-16T12:00:00.000Z' },
+        ],
+        imageUrls: [],
+        createdAt: '2026-05-16T08:00:00.000Z',
+        updatedAt: '2026-05-16T12:00:00.000Z',
+      },
+      {
+        _id: 'ord-ac-2',
+        orderNumber: 6002,
+        clientId: 'cli-1',
+        clientName: 'Cliente B',
+        cnpjCpf: '',
+        city: 'Cidade',
+        cep: '22222-222',
+        contactName: 'Contato B',
+        contactNumber: '(11) 99999-2222',
+        neighborhood: 'Bairro B',
+        address: 'Rua B',
+        addressNumber: '2',
+        placa: 'BBB2B22',
+        type: 'retirada',
+        priority: 0,
+        status: 'concluido',
+        motorista: { _id: 'drv-1', username: 'adalberto' },
+        cacambas: [
+          { _id: 'cac-ac-99-ent', numero: '99', tipo: 'entrega', local: 'canteiro_obra', orderId: 'ord-ac-2', createdAt: '2026-05-16T10:00:00.000Z' },
+          { _id: 'cac-ac-99-ret', numero: '99', tipo: 'retirada', local: 'via_publica', orderId: 'ord-ac-2', createdAt: '2026-05-16T11:00:00.000Z' },
+        ],
+        imageUrls: [],
+        createdAt: '2026-05-16T09:00:00.000Z',
+        updatedAt: '2026-05-16T11:00:00.000Z',
+      },
+      {
+        _id: 'ord-ac-3',
+        orderNumber: 6003,
+        clientId: 'cli-1',
+        clientName: 'Cliente C',
+        cnpjCpf: '',
+        city: 'Cidade',
+        cep: '33333-333',
+        contactName: 'Contato C',
+        contactNumber: '(11) 99999-3333',
+        neighborhood: 'Bairro C',
+        address: 'Rua C',
+        addressNumber: '3',
+        placa: '',
+        type: 'entrega',
+        priority: 0,
+        status: 'em_andamento',
+        motorista: { _id: 'drv-1', username: 'adalberto' },
+        cacambas: [
+          { _id: 'cac-ac-7-ent', numero: '7', tipo: 'entrega', local: 'via_publica', orderId: 'ord-ac-3', createdAt: '2026-05-16T13:00:00.000Z' },
+        ],
+        imageUrls: [],
+        createdAt: '2026-05-16T09:00:00.000Z',
+        updatedAt: '2026-05-16T13:00:00.000Z',
+      },
+    ];
+
+    await page.route('**/orders', async (route) => {
+      if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(mockOrders),
+        });
+        return;
+      }
+      await route.fallback();
+    });
+
+    await page.reload();
+    await openMenuIfMobile(page, isMobile);
+    await page.getByRole('button', { name: 'Acompanhamentos' }).click();
+
+    await expect(page.getByText('Caçamba #120')).toBeVisible();
+    await expect(page.getByText('Caçamba #7')).toBeVisible();
+    await expect(page.getByText('Caçamba #99')).toHaveCount(0);
+
+    const headers = await page.getByText(/Caçamba #\d+/).allTextContents();
+    expect(headers.slice(0, 2)).toEqual(['Caçamba #7', 'Caçamba #120']);
+  });
+
   test('reatribui motorista e mantÃ©m pedido acessÃ­vel no novo filtro', async ({ page }) => {
     const firstOrderNumber = (await page.getByText(/#\d+/).first().innerText()).trim();
     const reassignSelect = page.locator('select').first();
