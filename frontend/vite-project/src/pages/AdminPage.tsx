@@ -840,21 +840,6 @@ const PageButton = styled.button`
   &:disabled { opacity: .5; cursor: not-allowed; }
 `;
 
-const Section = styled.section`
-  margin-top: 1.5rem;
-`;
-
-const SectionHeader = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: .5rem;
-  margin: .75rem 0 1rem;
-
-  h3 { margin: 0; }
-  span { color: #6b7280; font-size: .9rem; }
-`;
-
 // Remover margem padrão do body
 const GlobalStyle = createGlobalStyle`
   body { margin: 0; background: #f6f7fb; }
