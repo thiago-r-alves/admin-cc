@@ -606,6 +606,64 @@ const SectionContainer = styled.div`
   }
 `;
 
+const StatusPanelsStack = styled.div`
+  display: grid;
+  gap: 1.5rem;
+`;
+
+const OrdersStatusPanel = styled.section<{ $variant: 'pending' | 'completed' }>`
+  border-radius: 12px;
+  border: 1px solid ${({ $variant }) => ($variant === 'pending' ? '#fca5a5' : '#86efac')};
+  border-top-width: 4px;
+  border-top-color: ${({ $variant }) => ($variant === 'pending' ? '#e30613' : '#16a34a')};
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
+  padding: 1rem 1rem 1.1rem;
+
+  @media (max-width: 640px) {
+    padding: 0.85rem 0.85rem 1rem;
+  }
+`;
+
+const OrdersPanelHeader = styled.div<{ $variant: 'pending' | 'completed' }>`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid ${({ $variant }) => ($variant === 'pending' ? '#fecaca' : '#bbf7d0')};
+  margin-bottom: 1rem;
+
+  .title-copy {
+    min-width: 0;
+    display: grid;
+    gap: 0.3rem;
+  }
+
+  .subtitle {
+    color: #6b7280;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+`;
+
+const OrdersPanelBadge = styled.span<{ $variant: 'pending' | 'completed' }>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  min-width: 82px;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.74rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: ${({ $variant }) => ($variant === 'pending' ? '#991b1b' : '#166534')};
+  border: 1px solid ${({ $variant }) => ($variant === 'pending' ? '#fda4af' : '#86efac')};
+  background: ${({ $variant }) => ($variant === 'pending' ? '#ffe4e6' : '#dcfce7')};
+`;
+
 const DeleteOrderButton = styled(Button)`
   padding: 0.75rem 1rem;
   background-color: #e30613;
@@ -1644,9 +1702,14 @@ const AdminPage: React.FC = () => {
               )}
 
               {drivers.length > 0 && (
-                <>
-                  <SectionContainer>
-                    <OrdersSectionTitle>Pedidos Pendentes</OrdersSectionTitle>
+                <StatusPanelsStack>
+                  <OrdersStatusPanel $variant="pending">
+                    <OrdersPanelHeader $variant="pending">
+                      <div className="title-copy">
+                        <OrdersSectionTitle>Pedidos Pendentes</OrdersSectionTitle>
+                      </div>
+                      <OrdersPanelBadge $variant="pending">Total: {pendingOrders.length}</OrdersPanelBadge>
+                    </OrdersPanelHeader>
                     {pendingOrders.length ? (
                       <OrdersGrid>
                         {pendingOrders.map(renderOrderCard)}
@@ -1654,13 +1717,15 @@ const AdminPage: React.FC = () => {
                     ) : (
                       <EmptyState>Nenhum pedido pendente para o motorista selecionado.</EmptyState>
                     )}
-                  </SectionContainer>
+                  </OrdersStatusPanel>
 
-                  <Section>
-                    <SectionHeader>
-                      <OrdersSectionTitle>Concluídos</OrdersSectionTitle>
-                      <span>Total: {completedOrders.length}</span>
-                    </SectionHeader>
+                  <OrdersStatusPanel $variant="completed">
+                    <OrdersPanelHeader $variant="completed">
+                      <div className="title-copy">
+                        <OrdersSectionTitle>Concluídos</OrdersSectionTitle>
+                      </div>
+                      <OrdersPanelBadge $variant="completed">Total: {completedOrders.length}</OrdersPanelBadge>
+                    </OrdersPanelHeader>
 
                     {visibleCompleted.length ? (
                       <OrdersGrid>
@@ -1706,8 +1771,8 @@ const AdminPage: React.FC = () => {
                         </div>
                       </PaginationBar>
                     )}
-                  </Section>
-                </>
+                  </OrdersStatusPanel>
+                </StatusPanelsStack>
               )}
             </OrdersPage>
           )}
