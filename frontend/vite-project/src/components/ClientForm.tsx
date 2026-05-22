@@ -283,7 +283,7 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
         <ModalHeader>
           <Title>Gerenciamento de Clientes</Title>
           <CloseButton type="button" variant="ghost" aria-label="Fechar modal" onClick={onCancel}>
-            ×
+            x
           </CloseButton>
         </ModalHeader>
 
@@ -303,7 +303,7 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
                       type="text"
                       value={formData.clientName}
                       onChange={handleChange}
-                      placeholder="Razão Social ou Nome Completo"
+                      placeholder="RazÃ£o Social ou Nome Completo"
                       required
                     />
                   </UIField>
@@ -327,7 +327,7 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
             <Section>
               <SectionTitle>
                 <SectionIcon name="pin" />
-                Localização
+                LocalizaÃ§Ã£o
               </SectionTitle>
               <FieldGrid>
                 <GridField>
@@ -343,7 +343,7 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
                       inputMode="numeric"
                     />
                   </UIField>
-                  {isFetchingCep && <FetchingHint>Buscando endereço...</FetchingHint>}
+                  {isFetchingCep && <FetchingHint>Buscando endereÃ§o...</FetchingHint>}
                 </GridField>
 
                 <GridField>
@@ -354,21 +354,21 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
                       type="text"
                       value={formData.address}
                       onChange={handleChange}
-                      placeholder="Rua, Avenida, Praça..."
+                      placeholder="Rua, Avenida, PraÃ§a..."
                       required
                     />
                   </UIField>
                 </GridField>
 
                 <GridField $span={2}>
-                  <UIField label="Número" htmlFor="addressNumber">
+                  <UIField label="NÃºmero" htmlFor="addressNumber">
                     <TextInput
                       id="addressNumber"
                       name="addressNumber"
                       type="text"
                       value={formData.addressNumber}
                       onChange={handleChange}
-                      placeholder="Número, Bloco, Sala"
+                      placeholder="NÃºmero, Bloco, Sala"
                     />
                   </UIField>
                 </GridField>
@@ -397,9 +397,9 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
                       required
                     >
                       <option value="">Selecione...</option>
-                      <option value="São José dos Campos">São José dos Campos</option>
-                      <option value="Jacareí">Jacareí</option>
-                      <option value="Caçapava">Caçapava</option>
+                      <option value="SÃ£o JosÃ© dos Campos">SÃ£o JosÃ© dos Campos</option>
+                      <option value="JacareÃ­">JacareÃ­</option>
+                      <option value="CaÃ§apava">CaÃ§apava</option>
                       <option value="Jambeiro">Jambeiro</option>
                       <option value="Monteiro Lobato">Monteiro Lobato</option>
                     </SelectInput>
@@ -422,14 +422,14 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
                       type="text"
                       value={formData.contactName}
                       onChange={handleChange}
-                      placeholder="Responsável no local"
+                      placeholder="ResponsÃ¡vel no local"
                       required
                     />
                   </UIField>
                 </GridField>
 
                 <GridField>
-                  <UIField label="Número do Contato" htmlFor="contactNumber">
+                  <UIField label="NÃºmero do Contato" htmlFor="contactNumber">
                     <TextInput
                       id="contactNumber"
                       name="contactNumber"

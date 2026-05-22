@@ -271,6 +271,92 @@ const FilterLabel = styled.span`
   letter-spacing: 0.08em;
 `;
 
+const AcompanhamentoToolbar = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  flex-wrap: nowrap;
+  padding: 0.2rem 0;
+  margin-bottom: 1rem;
+`;
+
+const AcompanhamentoFiltersGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+
+  @media (max-width: 1100px) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  @media (max-width: 860px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const AcompanhamentoFilterField = styled.div`
+  display: grid;
+  gap: 0.28rem;
+`;
+
+const AcompanhamentoFilterLabel = styled.label`
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #6b7280;
+`;
+
+const AcompanhamentoFilterInput = styled.input`
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.72rem 0.8rem;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 0.88rem;
+
+  &::placeholder {
+    color: #9ca3af;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: #e30613;
+    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
+  }
+`;
+
+const SummaryBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  min-width: 86px;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid #fca5a5;
+  background: #ffffff;
+  color: #991b1b;
+  font-size: 0.95rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+
+  @media (max-width: 640px) {
+    min-width: 80px;
+    font-size: 0.88rem;
+  }
+`;
+
 const OrdersSectionTitle = styled.h2`
   display: flex;
   align-items: center;
@@ -1014,6 +1100,16 @@ const AdminPage: React.FC = () => {
     confirmLabel: string;
     onConfirm: () => Promise<void> | void;
   } | null>(null);
+  const [acompanhamentoFilters, setAcompanhamentoFilters] = useState({
+    numero: '',
+    clientName: '',
+    cnpjCpf: '',
+    contact: '',
+    address: '',
+    neighborhood: '',
+    city: '',
+    cep: '',
+  });
   const PAGE_SIZE = 5;
   const clearSessionAndRedirect = () => {
     localStorage.removeItem('token');
@@ -1085,6 +1181,50 @@ const AdminPage: React.FC = () => {
         return b.numero.localeCompare(a.numero, 'pt-BR', { numeric: true, sensitivity: 'base' });
       });
   }, [orders]);
+
+  const acompanhamentoCacambasFiltradas = useMemo(() => {
+    const norm = (s: unknown) =>
+      String(s ?? '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+
+    const filters = {
+      numero: norm(acompanhamentoFilters.numero).trim(),
+      clientName: norm(acompanhamentoFilters.clientName).trim(),
+      cnpjCpf: norm(acompanhamentoFilters.cnpjCpf).trim(),
+      contact: norm(acompanhamentoFilters.contact).trim(),
+      address: norm(acompanhamentoFilters.address).trim(),
+      neighborhood: norm(acompanhamentoFilters.neighborhood).trim(),
+      city: norm(acompanhamentoFilters.city).trim(),
+      cep: norm(acompanhamentoFilters.cep).trim(),
+    };
+
+    const hasAnyFilter = Object.values(filters).some(Boolean);
+    if (!hasAnyFilter) return acompanhamentoCacambas;
+
+    return acompanhamentoCacambas.filter(({ numero, order }) => {
+      const numeroValue = norm(numero);
+      const clientNameValue = norm(order.clientName);
+      const cnpjCpfValue = norm(order.cnpjCpf);
+      const contactValue = norm([order.contactName, order.contactNumber].filter(Boolean).join(' '));
+      const addressValue = norm([order.address, order.addressNumber].filter(Boolean).join(' '));
+      const neighborhoodValue = norm(order.neighborhood);
+      const cityValue = norm(order.city);
+      const cepValue = norm(order.cep);
+
+      return (
+        (!filters.numero || numeroValue.includes(filters.numero)) &&
+        (!filters.clientName || clientNameValue.includes(filters.clientName)) &&
+        (!filters.cnpjCpf || cnpjCpfValue.includes(filters.cnpjCpf)) &&
+        (!filters.contact || contactValue.includes(filters.contact)) &&
+        (!filters.address || addressValue.includes(filters.address)) &&
+        (!filters.neighborhood || neighborhoodValue.includes(filters.neighborhood)) &&
+        (!filters.city || cityValue.includes(filters.city)) &&
+        (!filters.cep || cepValue.includes(filters.cep))
+      );
+    });
+  }, [acompanhamentoCacambas, acompanhamentoFilters]);
 
   // Pedidos do motorista selecionado (aceita motorista como id ou objeto populado)
   const driverOrders = useMemo(
@@ -1573,11 +1713,50 @@ const AdminPage: React.FC = () => {
           {activeTab === 'acompanhamentos' && (
             <OrdersPage>
               <SectionContainer>
-                <OrdersSectionTitle>Acompanhamentos</OrdersSectionTitle>
+                <AcompanhamentoToolbar>
+                  <OrdersSectionTitle>Acompanhamentos</OrdersSectionTitle>
+                  <SummaryBadge>
+                    TOTAL: {acompanhamentoCacambasFiltradas.length}
+                  </SummaryBadge>
+                </AcompanhamentoToolbar>
+                <AcompanhamentoFiltersGrid>
+                  <AcompanhamentoFilterField>
+                    <AcompanhamentoFilterLabel htmlFor="filtro-numero-cacamba">Nº caçamba</AcompanhamentoFilterLabel>
+                    <AcompanhamentoFilterInput id="filtro-numero-cacamba" type="text" value={acompanhamentoFilters.numero} onChange={(e) => setAcompanhamentoFilters((prev) => ({ ...prev, numero: e.target.value }))} />
+                  </AcompanhamentoFilterField>
+                  <AcompanhamentoFilterField>
+                    <AcompanhamentoFilterLabel htmlFor="filtro-cliente">Cliente</AcompanhamentoFilterLabel>
+                    <AcompanhamentoFilterInput id="filtro-cliente" type="text" value={acompanhamentoFilters.clientName} onChange={(e) => setAcompanhamentoFilters((prev) => ({ ...prev, clientName: e.target.value }))} />
+                  </AcompanhamentoFilterField>
+                  <AcompanhamentoFilterField>
+                    <AcompanhamentoFilterLabel htmlFor="filtro-cnpj">CNPJ/CPF</AcompanhamentoFilterLabel>
+                    <AcompanhamentoFilterInput id="filtro-cnpj" type="text" value={acompanhamentoFilters.cnpjCpf} onChange={(e) => setAcompanhamentoFilters((prev) => ({ ...prev, cnpjCpf: e.target.value }))} />
+                  </AcompanhamentoFilterField>
+                  <AcompanhamentoFilterField>
+                    <AcompanhamentoFilterLabel htmlFor="filtro-contato">Contato</AcompanhamentoFilterLabel>
+                    <AcompanhamentoFilterInput id="filtro-contato" type="text" value={acompanhamentoFilters.contact} onChange={(e) => setAcompanhamentoFilters((prev) => ({ ...prev, contact: e.target.value }))} />
+                  </AcompanhamentoFilterField>
+                  <AcompanhamentoFilterField>
+                    <AcompanhamentoFilterLabel htmlFor="filtro-endereco">Endereço</AcompanhamentoFilterLabel>
+                    <AcompanhamentoFilterInput id="filtro-endereco" type="text" value={acompanhamentoFilters.address} onChange={(e) => setAcompanhamentoFilters((prev) => ({ ...prev, address: e.target.value }))} />
+                  </AcompanhamentoFilterField>
+                  <AcompanhamentoFilterField>
+                    <AcompanhamentoFilterLabel htmlFor="filtro-bairro">Bairro</AcompanhamentoFilterLabel>
+                    <AcompanhamentoFilterInput id="filtro-bairro" type="text" value={acompanhamentoFilters.neighborhood} onChange={(e) => setAcompanhamentoFilters((prev) => ({ ...prev, neighborhood: e.target.value }))} />
+                  </AcompanhamentoFilterField>
+                  <AcompanhamentoFilterField>
+                    <AcompanhamentoFilterLabel htmlFor="filtro-cidade">Cidade</AcompanhamentoFilterLabel>
+                    <AcompanhamentoFilterInput id="filtro-cidade" type="text" value={acompanhamentoFilters.city} onChange={(e) => setAcompanhamentoFilters((prev) => ({ ...prev, city: e.target.value }))} />
+                  </AcompanhamentoFilterField>
+                  <AcompanhamentoFilterField>
+                    <AcompanhamentoFilterLabel htmlFor="filtro-cep">CEP</AcompanhamentoFilterLabel>
+                    <AcompanhamentoFilterInput id="filtro-cep" type="text" value={acompanhamentoFilters.cep} onChange={(e) => setAcompanhamentoFilters((prev) => ({ ...prev, cep: e.target.value }))} />
+                  </AcompanhamentoFilterField>
+                </AcompanhamentoFiltersGrid>
 
-                {acompanhamentoCacambas.length ? (
+                {acompanhamentoCacambasFiltradas.length ? (
                   <OrdersGrid>
-                    {acompanhamentoCacambas.map(({ numero, cacamba, order }) => {
+                    {acompanhamentoCacambasFiltradas.map(({ numero, cacamba, order }) => {
                       const motoristaNome =
                         typeof order.motorista === 'object' && order.motorista !== null
                           ? (order.motorista as { username?: string }).username
@@ -1644,7 +1823,11 @@ const AdminPage: React.FC = () => {
                     })}
                   </OrdersGrid>
                 ) : (
-                  <EmptyState>Nenhuma caçamba em colocação pendente de retirada.</EmptyState>
+                  <EmptyState>
+                    {Object.values(acompanhamentoFilters).some((value) => String(value).trim())
+                      ? 'Nenhuma caçamba encontrada para este filtro.'
+                      : 'Nenhuma caçamba em colocação pendente de retirada.'}
+                  </EmptyState>
                 )}
               </SectionContainer>
             </OrdersPage>

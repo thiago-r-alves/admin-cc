@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 import type { IClient, IOrder } from '../interfaces';
 import ClientOrdersModal from '../components/ClientOrdersModal';
@@ -309,7 +309,7 @@ const FechamentoPage: React.FC = () => {
 
       const valid = clientsData.filter((item) => item.orders.length > 0);
       if (!valid.length) {
-        setFeedback({ tone: 'info', message: 'Nenhum pedido de retirada concluído encontrado para exportação.' });
+        setFeedback({ tone: 'info', message: 'Nenhum pedido de retirada concluÃ­do encontrado para exportaÃ§Ã£o.' });
         return;
       }
       await downloadClosureZip({
@@ -353,7 +353,7 @@ const FechamentoPage: React.FC = () => {
       <Header>
         <div>
           <Title>Fechamento</Title>
-          <Subtitle>Retiradas concluídas dentro do período selecionado</Subtitle>
+          <Subtitle>Retiradas concluÃ­das dentro do perÃ­odo selecionado</Subtitle>
         </div>
       </Header>
 
@@ -389,7 +389,7 @@ const FechamentoPage: React.FC = () => {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nome, CNPJ/CPF, endereço, bairro, cidade, CEP..."
+            placeholder="Buscar por nome, CNPJ/CPF, endereÃ§o, bairro, cidade, CEP..."
           />
         </SearchWrap>
         <PrimaryActionButton
@@ -444,3 +444,5 @@ const FechamentoPage: React.FC = () => {
 };
 
 export default FechamentoPage;
+
+
