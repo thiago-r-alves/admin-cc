@@ -201,8 +201,8 @@ const initialOrders: Order[] = [
       },
     ],
     imageUrls: [],
-    createdAt: nowIso,
-    updatedAt: nowIso,
+    createdAt: '2026-05-15T09:00:00.000Z',
+    updatedAt: '2026-05-15T12:00:00.000Z',
     price: 320.0,
   },
 ];
