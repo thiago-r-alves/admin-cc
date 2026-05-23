@@ -41,6 +41,7 @@ export interface ICacamba {
   _id: string;
   numero: string;
   tipo: 'entrega' | 'retirada';
+  paymentStatus?: 'pendente' | 'paga';
   contentType?: CacambaContentType;
   price?: number;
   local?: string;

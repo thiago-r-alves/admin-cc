@@ -11,6 +11,9 @@ type Cacamba = {
   _id: string;
   numero: string;
   tipo: 'entrega' | 'retirada';
+  contentType?: string;
+  paymentStatus?: 'pendente' | 'paga';
+  price?: number;
   local: 'via_publica' | 'canteiro_obra';
   orderId: string;
   imageUrl?: string;
@@ -193,11 +196,14 @@ const initialOrders: Order[] = [
         _id: 'cac-4',
         numero: '777',
         tipo: 'retirada',
+        contentType: 'Entulho limpo',
         local: 'via_publica',
         orderId: 'ord-4',
         imageUrl: '/uploads/cac-4.jpg',
         createdAt: nowIso,
         horaServicoDigitos: '777',
+        paymentStatus: 'pendente',
+        price: 320,
       },
     ],
     imageUrls: [],
@@ -419,9 +425,21 @@ export const setupMockApi = async (page: Page) => {
     if (/^\/clients\/[^/]+\/orders$/.test(pathname) && method === 'GET') {
       const clientId = pathname.split('/')[2];
       const closure = searchParams.get('closure') === 'true';
+      const paymentStatus = searchParams.get('paymentStatus') || 'all';
       let filtered = orders.filter((o) => o.clientId === clientId);
       if (closure) {
         filtered = filtered.filter((o) => o.type === 'retirada' && o.status === 'concluido');
+        filtered = filtered
+          .map((o) => ({
+            ...o,
+            cacambas: o.cacambas.filter((c) => {
+              if (c.tipo !== 'retirada') return false;
+              if (paymentStatus === 'pending') return (c.paymentStatus || 'pendente') !== 'paga';
+              if (paymentStatus === 'paid') return c.paymentStatus === 'paga';
+              return true;
+            }),
+          }))
+          .filter((o) => o.cacambas.length > 0);
       }
       if (searchParams.get('status')) {
         filtered = filtered.filter((o) => o.status === searchParams.get('status'));
@@ -447,6 +465,15 @@ export const setupMockApi = async (page: Page) => {
         }));
       }
       return json(route, filtered);
+    }
+
+    if (pathname === '/closures/download' && method === 'POST') {
+      const body = req.postDataJSON() as { selectedCacambaIds?: string[] };
+      const ids = body.selectedCacambaIds || [];
+      orders.forEach((o) => {
+        o.cacambas = o.cacambas.map((c) => (ids.includes(c._id) ? { ...c, paymentStatus: 'paga' } : c));
+      });
+      return json(route, { paidCacambaIds: ids });
     }
 
     if (pathname === '/driver/orders' && method === 'GET') {

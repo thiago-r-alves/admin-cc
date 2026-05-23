@@ -23,6 +23,7 @@ export type CacambaContentType = typeof CACAMBA_CONTENT_TYPES[number];
 export interface ICacamba extends Document {
   numero: string;
   tipo: 'entrega' | 'retirada';
+  paymentStatus: 'pendente' | 'paga';
   contentType?: CacambaContentType;
   price?: number;
   imageUrl: string;
@@ -35,6 +36,7 @@ export interface ICacamba extends Document {
 const CacambaSchema: Schema = new Schema({
   numero: { type: String, required: true },
   tipo: { type: String, enum: ['entrega', 'retirada'], required: true },
+  paymentStatus: { type: String, enum: ['pendente', 'paga'], default: 'pendente' },
   contentType: { type: String, enum: CACAMBA_CONTENT_TYPES, required: false },
   price: { type: Number, min: 0, required: false },
   imageUrl: { type: String, required: true },

@@ -1,9 +1,8 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
-import type { IClient, IOrder } from '../interfaces';
+import type { IClient } from '../interfaces';
 import ClientOrdersModal from '../components/ClientOrdersModal';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
-import { downloadClosureZip } from '../utils/closureZip';
 
 const Container = styled.div`
   display: flex;
@@ -37,7 +36,7 @@ const Subtitle = styled.p`
 
 const Toolbar = styled.div`
   display: grid;
-  grid-template-columns: 160px 160px minmax(240px, 1fr) auto;
+  grid-template-columns: 160px 160px 180px minmax(240px, 1fr);
   gap: 0.8rem;
   align-items: end;
 
@@ -65,6 +64,24 @@ const Label = styled.label`
 `;
 
 const Input = styled.input`
+  width: 100%;
+  min-height: 43px;
+  box-sizing: border-box;
+  padding: 0.58rem 0.65rem;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 0.88rem;
+
+  &:focus {
+    outline: none;
+    border-color: #e30613;
+    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
+  }
+`;
+
+const Select = styled.select`
   width: 100%;
   min-height: 43px;
   box-sizing: border-box;
@@ -205,9 +222,9 @@ const FechamentoPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState<'all' | 'pending' | 'paid'>('all');
   const [appliedRange, setAppliedRange] = useState<{ startDate: string; endDate: string } | null>(null);
   const [loading, setLoading] = useState(false);
-  const [downloadingAll, setDownloadingAll] = useState(false);
   const [selectedClient, setSelectedClient] = useState<IClient | null>(null);
   const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
@@ -227,6 +244,7 @@ const FechamentoPage: React.FC = () => {
       query.append('closure', 'true');
       query.append('startDate', selectedStartDate);
       query.append('endDate', selectedEndDate);
+      query.append('paymentStatus', paymentStatus);
       const response = await fetch(`${apiUrl}/clients?${query.toString()}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
@@ -273,69 +291,9 @@ const FechamentoPage: React.FC = () => {
   const canSearch = isIsoDate(startDate) && isIsoDate(endDate);
   const hasAppliedRange = Boolean(appliedRange?.startDate && appliedRange?.endDate);
 
-  const fetchOrdersForClient = async (clientId: string) => {
-    if (!appliedRange) return [];
-    const query = new URLSearchParams();
-    query.append('closure', 'true');
-    query.append('startDate', appliedRange.startDate);
-    query.append('endDate', appliedRange.endDate);
-    const response = await fetch(`${apiUrl}/clients/${encodeURIComponent(clientId)}/orders?${query.toString()}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-    });
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({} as any));
-      throw new Error(data.message || 'Erro ao buscar pedidos do cliente.');
-    }
-    const orders = (await response.json()) as IOrder[];
-    return orders;
-  };
-
-  const handleDownloadAll = async () => {
-    if (!hasAppliedRange || filteredClients.length === 0) return;
-    try {
-      setDownloadingAll(true);
-      const clientsData: Array<{ client: IClient; orders: IOrder[] }> = [];
-      const failedClients: string[] = [];
-
-      for (const client of filteredClients) {
-        try {
-          const orders = await fetchOrdersForClient(client._id);
-          clientsData.push({ client, orders });
-        } catch (error) {
-          console.error('Falha ao buscar pedidos para fechamento:', client.clientName, error);
-          failedClients.push(client.clientName || client._id);
-        }
-      }
-
-      const valid = clientsData.filter((item) => item.orders.length > 0);
-      if (!valid.length) {
-        setFeedback({ tone: 'info', message: 'Nenhum pedido de retirada concluÃ­do encontrado para exportaÃ§Ã£o.' });
-        return;
-      }
-      await downloadClosureZip({
-        startDate: appliedRange!.startDate,
-        endDate: appliedRange!.endDate,
-        clientsData: valid,
-      });
-      if (failedClients.length > 0) {
-        setFeedback({
-          tone: 'info',
-          message: `ZIP gerado com sucesso. Alguns clientes falharam na coleta: ${failedClients.slice(0, 3).join(', ')}${failedClients.length > 3 ? '...' : ''}.`,
-        });
-      } else {
-        setFeedback({ tone: 'success', message: 'Fechamentos exportados com sucesso.' });
-      }
-    } catch (error: any) {
-      console.error(error);
-      setFeedback({ tone: 'error', message: error?.message || 'Erro ao exportar fechamentos.' });
-    } finally {
-      setDownloadingAll(false);
-    }
-  };
-
   const openOrdersModal = (client: IClient) => {
     if (!hasAppliedRange) {
-      setFeedback({ tone: 'info', message: 'Aplique o filtro de datas para abrir os pedidos.' });
+      setFeedback({ tone: 'info', message: 'Selecione Data Inicial e Data Final para carregar os pedidos.' });
       return;
     }
     setSelectedClient(client);
@@ -353,7 +311,7 @@ const FechamentoPage: React.FC = () => {
       <Header>
         <div>
           <Title>Fechamento</Title>
-          <Subtitle>Retiradas concluÃ­das dentro do perÃ­odo selecionado</Subtitle>
+          <Subtitle>Retiradas concluidas dentro do periodo selecionado</Subtitle>
         </div>
       </Header>
 
@@ -376,6 +334,18 @@ const FechamentoPage: React.FC = () => {
             onChange={(e) => setEndDate(e.target.value)}
           />
         </Field>
+        <Field>
+          <Label htmlFor="closure-payment-status">Pagamento</Label>
+          <Select
+            id="closure-payment-status"
+            value={paymentStatus}
+            onChange={(e) => setPaymentStatus(e.target.value as 'all' | 'pending' | 'paid')}
+          >
+            <option value="all">Todas</option>
+            <option value="pending">Pendentes</option>
+            <option value="paid">Pagas</option>
+          </Select>
+        </Field>
         <SearchWrap>
           <Label htmlFor="closure-search">Buscar Cliente</Label>
           <SearchIcon aria-hidden="true">
@@ -389,21 +359,18 @@ const FechamentoPage: React.FC = () => {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nome, CNPJ/CPF, endereÃ§o, bairro, cidade, CEP..."
+            placeholder="Buscar por nome, CNPJ/CPF, endereco, bairro, cidade, CEP..."
           />
         </SearchWrap>
-        <PrimaryActionButton
-          data-testid="closure-download-all"
-          type="button"
-          onClick={handleDownloadAll}
-          disabled={!hasAppliedRange || filteredClients.length === 0 || downloadingAll}
-        >
-          {downloadingAll ? 'Baixando...' : 'Baixar Todos Fechamentos'}
-        </PrimaryActionButton>
       </Toolbar>
 
       <div>
-        <PrimaryActionButton data-testid="closure-apply-filter" type="button" onClick={fetchClosureClients} disabled={!canSearch || loading}>
+        <PrimaryActionButton
+          data-testid="closure-apply-filter"
+          type="button"
+          onClick={fetchClosureClients}
+          disabled={!canSearch || loading}
+        >
           {loading ? 'Buscando...' : 'Aplicar Filtro'}
         </PrimaryActionButton>
       </div>
@@ -424,7 +391,7 @@ const FechamentoPage: React.FC = () => {
       ) : (
         <EmptyState>
           {hasAppliedRange
-            ? 'Nenhum cliente com retirada concluída encontrado no período selecionado.'
+            ? 'Nenhum cliente com retirada concluida encontrado no periodo selecionado.'
             : 'Selecione Data Inicial e Data Final para consultar os fechamentos.'}
         </EmptyState>
       )}
@@ -435,7 +402,9 @@ const FechamentoPage: React.FC = () => {
           startDate={appliedRange?.startDate}
           endDate={appliedRange?.endDate}
           type="retirada"
+          paymentStatus={paymentStatus}
           closureMode
+          onPaymentCompleted={fetchClosureClients}
           onClose={() => setIsOrdersModalOpen(false)}
         />
       )}

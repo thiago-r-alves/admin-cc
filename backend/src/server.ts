@@ -35,6 +35,14 @@ const buildClosureOrdersQuery = (range: { start: Date; end: Date }) => ({
   updatedAt: { $gte: range.start, $lte: range.end },
 });
 
+type ClosurePaymentFilter = 'all' | 'pending' | 'paid';
+
+const parseClosurePaymentFilter = (value: unknown): ClosurePaymentFilter => {
+  if (value === 'pending') return 'pending';
+  if (value === 'paid') return 'paid';
+  return 'all';
+};
+
 const buildClientIdMatch = (id: string) => {
   const trimmed = String(id || '').trim();
   if (!trimmed) return [{ clientId: trimmed }];
@@ -241,7 +249,7 @@ app.get('/orders', authenticateToken, isAdmin, async (req, res) => {
             },
             {
                 path: 'cacambas',
-                select: 'numero tipo contentType price imageUrl createdAt local horaServicoDigitos'
+                select: 'numero tipo paymentStatus contentType price imageUrl createdAt local horaServicoDigitos'
             }
         ]).sort({ priority: -1, createdAt: 1 });
         return res.status(200).json(orders);
@@ -313,8 +321,9 @@ app.delete('/orders/:id', authenticateToken, isAdmin, async (req, res) => {
 // Listar todos os clientes
 app.get('/clients', authenticateToken, isAdmin, async (req: express.Request, res: express.Response) => {
   try {
-    const { startDate, endDate, type, closure } = req.query;
+    const { startDate, endDate, type, closure, paymentStatus } = req.query;
     const isClosureMode = String(closure || '').toLowerCase() === 'true';
+    const closurePaymentFilter = parseClosurePaymentFilter(paymentStatus);
     const hasTypeFilter = typeof type === 'string' && (type === 'entrega' || type === 'retirada');
 
     if (isClosureMode) {
@@ -330,6 +339,56 @@ app.get('/clients', authenticateToken, isAdmin, async (req: express.Request, res
 
       const aggregated = await OrderModel.aggregate([
         { $match: buildClosureOrdersQuery({ start, end }) },
+        {
+          $lookup: {
+            from: 'cacambas',
+            localField: 'cacambas',
+            foreignField: '_id',
+            as: 'cacambasDocs',
+          },
+        },
+        {
+          $addFields: {
+            closureCacambas: {
+              $filter: {
+                input: '$cacambasDocs',
+                as: 'cacamba',
+                cond: {
+                  $eq: ['$$cacamba.tipo', 'retirada'],
+                },
+              },
+            },
+          },
+        },
+        ...(closurePaymentFilter === 'pending'
+          ? [{
+            $match: {
+              closureCacambas: {
+                $elemMatch: { paymentStatus: { $ne: 'paga' } },
+              },
+            },
+          }]
+          : closurePaymentFilter === 'paid'
+            ? [{
+              $match: {
+                closureCacambas: { $ne: [] },
+                $expr: {
+                  $eq: [
+                    {
+                      $size: {
+                        $filter: {
+                          input: '$closureCacambas',
+                          as: 'cacamba',
+                          cond: { $eq: ['$$cacamba.paymentStatus', 'paga'] },
+                        },
+                      },
+                    },
+                    { $size: '$closureCacambas' },
+                  ],
+                },
+              },
+            }]
+            : []),
         {
           $project: {
             updatedAt: 1,
@@ -631,7 +690,7 @@ app.get('/driver/orders', authenticateToken, isDriver, async (req: Authenticated
     try {
         const orders = await OrderModel.find({ motorista: req.userData?.userId }).populate({
             path: 'cacambas',
-            select: 'numero tipo contentType imageUrl createdAt local horaServicoDigitos'
+            select: 'numero tipo paymentStatus contentType imageUrl createdAt local horaServicoDigitos'
         }).sort({ priority: -1, createdAt: 1 });
         return res.status(200).json(orders);
     } catch (error) {
@@ -923,8 +982,9 @@ export const startServer = () =>
 app.get('/clients/:id/orders', authenticateToken, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { startDate, endDate, type, local, status, closure } = req.query;
+    const { startDate, endDate, type, local, status, closure, paymentStatus } = req.query;
     const isClosureMode = String(closure || '').toLowerCase() === 'true';
+    const closurePaymentFilter = parseClosurePaymentFilter(paymentStatus);
 
     const query: any = { clientId: id };
 
@@ -966,7 +1026,7 @@ app.get('/clients/:id/orders', authenticateToken, isAdmin, async (req, res) => {
       query.cacambas = { $in: cacambaIds };
     }
 
-    const orders = await OrderModel.find(query)
+    let orders = await OrderModel.find(query)
       .populate('cacambas')
       .populate({
         path: 'motorista',
@@ -974,10 +1034,84 @@ app.get('/clients/:id/orders', authenticateToken, isAdmin, async (req, res) => {
       })
       .sort(isClosureMode ? { updatedAt: -1 } : { createdAt: -1 });
 
+    if (isClosureMode) {
+      orders = orders
+        .map((order: any) => {
+          const filteredCacambas = (order.cacambas || []).filter((cacamba: any) => {
+            if (cacamba?.tipo !== 'retirada') return false;
+            if (closurePaymentFilter === 'pending') {
+              return (cacamba?.paymentStatus || 'pendente') !== 'paga';
+            }
+            if (closurePaymentFilter === 'paid') {
+              return cacamba?.paymentStatus === 'paga';
+            }
+            return true;
+          });
+          order.cacambas = filteredCacambas;
+          return order;
+        })
+        .filter((order: any) => (order.cacambas || []).length > 0);
+    }
+
     res.status(200).json(orders);
   } catch (error) {
     console.error('Erro ao buscar pedidos do cliente:', error);
     res.status(500).json({ message: 'Erro interno do servidor.' });
+  }
+});
+
+app.post('/closures/download', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { clientId, startDate, endDate, selectedCacambaIds } = req.body as {
+      clientId?: string;
+      startDate?: string;
+      endDate?: string;
+      selectedCacambaIds?: string[];
+    };
+
+    if (!clientId || !startDate || !endDate || !Array.isArray(selectedCacambaIds) || selectedCacambaIds.length === 0) {
+      return res.status(400).json({ message: 'clientId, startDate, endDate e selectedCacambaIds são obrigatórios.' });
+    }
+
+    const uniqueIds = Array.from(new Set(selectedCacambaIds.map((id) => String(id).trim()).filter(Boolean)));
+    if (!uniqueIds.length) {
+      return res.status(400).json({ message: 'Nenhuma caçamba válida foi selecionada.' });
+    }
+
+    const range = buildClosureDateRange(startDate, endDate);
+    if (!range) {
+      return res.status(400).json({ message: 'Período de datas inválido.' });
+    }
+
+    const orders = await OrderModel.find({
+      ...buildClosureOrdersQuery({ start: range.start, end: range.end }),
+      $or: buildClientIdMatch(clientId),
+    }).populate('cacambas');
+
+    const cacambasById = new Map<string, any>();
+    for (const order of orders as any[]) {
+      for (const cacamba of order.cacambas || []) {
+        cacambasById.set(String(cacamba._id), cacamba);
+      }
+    }
+
+    const notFoundOrInvalid = uniqueIds.filter((id) => {
+      const c = cacambasById.get(id);
+      return !c || c.tipo !== 'retirada' || c.paymentStatus === 'paga';
+    });
+    if (notFoundOrInvalid.length > 0) {
+      return res.status(400).json({ message: 'Seleção contém caçambas inválidas, fora do período ou já pagas.' });
+    }
+
+    await CacambaModel.updateMany(
+      { _id: { $in: uniqueIds }, tipo: 'retirada', paymentStatus: { $ne: 'paga' } },
+      { $set: { paymentStatus: 'paga' } }
+    );
+
+    return res.status(200).json({ paidCacambaIds: uniqueIds });
+  } catch (error) {
+    console.error('Erro ao fechar seleção de caçambas:', error);
+    return res.status(500).json({ message: 'Erro ao processar fechamento.' });
   }
 });
 

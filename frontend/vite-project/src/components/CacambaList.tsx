@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import styled from 'styled-components';
 import type { ICacamba } from '../interfaces';
 
@@ -47,6 +47,27 @@ const HeaderInfo = styled.div`
   gap: 0.5rem;
 `;
 
+const SelectionLabel = styled.label`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 36px;
+  padding: 0.42rem 0.9rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #374151;
+  font-size: 0.9rem;
+  font-weight: 800;
+  cursor: pointer;
+`;
+
+const SelectionInput = styled.input.attrs({ type: 'checkbox' })`
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+`;
+
 const CacambaNumber = styled.span`
   font-weight: 900;
   color: #111827;
@@ -59,6 +80,17 @@ const TypeBadge = styled.span<{ tipo: 'entrega' | 'retirada' }>`
   border-radius: 9999px;
   background-color: ${(props) => (props.tipo === 'entrega' ? '#dcfce7' : '#fee2e2')};
   color: ${(props) => (props.tipo === 'entrega' ? '#166534' : '#b91c1c')};
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+`;
+
+const PaymentBadge = styled.span`
+  padding: 0.15rem 0.45rem;
+  font-size: 0.66rem;
+  border-radius: 9999px;
+  background-color: #dcfce7;
+  color: #166534;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -106,6 +138,18 @@ const PriceInfo = styled.p`
   strong {
     color: #111827;
   }
+`;
+
+const BlockedWarning = styled.div`
+  margin-top: 0.5rem;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #991b1b;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 0.55rem 0.7rem;
+  white-space: pre-line;
 `;
 
 const ImageContainer = styled.div`
@@ -157,6 +201,9 @@ interface CacambaListProps {
   canEditPrice?: boolean;
   onEditContentType?: (cacamba: ICacamba) => void;
   onEditPrice?: (cacamba: ICacamba) => void;
+  selectable?: boolean;
+  selectedCacambaIds?: string[];
+  onToggleSelect?: (cacamba: ICacamba, checked: boolean) => void;
 }
 
 const CacambaList: React.FC<CacambaListProps> = ({
@@ -169,6 +216,9 @@ const CacambaList: React.FC<CacambaListProps> = ({
   canEditPrice = false,
   onEditContentType,
   onEditPrice,
+  selectable = false,
+  selectedCacambaIds = [],
+  onToggleSelect,
 }) => {
   if (cacambas.length === 0) {
     return <EmptyState>Nenhuma caçamba registrada ainda</EmptyState>;
@@ -193,96 +243,147 @@ const CacambaList: React.FC<CacambaListProps> = ({
     <Container>
       {showTitle && <Title>Caçambas Registradas:</Title>}
 
-      {cacambas.map((cacamba) => (
-        <CacambaCard key={cacamba._id}>
-          <CardContent>
-            <InfoSection>
-              <HeaderInfo>
-                <CacambaNumber>#{cacamba.numero}</CacambaNumber>
-                <TypeBadge tipo={cacamba.tipo}>
-                  {cacamba.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
-                </TypeBadge>
-              </HeaderInfo>
+      {cacambas.map((cacamba) => {
+        const isRetirada = cacamba.tipo === 'retirada';
+        const isPaid = cacamba.paymentStatus === 'paga';
+        const hasValidPrice = typeof cacamba.price === 'number' && Number.isFinite(cacamba.price);
+        const hasValidContentType =
+          typeof cacamba.contentType === 'string' && cacamba.contentType.trim().length > 0;
 
-              <DateInfo>
-                Registrada em:{' '}
-                {cacamba.createdAt
-                  ? new Date(cacamba.createdAt).toLocaleString('pt-BR')
-                  : 'Data não disponível'}
-              </DateInfo>
+        const missingValue = isRetirada && !hasValidPrice;
+        const missingContentType = isRetirada && !hasValidContentType;
+        const isSelectableInClosure = selectable && isRetirada && !isPaid && hasValidPrice && hasValidContentType;
 
-              {cacamba.local && (
-                <LocalInfo>
-                  <strong>Local:</strong>{' '}
-                  {cacamba.local === 'via_publica'
-                    ? 'Via pública'
-                    : cacamba.local === 'canteiro_obra'
-                      ? 'Canteiro de obra'
-                      : cacamba.local}
-                </LocalInfo>
-              )}
+        let warningText = '';
+        if (selectable && !isPaid && isRetirada && (missingValue || missingContentType)) {
+          if (missingValue && missingContentType) {
+            warningText = 'Caçamba sem valor e tipo de conteúdo definidos.\nDefina os dados para liberar o pagamento.';
+          } else if (missingValue) {
+            warningText = 'Caçamba sem valor definido.\nDefina os dados para liberar o pagamento.';
+          } else {
+            warningText = 'Caçamba sem tipo de conteúdo definido.\nDefina os dados para liberar o pagamento.';
+          }
+        }
 
-              {cacamba.horaServicoDigitos && (
-                <ServiceOrder>
-                  <strong>Ordem de serviço:</strong> {cacamba.horaServicoDigitos}
-                </ServiceOrder>
-              )}
+        return (
+          <CacambaCard key={cacamba._id}>
+            <CardContent>
+              <InfoSection>
+                <HeaderInfo>
+                  <CacambaNumber>#{cacamba.numero}</CacambaNumber>
+                  <TypeBadge tipo={cacamba.tipo}>
+                    {cacamba.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
+                  </TypeBadge>
+                  {isPaid && <PaymentBadge>Paga</PaymentBadge>}
+                </HeaderInfo>
 
-              {cacamba.contentType && (
-                <ContentTypeInfo>
-                  <strong>Conteúdo:</strong> {cacamba.contentType}
-                </ContentTypeInfo>
-              )}
+                <DateInfo>
+                  Registrada em:{' '}
+                  {cacamba.createdAt
+                    ? new Date(cacamba.createdAt).toLocaleString('pt-BR')
+                    : 'Data não disponível'}
+                </DateInfo>
 
-              {typeof cacamba.price === 'number' && Number.isFinite(cacamba.price) && (
-                <PriceInfo>
-                  <strong>Valor:</strong> {cacamba.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </PriceInfo>
-              )}
-            </InfoSection>
+                {cacamba.local && (
+                  <LocalInfo>
+                    <strong>Local:</strong>{' '}
+                    {cacamba.local === 'via_publica'
+                      ? 'Via pública'
+                      : cacamba.local === 'canteiro_obra'
+                        ? 'Canteiro de obra'
+                        : cacamba.local}
+                  </LocalInfo>
+                )}
 
-            <ImageContainer>
-              <CacambaImage
-                src={thumbs[cacamba._id] || ''}
-                alt="Foto da caçamba"
-                onClick={async () => {
-                  if (onImageClick && cacamba.imageUrl) {
-                    const full = cacamba.imageUrl.startsWith('http')
-                      ? cacamba.imageUrl
-                      : `${apiUrl}${cacamba.imageUrl}`;
-                    try {
-                      const mod = await import('../utils/image');
-                      const large = await mod.resizeImage(full, 1200, 0.8);
-                      onImageClick(large);
-                    } catch (e) {
-                      console.error('Erro redimensionando imagem:', e);
+                {cacamba.horaServicoDigitos && (
+                  <ServiceOrder>
+                    <strong>Ordem de serviço:</strong> {cacamba.horaServicoDigitos}
+                  </ServiceOrder>
+                )}
+
+                {cacamba.contentType && (
+                  <ContentTypeInfo>
+                    <strong>Conteúdo:</strong> {cacamba.contentType}
+                  </ContentTypeInfo>
+                )}
+
+                {hasValidPrice && (
+                  <PriceInfo>
+                    <strong>Valor:</strong>{' '}
+                    {cacamba.price?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </PriceInfo>
+                )}
+
+                {warningText && <BlockedWarning>{warningText}</BlockedWarning>}
+              </InfoSection>
+
+              <ImageContainer>
+                <CacambaImage
+                  src={thumbs[cacamba._id] || ''}
+                  alt="Foto da caçamba"
+                  onClick={async () => {
+                    if (onImageClick && cacamba.imageUrl) {
+                      const full = cacamba.imageUrl.startsWith('http')
+                        ? cacamba.imageUrl
+                        : `${apiUrl}${cacamba.imageUrl}`;
+                      try {
+                        const mod = await import('../utils/image');
+                        const large = await mod.resizeImage(full, 1200, 0.8);
+                        onImageClick(large);
+                      } catch (e) {
+                        console.error('Erro redimensionando imagem:', e);
+                      }
                     }
-                  }
-                }}
-              />
-            </ImageContainer>
-          </CardContent>
+                  }}
+                />
+              </ImageContainer>
+            </CardContent>
 
-          <ActionRow>
-            {onEdit && <ActionButton $variant="secondary" onClick={() => onEdit(cacamba)}>Editar</ActionButton>}
-            {onDelete && (
-              <ActionButton $variant="danger" onClick={() => onDelete(cacamba._id)}>
-                Excluir
-              </ActionButton>
-            )}
-            {adminMetaActions && cacamba.tipo === 'retirada' && onEditContentType && (
-              <ActionButton $variant="secondary" onClick={() => onEditContentType(cacamba)}>
-                Editar conteúdo
-              </ActionButton>
-            )}
-            {adminMetaActions && canEditPrice && cacamba.tipo === 'retirada' && onEditPrice && (
-              <ActionButton $variant="secondary" onClick={() => onEditPrice(cacamba)}>
-                {typeof cacamba.price === 'number' ? 'Editar valor' : 'Adicionar valor'}
-              </ActionButton>
-            )}
-          </ActionRow>
-        </CacambaCard>
-      ))}
+            <ActionRow>
+              {selectable && isSelectableInClosure && (
+                <SelectionLabel>
+                  <SelectionInput
+                    checked={selectedCacambaIds.includes(cacamba._id)}
+                    onChange={(event) => onToggleSelect?.(cacamba, event.target.checked)}
+                    aria-label="Selecionar para pagamento"
+                  />
+                  Selecionar para pagamento
+                </SelectionLabel>
+              )}
+              {!selectable && onEdit && (
+                <ActionButton $variant="secondary" onClick={() => onEdit(cacamba)}>
+                  Editar
+                </ActionButton>
+              )}
+              {!selectable && onDelete && (
+                <ActionButton $variant="danger" onClick={() => onDelete(cacamba._id)}>
+                  Excluir
+                </ActionButton>
+              )}
+              {selectable && isRetirada && !isPaid && missingContentType && onEditContentType && (
+                <ActionButton $variant="secondary" onClick={() => onEditContentType(cacamba)}>
+                  Adicionar conteúdo
+                </ActionButton>
+              )}
+              {selectable && isRetirada && !isPaid && missingValue && onEditPrice && (
+                <ActionButton $variant="secondary" onClick={() => onEditPrice(cacamba)}>
+                  Adicionar valor
+                </ActionButton>
+              )}
+              {!selectable && adminMetaActions && isRetirada && onEditContentType && (
+                <ActionButton $variant="secondary" onClick={() => onEditContentType(cacamba)}>
+                  Editar conteúdo
+                </ActionButton>
+              )}
+              {!selectable && adminMetaActions && canEditPrice && isRetirada && onEditPrice && (
+                <ActionButton $variant="secondary" onClick={() => onEditPrice(cacamba)}>
+                  {typeof cacamba.price === 'number' ? 'Editar valor' : 'Adicionar valor'}
+                </ActionButton>
+              )}
+            </ActionRow>
+          </CacambaCard>
+        );
+      })}
     </Container>
   );
 };

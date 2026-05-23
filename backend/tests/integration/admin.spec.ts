@@ -107,7 +107,7 @@ describe('Admin APIs', () => {
       addressNumber: '2',
     });
 
-    await OrderModel.create({
+    const retiradaObjectOrder = await OrderModel.create({
       orderNumber: nextOrderNumber++,
       clientId: c1._id,
       clientName: c1.clientName,
@@ -121,7 +121,7 @@ describe('Admin APIs', () => {
       updatedAt: new Date('2026-05-10T10:00:00Z'),
       createdAt: new Date('2026-05-10T08:00:00Z'),
     });
-    await OrderModel.create({
+    const retiradaStringOrder = await OrderModel.create({
       orderNumber: nextOrderNumber++,
       clientId: c2._id,
       clientName: c2.clientName,
@@ -390,7 +390,7 @@ describe('Admin APIs', () => {
       createdAt: new Date('2026-05-16T08:00:00.000Z'),
     });
 
-    await OrderModel.create({
+    const retiradaObjectOrder = await OrderModel.create({
       orderNumber: nextOrderNumber++,
       clientId: hasRetiradaObjectId._id,
       clientName: hasRetiradaObjectId.clientName,
@@ -405,7 +405,7 @@ describe('Admin APIs', () => {
       createdAt: new Date('2026-05-17T08:00:00.000Z'),
     });
 
-    await OrderModel.create({
+    const retiradaStringOrder = await OrderModel.create({
       orderNumber: nextOrderNumber++,
       clientId: String(hasRetiradaString._id),
       clientName: hasRetiradaString.clientName,
@@ -420,7 +420,7 @@ describe('Admin APIs', () => {
       createdAt: new Date('2026-05-18T08:00:00.000Z'),
     });
 
-    await OrderModel.create({
+    const retiradaOutOfRangeOrder = await OrderModel.create({
       orderNumber: nextOrderNumber++,
       clientId: outOfRange._id,
       clientName: outOfRange.clientName,
@@ -434,6 +434,40 @@ describe('Admin APIs', () => {
       updatedAt: new Date('2026-05-25T10:00:00.000Z'),
       createdAt: new Date('2026-05-25T08:00:00.000Z'),
     });
+
+    const cacambaObj = await CacambaModel.create({
+      numero: '701',
+      tipo: 'retirada',
+      contentType: 'Entulho limpo',
+      paymentStatus: 'pendente',
+      imageUrl: '/files/507f1f77bcf86cd799439021',
+      orderId: retiradaObjectOrder._id,
+      local: 'via_publica',
+      horaServicoDigitos: '701',
+    });
+    const cacambaStr = await CacambaModel.create({
+      numero: '702',
+      tipo: 'retirada',
+      contentType: 'Entulho limpo',
+      paymentStatus: 'pendente',
+      imageUrl: '/files/507f1f77bcf86cd799439022',
+      orderId: retiradaStringOrder._id,
+      local: 'via_publica',
+      horaServicoDigitos: '702',
+    });
+    const cacambaOut = await CacambaModel.create({
+      numero: '703',
+      tipo: 'retirada',
+      contentType: 'Entulho limpo',
+      paymentStatus: 'pendente',
+      imageUrl: '/files/507f1f77bcf86cd799439023',
+      orderId: retiradaOutOfRangeOrder._id,
+      local: 'via_publica',
+      horaServicoDigitos: '703',
+    });
+    await OrderModel.findByIdAndUpdate(retiradaObjectOrder._id, { $push: { cacambas: cacambaObj._id } });
+    await OrderModel.findByIdAndUpdate(retiradaStringOrder._id, { $push: { cacambas: cacambaStr._id } });
+    await OrderModel.findByIdAndUpdate(retiradaOutOfRangeOrder._id, { $push: { cacambas: cacambaOut._id } });
 
     const list = await request(app)
       .get('/clients?closure=true&startDate=2026-05-15&endDate=2026-05-19')
@@ -466,4 +500,70 @@ describe('Admin APIs', () => {
     expect(modalEntregaOnly.status).toBe(200);
     expect(modalEntregaOnly.body).toHaveLength(0);
   });
+  it('POST /closures/download marca cacambas selecionadas como pagas', async () => {
+    const app = await loadApp();
+    const { admin } = await ensureUsers();
+    const token = signToken(String(admin._id), 'admin');
+    const client = await ClientModel.create({
+      clientName: 'Cliente Fechamento',
+      contactName: 'Contato',
+      contactNumber: '999',
+      neighborhood: 'N',
+      address: 'Rua',
+      addressNumber: '1',
+    });
+    const order = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: client._id,
+      clientName: client.clientName,
+      contactName: client.contactName,
+      contactNumber: client.contactNumber,
+      neighborhood: client.neighborhood,
+      address: client.address,
+      addressNumber: client.addressNumber,
+      type: 'retirada',
+      status: 'concluido',
+      updatedAt: new Date('2026-05-18T10:00:00.000Z'),
+      createdAt: new Date('2026-05-18T08:00:00.000Z'),
+    });
+    const c1 = await CacambaModel.create({
+      numero: '910',
+      tipo: 'retirada',
+      paymentStatus: 'pendente',
+      contentType: 'Entulho limpo',
+      imageUrl: '/files/507f1f77bcf86cd799439031',
+      orderId: order._id,
+      local: 'via_publica',
+      horaServicoDigitos: '910',
+    });
+    const c2 = await CacambaModel.create({
+      numero: '911',
+      tipo: 'retirada',
+      paymentStatus: 'pendente',
+      contentType: 'Entulho limpo',
+      imageUrl: '/files/507f1f77bcf86cd799439032',
+      orderId: order._id,
+      local: 'via_publica',
+      horaServicoDigitos: '911',
+    });
+    await OrderModel.findByIdAndUpdate(order._id, { $push: { cacambas: { $each: [c1._id, c2._id] } } });
+
+    const ok = await request(app)
+      .post('/closures/download')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        clientId: String(client._id),
+        startDate: '2026-05-15',
+        endDate: '2026-05-19',
+        selectedCacambaIds: [String(c1._id)],
+      });
+    expect(ok.status).toBe(200);
+
+    const c1After = await CacambaModel.findById(c1._id).lean();
+    const c2After = await CacambaModel.findById(c2._id).lean();
+    expect(c1After?.paymentStatus).toBe('paga');
+    expect(c2After?.paymentStatus).toBe('pendente');
+  });
 });
+
+
