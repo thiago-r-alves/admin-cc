@@ -7,7 +7,7 @@ export interface ClientOrdersModalProps {
   endDate?: string;
   type?: 'entrega' | 'retirada';
   closureMode?: boolean;
-  paymentStatus?: 'all' | 'pending' | 'paid';
+  paymentStatus?: 'all' | 'pending' | 'invoice_pending' | 'paid';
   onPaymentCompleted?: () => Promise<void> | void;
 }
 

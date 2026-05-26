@@ -21,6 +21,7 @@ interface ClientOrdersSummaryProps {
   totalCacambas: number;
   closureMode: boolean;
   selectedCount: number;
+  compactOnlyTotal?: boolean;
 }
 
 const ClientOrdersSummary: React.FC<ClientOrdersSummaryProps> = ({
@@ -29,12 +30,17 @@ const ClientOrdersSummary: React.FC<ClientOrdersSummaryProps> = ({
   totalCacambas,
   closureMode,
   selectedCount,
+  compactOnlyTotal = false,
 }) => (
   <ReportSummary>
     <div>Total do cliente (Retiradas): {formatCurrency(clientTotal)}</div>
-    <div>Quantidade total de pedidos: {totalOrders}</div>
-    <div>Quantidade total de caÃ§ambas: {totalCacambas}</div>
-    {closureMode && <div>CaÃ§ambas selecionadas: {selectedCount}</div>}
+    {!compactOnlyTotal && (
+      <>
+        <div>Quantidade total de pedidos: {totalOrders}</div>
+        <div>Quantidade total de caçambas: {totalCacambas}</div>
+        {closureMode && <div>Caçambas selecionadas: {selectedCount}</div>}
+      </>
+    )}
   </ReportSummary>
 );
 

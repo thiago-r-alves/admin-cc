@@ -8,6 +8,7 @@ import connectDB from './db';
 import { UserModel, IUser } from './models/User';
 import { OrderModel } from './models/Order';
 import { CACAMBA_CONTENT_TYPES, CacambaContentType, CacambaModel, ICacamba } from './models/Cacamba';
+import { ClosureGroupModel } from './models/ClosureGroup';
 import { ClientModel } from './models/Client';
 import multer from 'multer';
 import './gridfs';
@@ -35,15 +36,27 @@ const buildClosureOrdersQuery = (range: { start: Date; end: Date }) => ({
   updatedAt: { $gte: range.start, $lte: range.end },
 });
 
-type ClosurePaymentFilter = 'all' | 'pending' | 'paid';
+type ClosurePaymentFilter = 'all' | 'pending' | 'invoice_pending' | 'paid';
 
 const parseClosurePaymentFilter = (value: unknown): ClosurePaymentFilter => {
   if (value === 'pending') return 'pending';
+  if (value === 'invoice_pending') return 'invoice_pending';
   if (value === 'paid') return 'paid';
   return 'all';
 };
 
 const buildClientIdMatch = (id: string) => {
+  const trimmed = String(id || '').trim();
+  if (!trimmed) return [{ clientId: trimmed }];
+  if (ObjectId.isValid(trimmed)) {
+    return [{ clientId: trimmed }, { clientId: new ObjectId(trimmed) }];
+  }
+  return [{ clientId: trimmed }];
+};
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const buildClosureGroupClientMatch = (id: string) => {
   const trimmed = String(id || '').trim();
   if (!trimmed) return [{ clientId: trimmed }];
   if (ObjectId.isValid(trimmed)) {
@@ -327,18 +340,18 @@ app.get('/clients', authenticateToken, isAdmin, async (req: express.Request, res
     const hasTypeFilter = typeof type === 'string' && (type === 'entrega' || type === 'retirada');
 
     if (isClosureMode) {
-      if (!startDate || !endDate) {
-        return res.status(400).json({ message: 'Data inicial e final são obrigatórias para fechamento.' });
-      }
-
-      const range = buildClosureDateRange(startDate, endDate);
-      if (!range) {
+      const hasDateRange = Boolean(startDate && endDate);
+      const range = hasDateRange ? buildClosureDateRange(startDate, endDate) : null;
+      if (hasDateRange && !range) {
         return res.status(400).json({ message: 'Período de datas inválido.' });
       }
-      const { start, end } = range;
 
       const aggregated = await OrderModel.aggregate([
-        { $match: buildClosureOrdersQuery({ start, end }) },
+        {
+          $match: range
+            ? buildClosureOrdersQuery({ start: range.start, end: range.end })
+            : { status: 'concluido', type: 'retirada' },
+        },
         {
           $lookup: {
             from: 'cacambas',
@@ -360,31 +373,38 @@ app.get('/clients', authenticateToken, isAdmin, async (req: express.Request, res
             },
           },
         },
+        {
+          $match: {
+            closureCacambas: { $ne: [] },
+          },
+        },
         ...(closurePaymentFilter === 'pending'
           ? [{
             $match: {
               closureCacambas: {
-                $elemMatch: { paymentStatus: { $ne: 'paga' } },
+                $elemMatch: {
+                  $or: [
+                    { paymentStatus: 'pendente' },
+                    { paymentStatus: { $exists: false } },
+                    { paymentStatus: null },
+                  ],
+                },
               },
             },
           }]
+          : closurePaymentFilter === 'invoice_pending'
+            ? [{
+              $match: {
+                closureCacambas: {
+                  $elemMatch: { paymentStatus: 'nota_fiscal_pendente' },
+                },
+              },
+            }]
           : closurePaymentFilter === 'paid'
             ? [{
               $match: {
-                closureCacambas: { $ne: [] },
-                $expr: {
-                  $eq: [
-                    {
-                      $size: {
-                        $filter: {
-                          input: '$closureCacambas',
-                          as: 'cacamba',
-                          cond: { $eq: ['$$cacamba.paymentStatus', 'paga'] },
-                        },
-                      },
-                    },
-                    { $size: '$closureCacambas' },
-                  ],
+                closureCacambas: {
+                  $elemMatch: { paymentStatus: 'paga' },
                 },
               },
             }]
@@ -439,7 +459,7 @@ app.get('/clients', authenticateToken, isAdmin, async (req: express.Request, res
 
       if (CLOSURE_DEBUG) {
         console.log('[CLOSURE_DEBUG] /clients?closure=true', {
-          range: { start: start.toISOString(), end: end.toISOString() },
+          range: range ? { start: range.start.toISOString(), end: range.end.toISOString() } : 'all',
           count: aggregated.length,
           clients: aggregated.map((row: any) => ({
             clientId: row._id,
@@ -989,16 +1009,19 @@ app.get('/clients/:id/orders', authenticateToken, isAdmin, async (req, res) => {
     const query: any = { clientId: id };
 
     if (isClosureMode) {
-      if (!startDate || !endDate) {
-        return res.status(400).json({ message: 'Data inicial e final são obrigatórias para fechamento.' });
-      }
-      const range = buildClosureDateRange(startDate, endDate);
-      if (!range) {
+      const hasDateRange = Boolean(startDate && endDate);
+      const range = hasDateRange ? buildClosureDateRange(startDate, endDate) : null;
+      if (hasDateRange && !range) {
         return res.status(400).json({ message: 'Período de datas inválido.' });
       }
       query.$or = buildClientIdMatch(id);
       delete query.clientId;
-      Object.assign(query, buildClosureOrdersQuery({ start: range.start, end: range.end }));
+      Object.assign(
+        query,
+        range
+          ? buildClosureOrdersQuery({ start: range.start, end: range.end })
+          : { status: 'concluido', type: 'retirada' },
+      );
     } else {
       if (startDate && endDate) {
         const range = buildLocalDateRange(String(startDate), String(endDate));
@@ -1040,7 +1063,10 @@ app.get('/clients/:id/orders', authenticateToken, isAdmin, async (req, res) => {
           const filteredCacambas = (order.cacambas || []).filter((cacamba: any) => {
             if (cacamba?.tipo !== 'retirada') return false;
             if (closurePaymentFilter === 'pending') {
-              return (cacamba?.paymentStatus || 'pendente') !== 'paga';
+              return (cacamba?.paymentStatus || 'pendente') === 'pendente';
+            }
+            if (closurePaymentFilter === 'invoice_pending') {
+              return cacamba?.paymentStatus === 'nota_fiscal_pendente';
             }
             if (closurePaymentFilter === 'paid') {
               return cacamba?.paymentStatus === 'paga';
@@ -1060,7 +1086,7 @@ app.get('/clients/:id/orders', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
-app.post('/closures/download', authenticateToken, isAdmin, async (req, res) => {
+app.post('/closures/download', authenticateToken, isAdmin, async (req: AuthenticatedRequest, res) => {
   try {
     const { clientId, startDate, endDate, selectedCacambaIds } = req.body as {
       clientId?: string;
@@ -1069,8 +1095,8 @@ app.post('/closures/download', authenticateToken, isAdmin, async (req, res) => {
       selectedCacambaIds?: string[];
     };
 
-    if (!clientId || !startDate || !endDate || !Array.isArray(selectedCacambaIds) || selectedCacambaIds.length === 0) {
-      return res.status(400).json({ message: 'clientId, startDate, endDate e selectedCacambaIds são obrigatórios.' });
+    if (!clientId || !Array.isArray(selectedCacambaIds) || selectedCacambaIds.length === 0) {
+      return res.status(400).json({ message: 'clientId e selectedCacambaIds são obrigatórios.' });
     }
 
     const uniqueIds = Array.from(new Set(selectedCacambaIds.map((id) => String(id).trim()).filter(Boolean)));
@@ -1078,13 +1104,16 @@ app.post('/closures/download', authenticateToken, isAdmin, async (req, res) => {
       return res.status(400).json({ message: 'Nenhuma caçamba válida foi selecionada.' });
     }
 
-    const range = buildClosureDateRange(startDate, endDate);
-    if (!range) {
+    const hasDateRange = Boolean(startDate && endDate);
+    const range = hasDateRange ? buildClosureDateRange(startDate, endDate) : null;
+    if (hasDateRange && !range) {
       return res.status(400).json({ message: 'Período de datas inválido.' });
     }
 
     const orders = await OrderModel.find({
-      ...buildClosureOrdersQuery({ start: range.start, end: range.end }),
+      ...(range
+        ? buildClosureOrdersQuery({ start: range.start, end: range.end })
+        : { status: 'concluido', type: 'retirada' }),
       $or: buildClientIdMatch(clientId),
     }).populate('cacambas');
 
@@ -1097,21 +1126,140 @@ app.post('/closures/download', authenticateToken, isAdmin, async (req, res) => {
 
     const notFoundOrInvalid = uniqueIds.filter((id) => {
       const c = cacambasById.get(id);
-      return !c || c.tipo !== 'retirada' || c.paymentStatus === 'paga';
+      return !c || c.tipo !== 'retirada' || (c.paymentStatus || 'pendente') !== 'pendente';
     });
     if (notFoundOrInvalid.length > 0) {
-      return res.status(400).json({ message: 'Seleção contém caçambas inválidas, fora do período ou já pagas.' });
+      return res.status(400).json({ message: 'Seleção contém caçambas inválidas, fora do período ou já agrupadas/pagas.' });
     }
 
+    const latestGroupForClient = (await ClosureGroupModel.findOne({
+      $or: buildClosureGroupClientMatch(clientId),
+    })
+      .sort({ clientSequenceNumber: -1 })
+      .select('clientSequenceNumber')
+      .lean()) as { clientSequenceNumber?: number } | null;
+    const nextClientSequenceNumber = (latestGroupForClient?.clientSequenceNumber || 0) + 1;
+
+    const closureGroup = await ClosureGroupModel.create({
+      clientSequenceNumber: nextClientSequenceNumber,
+      clientId: clientId,
+      startDate: range?.start || new Date(0),
+      endDate: range?.end || new Date(),
+      cacambaIds: uniqueIds.map((id) => new ObjectId(id)),
+      status: 'nota_fiscal_pendente',
+      createdBy: new ObjectId(String(req.userData?.userId || '')),
+    });
+
     await CacambaModel.updateMany(
-      { _id: { $in: uniqueIds }, tipo: 'retirada', paymentStatus: { $ne: 'paga' } },
-      { $set: { paymentStatus: 'paga' } }
+      {
+        _id: { $in: uniqueIds },
+        tipo: 'retirada',
+        $or: [
+          { paymentStatus: 'pendente' },
+          { paymentStatus: { $exists: false } },
+          { paymentStatus: null },
+        ],
+      },
+      { $set: { paymentStatus: 'nota_fiscal_pendente', closureGroupId: closureGroup._id } }
     );
 
-    return res.status(200).json({ paidCacambaIds: uniqueIds });
+    return res.status(200).json({
+      closureGroup: {
+        _id: closureGroup._id,
+        clientSequenceNumber: closureGroup.clientSequenceNumber,
+        clientId: closureGroup.clientId,
+        status: closureGroup.status,
+        invoiceNumber: closureGroup.invoiceNumber || '',
+        startDate: closureGroup.startDate,
+        endDate: closureGroup.endDate,
+      },
+      updatedCacambaIds: uniqueIds,
+    });
   } catch (error) {
     console.error('Erro ao fechar seleção de caçambas:', error);
     return res.status(500).json({ message: 'Erro ao processar fechamento.' });
+  }
+});
+
+app.get('/clients/:id/closure-groups', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { startDate, endDate, status } = req.query as {
+      startDate?: string;
+      endDate?: string;
+      status?: 'nota_fiscal_pendente' | 'paga' | 'all';
+    };
+    const hasDateRange = Boolean(startDate && endDate);
+    const range = hasDateRange ? buildClosureDateRange(startDate, endDate) : null;
+    if (hasDateRange && !range) {
+      return res.status(400).json({ message: 'Período de datas inválido.' });
+    }
+    const groupQuery: any = {
+      $or: buildClosureGroupClientMatch(id),
+    };
+    if (range) {
+      groupQuery.startDate = { $gte: range.start };
+      groupQuery.endDate = { $lte: range.end };
+    }
+    if (status && status !== 'all') {
+      groupQuery.status = status;
+    }
+    const groups = await ClosureGroupModel.find(groupQuery)
+      .populate('cacambaIds')
+      .sort({ createdAt: -1 })
+      .lean();
+    return res.status(200).json(groups);
+  } catch (error) {
+    console.error('Erro ao buscar grupos de fechamento:', error);
+    return res.status(500).json({ message: 'Erro ao buscar grupos de fechamento.' });
+  }
+});
+
+app.patch('/closure-groups/:id/invoice', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { invoiceNumber } = req.body as { invoiceNumber?: string };
+    const normalizedInvoice = String(invoiceNumber || '').trim();
+    if (!normalizedInvoice) {
+      return res.status(400).json({ message: 'Número da nota fiscal é obrigatório.' });
+    }
+
+    const group = await ClosureGroupModel.findById(id);
+    if (!group) {
+      return res.status(404).json({ message: 'Grupo de fechamento não encontrado.' });
+    }
+
+    const duplicateInvoiceGroup = await ClosureGroupModel.findOne({
+      _id: { $ne: group._id },
+      invoiceNumber: {
+        $regex: `^${escapeRegExp(normalizedInvoice)}$`,
+        $options: 'i',
+      },
+    }).select('_id');
+    if (duplicateInvoiceGroup) {
+      return res.status(409).json({ message: 'Número da nota fiscal já utilizado em outro fechamento.' });
+    }
+
+    group.invoiceNumber = normalizedInvoice;
+    group.status = 'paga';
+    await group.save();
+
+    await CacambaModel.updateMany(
+      { _id: { $in: group.cacambaIds } },
+      { $set: { paymentStatus: 'paga' } }
+    );
+
+    return res.status(200).json({
+      closureGroup: {
+        _id: group._id,
+        clientSequenceNumber: group.clientSequenceNumber,
+        status: group.status,
+        invoiceNumber: group.invoiceNumber,
+      },
+    });
+  } catch (error) {
+    console.error('Erro ao salvar NF do grupo:', error);
+    return res.status(500).json({ message: 'Erro ao salvar nota fiscal do grupo.' });
   }
 });
 

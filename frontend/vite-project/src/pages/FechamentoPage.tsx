@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import type { IClient } from '../interfaces';
 import ClientOrdersModal from '../components/ClientOrdersModal';
@@ -117,30 +117,6 @@ const SearchInput = styled(Input)`
   padding-left: 2.45rem;
 `;
 
-const PrimaryActionButton = styled.button`
-  min-height: 43px;
-  padding: 0.75rem 1rem;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: #e30613;
-  color: #ffffff;
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  white-space: nowrap;
-  box-shadow: 0 8px 16px rgba(227, 6, 19, 0.18);
-
-  &:hover:enabled {
-    background: #c9000b;
-  }
-
-  &:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-    box-shadow: none;
-  }
-`;
 
 const ClientsWrap = styled.div`
   width: 100%;
@@ -222,28 +198,21 @@ const FechamentoPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [paymentStatus, setPaymentStatus] = useState<'all' | 'pending' | 'paid'>('all');
-  const [appliedRange, setAppliedRange] = useState<{ startDate: string; endDate: string } | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<'all' | 'pending' | 'invoice_pending' | 'paid'>('all');
   const [loading, setLoading] = useState(false);
   const [selectedClient, setSelectedClient] = useState<IClient | null>(null);
   const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(false);
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
 
   const fetchClosureClients = async () => {
-    if (!isIsoDate(startDate) || !isIsoDate(endDate)) {
-      setClients([]);
-      setAppliedRange(null);
-      return;
-    }
-
     try {
       setLoading(true);
-      const selectedStartDate = startDate;
-      const selectedEndDate = endDate;
       const query = new URLSearchParams();
       query.append('closure', 'true');
-      query.append('startDate', selectedStartDate);
-      query.append('endDate', selectedEndDate);
+      if (isIsoDate(startDate) && isIsoDate(endDate)) {
+        query.append('startDate', startDate);
+        query.append('endDate', endDate);
+      }
       query.append('paymentStatus', paymentStatus);
       const response = await fetch(`${apiUrl}/clients?${query.toString()}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
@@ -252,18 +221,15 @@ const FechamentoPage: React.FC = () => {
       if (!response.ok) {
         setFeedback({ tone: 'error', message: data.message || 'Erro ao buscar fechamentos.' });
         setClients([]);
-        setAppliedRange(null);
         return;
       }
 
       const fetchedClients = Array.isArray(data) ? (data as IClient[]) : [];
       setClients(fetchedClients);
-      setAppliedRange({ startDate: selectedStartDate, endDate: selectedEndDate });
     } catch (error) {
       console.error(error);
       setFeedback({ tone: 'error', message: 'Erro ao buscar fechamentos.' });
       setClients([]);
-      setAppliedRange(null);
     } finally {
       setLoading(false);
     }
@@ -288,17 +254,17 @@ const FechamentoPage: React.FC = () => {
     });
   }, [clients, search]);
 
-  const canSearch = isIsoDate(startDate) && isIsoDate(endDate);
-  const hasAppliedRange = Boolean(appliedRange?.startDate && appliedRange?.endDate);
-
   const openOrdersModal = (client: IClient) => {
-    if (!hasAppliedRange) {
-      setFeedback({ tone: 'info', message: 'Selecione Data Inicial e Data Final para carregar os pedidos.' });
-      return;
-    }
     setSelectedClient(client);
     setIsOrdersModalOpen(true);
   };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchClosureClients();
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [startDate, endDate, paymentStatus, search]);
 
   return (
     <Container>
@@ -339,10 +305,11 @@ const FechamentoPage: React.FC = () => {
           <Select
             id="closure-payment-status"
             value={paymentStatus}
-            onChange={(e) => setPaymentStatus(e.target.value as 'all' | 'pending' | 'paid')}
+            onChange={(e) => setPaymentStatus(e.target.value as 'all' | 'pending' | 'invoice_pending' | 'paid')}
           >
             <option value="all">Todas</option>
             <option value="pending">Pendentes</option>
+            <option value="invoice_pending">NF pendente</option>
             <option value="paid">Pagas</option>
           </Select>
         </Field>
@@ -364,17 +331,6 @@ const FechamentoPage: React.FC = () => {
         </SearchWrap>
       </Toolbar>
 
-      <div>
-        <PrimaryActionButton
-          data-testid="closure-apply-filter"
-          type="button"
-          onClick={fetchClosureClients}
-          disabled={!canSearch || loading}
-        >
-          {loading ? 'Buscando...' : 'Aplicar Filtro'}
-        </PrimaryActionButton>
-      </div>
-
       {loading ? (
         <EmptyState>Carregando clientes para fechamento...</EmptyState>
       ) : filteredClients.length ? (
@@ -390,17 +346,15 @@ const FechamentoPage: React.FC = () => {
         </ClientsWrap>
       ) : (
         <EmptyState>
-          {hasAppliedRange
-            ? 'Nenhum cliente com retirada concluida encontrado no periodo selecionado.'
-            : 'Selecione Data Inicial e Data Final para consultar os fechamentos.'}
+          Nenhum cliente com retirada concluida encontrado para os filtros selecionados.
         </EmptyState>
       )}
 
       {isOrdersModalOpen && selectedClient && (
         <ClientOrdersModal
           client={selectedClient}
-          startDate={appliedRange?.startDate}
-          endDate={appliedRange?.endDate}
+          startDate={startDate}
+          endDate={endDate}
           type="retirada"
           paymentStatus={paymentStatus}
           closureMode

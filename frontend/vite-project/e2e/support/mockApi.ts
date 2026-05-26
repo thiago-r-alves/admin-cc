@@ -12,7 +12,8 @@ type Cacamba = {
   numero: string;
   tipo: 'entrega' | 'retirada';
   contentType?: string;
-  paymentStatus?: 'pendente' | 'paga';
+  paymentStatus?: 'pendente' | 'nota_fiscal_pendente' | 'paga';
+  closureGroupId?: string;
   price?: number;
   local: 'via_publica' | 'canteiro_obra';
   orderId: string;
@@ -252,6 +253,7 @@ export const setupMockApi = async (page: Page) => {
     cacambas: o.cacambas.map((c) => ({ ...c })),
     imageUrls: [...o.imageUrls],
   }));
+  const closureGroups: ClosureGroup[] = [];
 
   await page.route('**/*', async (route) => {
     const req = route.request();
@@ -364,6 +366,7 @@ export const setupMockApi = async (page: Page) => {
       const endDate = searchParams.get('endDate');
       const closure = searchParams.get('closure') === 'true';
       const type = searchParams.get('type');
+      const paymentStatus = searchParams.get('paymentStatus') || 'all';
 
       if (startDate && endDate) {
         const start = new Date(startDate);
@@ -375,6 +378,14 @@ export const setupMockApi = async (page: Page) => {
             .filter((o) => o.status === 'concluido')
             .filter((o) => (closure ? o.type === 'retirada' : true))
             .filter((o) => (type ? o.type === type : true))
+            .filter((o) => {
+              if (!closure) return true;
+              const retirada = o.cacambas.filter((c) => c.tipo === 'retirada');
+              if (paymentStatus === 'pending') return retirada.some((c) => (c.paymentStatus || 'pendente') === 'pendente');
+              if (paymentStatus === 'invoice_pending') return retirada.some((c) => c.paymentStatus === 'nota_fiscal_pendente');
+              if (paymentStatus === 'paid') return closureGroups.some((g) => g.clientId === o.clientId && g.status === 'paga');
+              return true;
+            })
             .filter((o) => {
               const updated = new Date(o.updatedAt).getTime();
               return updated >= start.getTime() && updated <= end.getTime();
@@ -434,7 +445,8 @@ export const setupMockApi = async (page: Page) => {
             ...o,
             cacambas: o.cacambas.filter((c) => {
               if (c.tipo !== 'retirada') return false;
-              if (paymentStatus === 'pending') return (c.paymentStatus || 'pendente') !== 'paga';
+              if (paymentStatus === 'pending') return (c.paymentStatus || 'pendente') === 'pendente';
+              if (paymentStatus === 'invoice_pending') return c.paymentStatus === 'nota_fiscal_pendente';
               if (paymentStatus === 'paid') return c.paymentStatus === 'paga';
               return true;
             }),
@@ -467,13 +479,76 @@ export const setupMockApi = async (page: Page) => {
       return json(route, filtered);
     }
 
+    if (/^\/clients\/[^/]+\/closure-groups$/.test(pathname) && method === 'GET') {
+      const clientId = pathname.split('/')[2];
+      const status = searchParams.get('status') || 'all';
+      return json(
+        route,
+        closureGroups.filter(
+          (group) => group.clientId === clientId && (status === 'all' || group.status === status),
+        ),
+      );
+    }
+
     if (pathname === '/closures/download' && method === 'POST') {
       const body = req.postDataJSON() as { selectedCacambaIds?: string[] };
       const ids = body.selectedCacambaIds || [];
+      const selectedCacambas: Cacamba[] = [];
       orders.forEach((o) => {
-        o.cacambas = o.cacambas.map((c) => (ids.includes(c._id) ? { ...c, paymentStatus: 'paga' } : c));
+        o.cacambas = o.cacambas.map((c) => {
+          if (!ids.includes(c._id)) return c;
+          const next = { ...c, paymentStatus: 'nota_fiscal_pendente' as const };
+          selectedCacambas.push(next);
+          return next;
+        });
       });
-      return json(route, { paidCacambaIds: ids });
+      const groupId = `grp-${closureGroups.length + 1}`;
+      const clientId = String((req.postDataJSON() as any).clientId || 'cli-1');
+      const nextSequence =
+        closureGroups.filter((group) => group.clientId === clientId).reduce((max, group) => {
+          const value = Number(group.clientSequenceNumber || 0);
+          return value > max ? value : max;
+        }, 0) + 1;
+      closureGroups.unshift({
+        _id: groupId,
+        clientId,
+        clientSequenceNumber: nextSequence,
+        startDate: String((req.postDataJSON() as any).startDate || nowIso),
+        endDate: String((req.postDataJSON() as any).endDate || nowIso),
+        status: 'nota_fiscal_pendente',
+        cacambaIds: selectedCacambas,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      });
+      return json(route, {
+        closureGroup: { _id: groupId, clientId, clientSequenceNumber: nextSequence, status: 'nota_fiscal_pendente' },
+        updatedCacambaIds: ids,
+      });
+    }
+
+    if (/^\/closure-groups\/[^/]+\/invoice$/.test(pathname) && method === 'PATCH') {
+      const groupId = pathname.split('/')[2];
+      const body = req.postDataJSON() as { invoiceNumber?: string };
+      const group = closureGroups.find((item) => item._id === groupId);
+      if (!group) return json(route, { message: 'Grupo não encontrado' }, 404);
+      group.invoiceNumber = String(body.invoiceNumber || '');
+      group.status = 'paga';
+      group.updatedAt = nowIso;
+      orders.forEach((order) => {
+        order.cacambas = order.cacambas.map((cacamba) =>
+          group.cacambaIds.some((item) => item._id === cacamba._id)
+            ? { ...cacamba, paymentStatus: 'paga' }
+            : cacamba,
+        );
+      });
+      return json(route, {
+        closureGroup: {
+          _id: groupId,
+          clientSequenceNumber: group.clientSequenceNumber,
+          status: 'paga',
+          invoiceNumber: group.invoiceNumber,
+        },
+      });
     }
 
     if (pathname === '/driver/orders' && method === 'GET') {
@@ -556,4 +631,16 @@ export const setupMockApi = async (page: Page) => {
 
     return json(route, { message: `Unhandled mock route: ${method} ${pathname}` }, 500);
   });
+};
+type ClosureGroup = {
+  _id: string;
+  clientId: string;
+  clientSequenceNumber: number;
+  startDate: string;
+  endDate: string;
+  status: 'nota_fiscal_pendente' | 'paga';
+  invoiceNumber?: string;
+  cacambaIds: Cacamba[];
+  createdAt?: string;
+  updatedAt?: string;
 };

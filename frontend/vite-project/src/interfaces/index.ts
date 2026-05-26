@@ -41,7 +41,8 @@ export interface ICacamba {
   _id: string;
   numero: string;
   tipo: 'entrega' | 'retirada';
-  paymentStatus?: 'pendente' | 'paga';
+  paymentStatus?: 'pendente' | 'nota_fiscal_pendente' | 'paga';
+  closureGroupId?: string;
   contentType?: CacambaContentType;
   price?: number;
   local?: string;
@@ -49,6 +50,19 @@ export interface ICacamba {
   imageUrl?: string;
   createdAt: string; // Remover o '?' para tornar obrigatório
   horaServicoDigitos?: string;
+}
+
+export interface IClosureGroup {
+  _id: string;
+  clientId: string;
+  clientSequenceNumber: number;
+  status: 'nota_fiscal_pendente' | 'paga';
+  invoiceNumber?: string;
+  startDate: string;
+  endDate: string;
+  cacambaIds: ICacamba[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type OrderType = 'entrega' | 'retirada';

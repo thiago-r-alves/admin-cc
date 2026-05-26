@@ -63,7 +63,6 @@ test.describe('Admin', () => {
     await expect(page.getByRole('heading', { name: 'Fechamento' })).toBeVisible();
     await page.locator('#closure-start-date').fill('2026-05-15');
     await page.locator('#closure-end-date').fill('2026-05-31');
-    await page.getByTestId('closure-apply-filter').click();
     await expect(page.getByRole('button', { name: 'Ver pedidos' }).first()).toBeVisible();
     await page.getByRole('button', { name: 'Ver pedidos' }).first().click();
 
@@ -76,7 +75,6 @@ test.describe('Admin', () => {
     await page.getByRole('button', { name: 'Fechamento' }).click();
     await page.locator('#closure-start-date').fill('2026-05-15');
     await page.locator('#closure-end-date').fill('2026-05-31');
-    await page.getByTestId('closure-apply-filter').click();
     await expect(page.getByRole('button', { name: 'Ver pedidos' }).first()).toBeVisible();
     await page.getByRole('button', { name: 'Ver pedidos' }).first().click();
 
@@ -131,7 +129,6 @@ test.describe('Admin', () => {
     await page.getByRole('button', { name: 'Fechamento' }).click();
     await page.locator('#closure-start-date').fill('2026-05-15');
     await page.locator('#closure-end-date').fill('2026-05-31');
-    await page.getByTestId('closure-apply-filter').click();
     await page.getByRole('button', { name: 'Ver pedidos' }).first().click();
 
     await expect(page.getByText(/sem valor.*tipo de conte/i)).toBeVisible();
@@ -188,7 +185,6 @@ test.describe('Admin', () => {
     await page.getByRole('button', { name: 'Fechamento' }).click();
     await page.locator('#closure-start-date').fill('2026-05-15');
     await page.locator('#closure-end-date').fill('2026-05-31');
-    await page.getByTestId('closure-apply-filter').click();
     await page.getByRole('button', { name: 'Ver pedidos' }).first().click();
 
     await expect(page.getByText(/sem tipo de conte/i)).toBeVisible();
@@ -200,7 +196,6 @@ test.describe('Admin', () => {
     await page.getByRole('button', { name: 'Fechamento' }).click();
     await page.locator('#closure-start-date').fill('2026-05-15');
     await page.locator('#closure-end-date').fill('2026-05-31');
-    await page.getByTestId('closure-apply-filter').click();
     await expect(page.getByRole('button', { name: 'Ver pedidos' }).first()).toBeVisible();
     await page.getByRole('button', { name: 'Ver pedidos' }).first().click();
     await page.getByLabel('Selecionar para pagamento').first().check();
@@ -525,7 +520,6 @@ test.describe('Admin', () => {
     await page.getByRole('button', { name: 'Fechamento' }).click();
     await page.locator('#closure-start-date').fill('2026-05-16');
     await page.locator('#closure-end-date').fill('2026-05-16');
-    await page.getByTestId('closure-apply-filter').click();
     await expect(page.getByText('Nenhum cliente com retirada concluida encontrado no periodo selecionado.')).toBeVisible();
   });
 
@@ -589,7 +583,6 @@ test.describe('Admin', () => {
 
     await page.locator('#closure-start-date').fill('2026-05-15');
     await page.locator('#closure-end-date').fill('2026-05-31');
-    await page.getByTestId('closure-apply-filter').click();
 
     await expect(page.getByRole('button', { name: 'Ver pedidos' }).first()).toBeVisible();
     await page.getByRole('button', { name: 'Ver pedidos' }).first().click();
@@ -810,6 +803,12 @@ test.describe('Admin', () => {
     await expect(page.getByText('Gerenciamento de Clientes')).toBeVisible();
   });
 });
+
+
+
+
+
+
 
 
 
