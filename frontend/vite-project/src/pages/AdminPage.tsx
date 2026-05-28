@@ -417,6 +417,55 @@ const OrderTypeBadge = styled.span<{ $type: IOrder['type'] }>`
   text-transform: uppercase;
 `;
 
+type CacambaAgeTone = 'low' | 'medium' | 'high' | 'unknown';
+
+const OrderHeaderBadges = styled.div`
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+
+  @media (max-width: 640px) {
+    justify-content: flex-start;
+  }
+`;
+
+const CacambaAgeBadge = styled.span<{ $tone: CacambaAgeTone }>`
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 4px;
+  background: ${({ $tone }) =>
+    $tone === 'high'
+      ? '#fee2e2'
+      : $tone === 'medium'
+        ? '#fef3c7'
+        : $tone === 'low'
+          ? '#dcfce7'
+          : '#f3f4f6'};
+  color: ${({ $tone }) =>
+    $tone === 'high'
+      ? '#b91c1c'
+      : $tone === 'medium'
+        ? '#92400e'
+        : $tone === 'low'
+          ? '#166534'
+          : '#6b7280'};
+  border: 1px solid ${({ $tone }) =>
+    $tone === 'high'
+      ? '#fecaca'
+      : $tone === 'medium'
+        ? '#fde68a'
+        : $tone === 'low'
+          ? '#bbf7d0'
+          : '#e5e7eb'};
+  padding: 0.25rem 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+`;
+
 const OrderCardBody = styled.div`
   padding: 1.25rem;
 `;
@@ -1057,6 +1106,35 @@ const typeLabels: Record<IOrder['type'], string> = {
   retirada: 'Retirada',
 };
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const getLocalDayIndex = (date: Date) =>
+  Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / MS_PER_DAY);
+
+const getDaysOnSite = (createdAt?: string | null) => {
+  if (!createdAt) return null;
+
+  const deliveredAt = new Date(createdAt);
+  if (!Number.isFinite(deliveredAt.getTime())) return null;
+
+  const days = getLocalDayIndex(new Date()) - getLocalDayIndex(deliveredAt);
+  return Math.max(0, days);
+};
+
+const formatDaysOnSite = (days: number | null) => {
+  if (days === null) return 'Na obra: sem data';
+  if (days === 0) return 'Na obra: Hoje';
+  if (days === 1) return 'Na obra há 1 dia';
+  return `Na obra há ${days} dias`;
+};
+
+const getDaysOnSiteTone = (days: number | null): CacambaAgeTone => {
+  if (days === null) return 'unknown';
+  if (days >= 7) return 'high';
+  if (days >= 3) return 'medium';
+  return 'low';
+};
+
 const formatOrderAddress = (order: IOrder) => {
   const street = [order.address, order.addressNumber].filter(Boolean).join(', ');
   const parts = [
@@ -1105,6 +1183,8 @@ const AdminPage: React.FC = () => {
     clientName: '',
     cnpjCpf: '',
     contact: '',
+    phone: '',
+    serviceOrder: '',
     address: '',
     neighborhood: '',
     city: '',
@@ -1188,12 +1268,16 @@ const AdminPage: React.FC = () => {
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase();
+    const digits = (s: unknown) => norm(s).replace(/\D/g, '');
 
     const filters = {
       numero: norm(acompanhamentoFilters.numero).trim(),
       clientName: norm(acompanhamentoFilters.clientName).trim(),
       cnpjCpf: norm(acompanhamentoFilters.cnpjCpf).trim(),
       contact: norm(acompanhamentoFilters.contact).trim(),
+      phone: norm(acompanhamentoFilters.phone).trim(),
+      phoneDigits: digits(acompanhamentoFilters.phone),
+      serviceOrder: norm(acompanhamentoFilters.serviceOrder).trim(),
       address: norm(acompanhamentoFilters.address).trim(),
       neighborhood: norm(acompanhamentoFilters.neighborhood).trim(),
       city: norm(acompanhamentoFilters.city).trim(),
@@ -1203,11 +1287,14 @@ const AdminPage: React.FC = () => {
     const hasAnyFilter = Object.values(filters).some(Boolean);
     if (!hasAnyFilter) return acompanhamentoCacambas;
 
-    return acompanhamentoCacambas.filter(({ numero, order }) => {
+    return acompanhamentoCacambas.filter(({ numero, order, cacamba }) => {
       const numeroValue = norm(numero);
       const clientNameValue = norm(order.clientName);
       const cnpjCpfValue = norm(order.cnpjCpf);
-      const contactValue = norm([order.contactName, order.contactNumber].filter(Boolean).join(' '));
+      const contactValue = norm(order.contactName);
+      const phoneValue = norm(order.contactNumber);
+      const phoneDigitsValue = digits(order.contactNumber);
+      const serviceOrderValue = norm(cacamba.horaServicoDigitos);
       const addressValue = norm([order.address, order.addressNumber].filter(Boolean).join(' '));
       const neighborhoodValue = norm(order.neighborhood);
       const cityValue = norm(order.city);
@@ -1218,6 +1305,10 @@ const AdminPage: React.FC = () => {
         (!filters.clientName || clientNameValue.includes(filters.clientName)) &&
         (!filters.cnpjCpf || cnpjCpfValue.includes(filters.cnpjCpf)) &&
         (!filters.contact || contactValue.includes(filters.contact)) &&
+        (!filters.phone ||
+          phoneValue.includes(filters.phone) ||
+          (Boolean(filters.phoneDigits) && phoneDigitsValue.includes(filters.phoneDigits))) &&
+        (!filters.serviceOrder || serviceOrderValue.includes(filters.serviceOrder)) &&
         (!filters.address || addressValue.includes(filters.address)) &&
         (!filters.neighborhood || neighborhoodValue.includes(filters.neighborhood)) &&
         (!filters.city || cityValue.includes(filters.city)) &&
@@ -1485,6 +1576,7 @@ const AdminPage: React.FC = () => {
   }, [drivers, selectedDriverId]);
 
   const handleSelectTab = (tab: AdminTab) => {
+    setFeedback(null);
     setActiveTab(tab);
     setIsSidebarOpen(false);
   };
@@ -1737,6 +1829,14 @@ const AdminPage: React.FC = () => {
                     <AcompanhamentoFilterInput id="filtro-contato" type="text" value={acompanhamentoFilters.contact} onChange={(e) => setAcompanhamentoFilters((prev) => ({ ...prev, contact: e.target.value }))} />
                   </AcompanhamentoFilterField>
                   <AcompanhamentoFilterField>
+                    <AcompanhamentoFilterLabel htmlFor="filtro-telefone">Telefone</AcompanhamentoFilterLabel>
+                    <AcompanhamentoFilterInput id="filtro-telefone" type="text" value={acompanhamentoFilters.phone} onChange={(e) => setAcompanhamentoFilters((prev) => ({ ...prev, phone: e.target.value }))} />
+                  </AcompanhamentoFilterField>
+                  <AcompanhamentoFilterField>
+                    <AcompanhamentoFilterLabel htmlFor="filtro-ordem-servico">Ordem de serviço</AcompanhamentoFilterLabel>
+                    <AcompanhamentoFilterInput id="filtro-ordem-servico" type="text" value={acompanhamentoFilters.serviceOrder} onChange={(e) => setAcompanhamentoFilters((prev) => ({ ...prev, serviceOrder: e.target.value }))} />
+                  </AcompanhamentoFilterField>
+                  <AcompanhamentoFilterField>
                     <AcompanhamentoFilterLabel htmlFor="filtro-endereco">Endereço</AcompanhamentoFilterLabel>
                     <AcompanhamentoFilterInput id="filtro-endereco" type="text" value={acompanhamentoFilters.address} onChange={(e) => setAcompanhamentoFilters((prev) => ({ ...prev, address: e.target.value }))} />
                   </AcompanhamentoFilterField>
@@ -1768,6 +1868,8 @@ const AdminPage: React.FC = () => {
                           : cacamba.local === 'canteiro_obra'
                             ? 'Canteiro de obra'
                             : '-';
+                      const daysOnSite = getDaysOnSite(cacamba.createdAt);
+                      const daysOnSiteTone = getDaysOnSiteTone(daysOnSite);
 
                       return (
                         <OrderCard key={cacamba._id} status={order.status}>
@@ -1775,7 +1877,16 @@ const AdminPage: React.FC = () => {
                             <OrderHeaderMeta>
                               <OrderNumber>Caçamba #{numero}</OrderNumber>
                             </OrderHeaderMeta>
-                            <OrderTypeBadge $type={cacamba.tipo}>{typeLabels[cacamba.tipo]}</OrderTypeBadge>
+                            <OrderHeaderBadges>
+                              <CacambaAgeBadge
+                                $tone={daysOnSiteTone}
+                                data-testid="cacamba-age-badge"
+                                data-age-tone={daysOnSiteTone}
+                              >
+                                {formatDaysOnSite(daysOnSite)}
+                              </CacambaAgeBadge>
+                              <OrderTypeBadge $type={cacamba.tipo}>{typeLabels[cacamba.tipo]}</OrderTypeBadge>
+                            </OrderHeaderBadges>
                           </OrderCardHeader>
 
                           <OrderCardBody>
@@ -1791,6 +1902,10 @@ const AdminPage: React.FC = () => {
                               <InfoTile>
                                 <InfoLabel>Local</InfoLabel>
                                 <InfoValue>{localLabel}</InfoValue>
+                              </InfoTile>
+                              <InfoTile>
+                                <InfoLabel>Ordem de serviço</InfoLabel>
+                                <InfoValue>{cacamba.horaServicoDigitos || '-'}</InfoValue>
                               </InfoTile>
                               <InfoTile>
                                 <InfoLabel>Placa do caminhão</InfoLabel>
