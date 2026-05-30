@@ -3,26 +3,32 @@ import styled from 'styled-components';
 
 const ModalOverlay = styled.div`
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background-color: rgba(0, 0, 0, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
   z-index: 1000;
 `;
 
 const ModalContent = styled.div`
-  max-width: 90vw;
-  max-height: 90vh;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 
 const ModalImage = styled.img`
-  max-width: 100%;
-  max-height: 100%;
+  width: auto;
+  height: auto;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
   object-fit: contain;
+  border-radius: 8px;
+  background: #fff;
 `;
 
 interface ImageModalProps {
@@ -33,7 +39,7 @@ interface ImageModalProps {
 const ImageModal: React.FC<ImageModalProps> = ({ url, onClose }) => {
   return (
     <ModalOverlay onClick={onClose}>
-      <ModalContent>
+      <ModalContent onClick={(event) => event.stopPropagation()}>
         <ModalImage src={url} alt="Imagem ampliada" />
       </ModalContent>
     </ModalOverlay>

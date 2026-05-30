@@ -7,6 +7,7 @@ import EditCacambaModal from './EditCacambaModal';
 import ActionConfirmModal from '../components/ActionConfirmModal';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import LoadingScreen from '../components/LoadingScreen';
+import ImageModal from '../components/ImageModal';
 // socket.io-client will be dynamically imported to avoid parsing on initial load
 
 const DriverContainer = styled.div`
@@ -310,23 +311,6 @@ const CacambaHeader = styled.div`
     flex-direction: column;
   }
 `;
-
-const ImageModal = ({ url, onClose }: { url: string, onClose: () => void }) => (
-  <div
-    style={{
-      position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-      background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-    }}
-    onClick={onClose}
-  >
-    <img
-      src={url}
-      alt="Visualização"
-      style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: 8, background: '#fff' }}
-      onClick={e => e.stopPropagation()}
-    />
-  </div>
-);
 
 // Componente principal da página do motorista
 const typeLabels: Record<OrderType, string> = {

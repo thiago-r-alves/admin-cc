@@ -26,6 +26,29 @@ test.describe('Motorista', () => {
     await expect(page.getByRole('button', { name: 'Concluir Pedido' })).toBeVisible();
   });
 
+  test('imagem ampliada da cacamba cabe na tela', async ({ page }) => {
+    await page.getByAltText('Foto da caçamba').first().click();
+
+    const expandedImage = page.getByRole('img', { name: 'Imagem ampliada' });
+    await expect(expandedImage).toBeVisible();
+
+    const bounds = await expandedImage.evaluate((image) => {
+      const rect = image.getBoundingClientRect();
+      return {
+        width: rect.width,
+        height: rect.height,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+      };
+    });
+
+    expect(bounds.width).toBeLessThanOrEqual(bounds.viewportWidth - 32 + 1);
+    expect(bounds.height).toBeLessThanOrEqual(bounds.viewportHeight - 32 + 1);
+
+    await expandedImage.click();
+    await expect(expandedImage).toBeVisible();
+  });
+
   test('oculta concluir pedido quando nao ha cacamba', async ({ page }) => {
     const emptyCard = page.locator('article', { hasText: '#2232' }).first();
     await expect(emptyCard).toBeVisible();

@@ -332,6 +332,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
                         onImageClick(large);
                       } catch (e) {
                         console.error('Erro redimensionando imagem:', e);
+                        onImageClick(full);
                       }
                     }
                   }}

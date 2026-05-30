@@ -8,6 +8,7 @@ import CacambaMetaModal from '../components/CacambaMetaModal';
 import ActionConfirmModal from '../components/ActionConfirmModal';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import LoadingScreen from '../components/LoadingScreen';
+import ImageModal from '../components/ImageModal';
 import ClientPage from './ClientPage';
 import FechamentoPage from './FechamentoPage';
 // socket.io-client and PDF download will be dynamically imported to avoid parsing on initial load
@@ -2139,23 +2140,5 @@ const AdminPage: React.FC = () => {
     </>
   );
 };
-
-// Modal simples para imagem
-const ImageModal = ({ url, onClose }: { url: string, onClose: () => void }) => (
-  <div
-    style={{
-      position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-      background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-    }}
-    onClick={onClose}
-  >
-    <img
-      src={url}
-      alt="Visualização"
-      style={{ maxWidth: '90vw', maxHeight: '90vh', borderRadius: 8, background: '#fff' }}
-      onClick={e => e.stopPropagation()}
-    />
-  </div>
-);
 
 export default AdminPage;
