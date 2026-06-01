@@ -1,7 +1,17 @@
 import mongoose from 'mongoose';
-import { UserModel } from './models/User';
 import dotenv from 'dotenv';
+import { UserModel } from './models/User';
+import { CityModel, normalizeCityName } from './models/City';
+
 dotenv.config();
+
+const DEFAULT_CITIES = [
+  'São José dos Campos',
+  'Jacareí',
+  'Caçapava',
+  'Jambeiro',
+  'Monteiro Lobato',
+];
 
 const connectDB = async () => {
   try {
@@ -9,18 +19,31 @@ const connectDB = async () => {
     console.log(`MongoDB Conectado: ${conn.connection.host}`);
 
     const adminUser = await UserModel.findOne({ username: 'admin' });
-
     if (!adminUser) {
       const newAdmin = new UserModel({
         username: 'admin',
         password: '123',
-        role: 'admin' // Add this line to set the role
+        role: 'admin',
       });
       await newAdmin.save();
-      console.log('Usuário "admin" criado com sucesso.');
+      console.log('Usuario "admin" criado com sucesso.');
     }
+
+    const cityOps = DEFAULT_CITIES.map((name) => {
+      const normalized = normalizeCityName(name);
+      return {
+        updateOne: {
+          filter: { normalizedName: normalized },
+          update: {
+            $setOnInsert: { name, normalizedName: normalized },
+            $set: { active: true },
+          },
+          upsert: true,
+        },
+      };
+    });
+    await CityModel.bulkWrite(cityOps);
   } catch (error) {
-    // Error handling code is correct
     if (error instanceof Error) {
       console.error(`Erro ao conectar ao MongoDB: ${error.message}`);
     } else {

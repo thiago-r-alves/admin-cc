@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-import type { IClient } from '../interfaces';
+import type { ICity, IClient } from '../interfaces';
 import { Button as UIButton, Field as UIField, SelectInput, TextInput } from '../components/ui';
 
 const ModalOverlay = styled.div`
@@ -138,6 +138,73 @@ const FetchingHint = styled.small`
   font-size: 0.75rem;
 `;
 
+const InlineActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.45rem;
+  flex-wrap: wrap;
+`;
+
+const InlineLinkButton = styled.button`
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #b91c1c;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: underline;
+`;
+
+const ResultOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(17, 24, 39, 0.55);
+`;
+
+const ResultModal = styled.div`
+  width: min(440px, 94vw);
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden;
+`;
+
+const ResultHeader = styled.div<{ $tone: 'success' | 'error' | 'info' }>`
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid #fee2e2;
+  border-left: 4px solid
+    ${({ $tone }) => ($tone === 'success' ? '#16a34a' : $tone === 'error' ? '#dc2626' : '#2563eb')};
+  font-weight: 800;
+`;
+
+const ResultBody = styled.div`
+  padding: 1rem;
+  color: #334155;
+`;
+
+const ResultFooter = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.8rem 1rem 1rem;
+`;
+
+const ResultOkButton = styled.button`
+  min-height: 38px;
+  min-width: 92px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  font-weight: 700;
+  cursor: pointer;
+`;
+
 const ModalFooter = styled.div`
   display: flex;
   justify-content: flex-start;
@@ -196,6 +263,11 @@ interface Props {
 }
 
 const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
+  const apiUrl = import.meta.env.VITE_API_URL;
+  const token = localStorage.getItem('token');
+  const role = localStorage.getItem('role');
+  const isAdmin = role === 'admin';
+
   const [formData, setFormData] = useState({
     clientName: '',
     cnpjCpf: '',
@@ -207,8 +279,14 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
     address: '',
     addressNumber: '',
   });
-
   const [isFetchingCep, setIsFetchingCep] = useState(false);
+  const [cities, setCities] = useState<ICity[]>([]);
+  const [isLoadingCities, setIsLoadingCities] = useState(false);
+  const [cityFeedback, setCityFeedback] = useState<{ tone: 'success' | 'error' | 'info'; title: string; message: string } | null>(null);
+  const [isAddingCity, setIsAddingCity] = useState(false);
+  const [newCityName, setNewCityName] = useState('');
+  const [isSavingCity, setIsSavingCity] = useState(false);
+  const [isDeletingCity, setIsDeletingCity] = useState(false);
   const lastCepRef = useRef<string>('');
 
   const onlyDigits = (s: string) => s.replace(/\D/g, '');
@@ -226,7 +304,7 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
       const data = await res.json();
 
       if (data && !data.erro) {
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           address: data.logradouro || prev.address,
           neighborhood: data.bairro || prev.neighborhood,
@@ -234,22 +312,50 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
         }));
       }
     } catch {
-      // CEP autocomplete is best-effort; manual entry remains available.
+      // best effort
     } finally {
       setIsFetchingCep(false);
     }
   };
 
+  const fetchCities = async () => {
+    if (!apiUrl || !token) return;
+    try {
+      setIsLoadingCities(true);
+      setCityFeedback(null);
+      const response = await fetch(`${apiUrl}/cities`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) {
+        setCityFeedback({ tone: 'error', title: 'Erro', message: 'Nao foi possivel carregar cidades.' });
+        return;
+      }
+      const data = (await response.json()) as ICity[];
+      setCities(Array.isArray(data) ? data : []);
+    } catch {
+      setCityFeedback({ tone: 'error', title: 'Erro', message: 'Nao foi possivel carregar cidades.' });
+    } finally {
+      setIsLoadingCities(false);
+    }
+  };
+
   const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const digits = onlyDigits(e.target.value).slice(0, 8);
-    setFormData(prev => ({ ...prev, cep: maskCep(digits) }));
-    if (digits.length === 8) fetchCep(digits);
+    setFormData((prev) => ({ ...prev, cep: maskCep(digits) }));
+    if (digits.length === 8) void fetchCep(digits);
   };
+
+  useEffect(() => {
+    void fetchCities();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!initialData) return;
 
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       clientName: initialData.clientName || '',
       cnpjCpf: initialData.cnpjCpf || '',
@@ -263,18 +369,93 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
     }));
 
     const digits = onlyDigits(initialData.cep || '');
-    if (digits.length === 8) fetchCep(digits);
+    if (digits.length === 8) void fetchCep(digits);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCreateCity = async () => {
+    const name = newCityName.trim();
+    if (!name) {
+      setCityFeedback({ tone: 'error', title: 'Campo obrigatorio', message: 'Informe o nome da cidade.' });
+      return;
+    }
+    if (!apiUrl || !token) return;
+
+    try {
+      setIsSavingCity(true);
+      setCityFeedback(null);
+      const response = await fetch(`${apiUrl}/cities`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name }),
+      });
+      const payload = await response.json().catch(() => ({} as any));
+
+      if (response.status === 409) {
+        setCityFeedback({ tone: 'error', title: 'Cidade duplicada', message: payload.message || 'Cidade ja cadastrada.' });
+        return;
+      }
+      if (!response.ok) {
+        setCityFeedback({ tone: 'error', title: 'Erro', message: payload.message || 'Erro ao cadastrar cidade.' });
+        return;
+      }
+
+      const created = payload as ICity;
+      setCities((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')));
+      setFormData((prev) => ({ ...prev, city: created.name }));
+      setCityFeedback({ tone: 'success', title: 'Sucesso', message: 'Cidade cadastrada com sucesso.' });
+      setNewCityName('');
+      setIsAddingCity(false);
+    } catch {
+      setCityFeedback({ tone: 'error', title: 'Erro', message: 'Erro ao cadastrar cidade.' });
+    } finally {
+      setIsSavingCity(false);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit(formData);
+  };
+
+  const cityExists = cities.some((city) => city.name === formData.city);
+  const selectedCity = cities.find((city) => city.name === formData.city);
+
+  const handleDeleteSelectedCity = async () => {
+    if (!selectedCity || !apiUrl || !token) return;
+    const confirmed = window.confirm(`Excluir a cidade "${selectedCity.name}" da lista?`);
+    if (!confirmed) return;
+
+    try {
+      setIsDeletingCity(true);
+      setCityFeedback(null);
+      const response = await fetch(`${apiUrl}/cities/${selectedCity._id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const payload = await response.json().catch(() => ({} as any));
+      if (!response.ok) {
+        setCityFeedback({ tone: 'error', title: 'Erro', message: payload.message || 'Erro ao excluir cidade.' });
+        return;
+      }
+      setCities((prev) => prev.filter((city) => city._id !== selectedCity._id));
+      setFormData((prev) => ({ ...prev, city: '' }));
+      setCityFeedback({ tone: 'success', title: 'Sucesso', message: 'Cidade excluida da lista.' });
+    } catch {
+      setCityFeedback({ tone: 'error', title: 'Erro', message: 'Erro ao excluir cidade.' });
+    } finally {
+      setIsDeletingCity(false);
+    }
   };
 
   return (
@@ -303,7 +484,7 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
                       type="text"
                       value={formData.clientName}
                       onChange={handleChange}
-                      placeholder="Razão Social ou Nome Completo"
+                      placeholder="Razao Social ou Nome Completo"
                       required
                     />
                   </UIField>
@@ -327,7 +508,7 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
             <Section>
               <SectionTitle>
                 <SectionIcon name="pin" />
-                Localização
+                Localizacao
               </SectionTitle>
               <FieldGrid>
                 <GridField>
@@ -343,7 +524,7 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
                       inputMode="numeric"
                     />
                   </UIField>
-                  {isFetchingCep && <FetchingHint>Buscando endereço...</FetchingHint>}
+                  {isFetchingCep ? <FetchingHint>Buscando endereco...</FetchingHint> : null}
                 </GridField>
 
                 <GridField>
@@ -354,21 +535,21 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
                       type="text"
                       value={formData.address}
                       onChange={handleChange}
-                      placeholder="Rua, Avenida, Praça..."
+                      placeholder="Rua, Avenida, Praca..."
                       required
                     />
                   </UIField>
                 </GridField>
 
                 <GridField $span={2}>
-                  <UIField label="Número" htmlFor="addressNumber">
+                  <UIField label="Numero" htmlFor="addressNumber">
                     <TextInput
                       id="addressNumber"
                       name="addressNumber"
                       type="text"
                       value={formData.addressNumber}
                       onChange={handleChange}
-                      placeholder="Número, Bloco, Sala"
+                      placeholder="Numero, Bloco, Sala"
                     />
                   </UIField>
                 </GridField>
@@ -397,12 +578,58 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
                       required
                     >
                       <option value="">Selecione...</option>
-                      <option value="São José dos Campos">São José dos Campos</option>
-                      <option value="Jacareí">Jacareí</option>
-                      <option value="Caçapava">Caçapava</option>
-                      <option value="Jambeiro">Jambeiro</option>
-                      <option value="Monteiro Lobato">Monteiro Lobato</option>
+                      {!cityExists && formData.city ? <option value={formData.city}>{formData.city}</option> : null}
+                      {cities.map((city) => (
+                        <option key={city._id} value={city.name}>
+                          {city.name}
+                        </option>
+                      ))}
                     </SelectInput>
+                    {isLoadingCities ? <FetchingHint>Carregando cidades...</FetchingHint> : null}
+                    {!cityExists && formData.city ? (
+                      <FetchingHint>Cidade preenchida pelo CEP ainda nao cadastrada.</FetchingHint>
+                    ) : null}
+                    {isAdmin ? (
+                      <InlineActions>
+                        {!isAddingCity ? (
+                          <InlineLinkButton type="button" onClick={() => setIsAddingCity(true)}>
+                            + Nova cidade
+                          </InlineLinkButton>
+                        ) : (
+                          <>
+                            <TextInput
+                              type="text"
+                              value={newCityName}
+                              onChange={(e) => setNewCityName(e.target.value)}
+                              placeholder="Nome da cidade"
+                              style={{ maxWidth: 240 }}
+                            />
+                            <InlineLinkButton type="button" onClick={() => void handleCreateCity()} disabled={isSavingCity}>
+                              {isSavingCity ? 'Salvando...' : 'Salvar'}
+                            </InlineLinkButton>
+                            <InlineLinkButton
+                              type="button"
+                              onClick={() => {
+                                setIsAddingCity(false);
+                                setNewCityName('');
+                              }}
+                            >
+                              Cancelar
+                            </InlineLinkButton>
+                          </>
+                        )}
+                        {selectedCity ? (
+                          <InlineLinkButton
+                            type="button"
+                            onClick={() => void handleDeleteSelectedCity()}
+                            disabled={isDeletingCity}
+                            title="Excluir cidade selecionada"
+                          >
+                            {isDeletingCity ? 'Excluindo...' : 'Excluir cidade selecionada'}
+                          </InlineLinkButton>
+                        ) : null}
+                      </InlineActions>
+                    ) : null}
                   </UIField>
                 </GridField>
               </FieldGrid>
@@ -422,14 +649,14 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
                       type="text"
                       value={formData.contactName}
                       onChange={handleChange}
-                      placeholder="Responsável no local"
+                      placeholder="Responsavel no local"
                       required
                     />
                   </UIField>
                 </GridField>
 
                 <GridField>
-                  <UIField label="Número do Contato" htmlFor="contactNumber">
+                  <UIField label="Numero do Contato" htmlFor="contactNumber">
                     <TextInput
                       id="contactNumber"
                       name="contactNumber"
@@ -455,6 +682,19 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
           </ModalFooter>
         </Form>
       </ModalContent>
+      {cityFeedback ? (
+        <ResultOverlay onClick={() => setCityFeedback(null)}>
+          <ResultModal onClick={(event) => event.stopPropagation()}>
+            <ResultHeader $tone={cityFeedback.tone}>{cityFeedback.title}</ResultHeader>
+            <ResultBody>{cityFeedback.message}</ResultBody>
+            <ResultFooter>
+              <ResultOkButton type="button" onClick={() => setCityFeedback(null)}>
+                OK
+              </ResultOkButton>
+            </ResultFooter>
+          </ResultModal>
+        </ResultOverlay>
+      ) : null}
     </ModalOverlay>
   );
 };

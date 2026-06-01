@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { loadApp, ensureUsers, signToken } from '../helpers/app';
 import { ClientModel } from '../../src/models/Client';
+import { CityModel } from '../../src/models/City';
 import { OrderModel } from '../../src/models/Order';
 import { UserModel } from '../../src/models/User';
 import { CacambaModel } from '../../src/models/Cacamba';
@@ -617,6 +618,57 @@ describe('Admin APIs', () => {
       .set('Authorization', `Bearer ${token}`);
     expect(groupsWithoutDate.status).toBe(200);
     expect(groupsWithoutDate.body[0]?.clientSequenceNumber).toBeDefined();
+  });
+
+  it('Cities: create, reject duplicates, enforce admin-only create, and list', async () => {
+    const app = await loadApp();
+    const { admin, driver } = await ensureUsers();
+    const adminToken = signToken(String(admin._id), 'admin');
+    const driverToken = signToken(String(driver._id), 'motorista');
+
+    const created = await request(app)
+      .post('/cities')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Cidade de Teste' });
+    expect(created.status).toBe(201);
+    expect(created.body.name).toBe('Cidade de Teste');
+
+    const duplicate = await request(app)
+      .post('/cities')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Cidade de Teste' });
+    expect(duplicate.status).toBe(409);
+
+    const forbidden = await request(app)
+      .post('/cities')
+      .set('Authorization', `Bearer ${driverToken}`)
+      .send({ name: 'Jacarei' });
+    expect(forbidden.status).toBe(403);
+
+    await CityModel.create({ name: 'Caçapava', normalizedName: 'cacapava', active: true });
+
+    const listed = await request(app)
+      .get('/cities')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(listed.status).toBe(200);
+    expect(Array.isArray(listed.body)).toBe(true);
+    expect(listed.body.some((city: any) => city.name === 'Cidade de Teste')).toBe(true);
+
+    const deleteForbidden = await request(app)
+      .delete(`/cities/${created.body._id}`)
+      .set('Authorization', `Bearer ${driverToken}`);
+    expect(deleteForbidden.status).toBe(403);
+
+    const deleted = await request(app)
+      .delete(`/cities/${created.body._id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(deleted.status).toBe(200);
+
+    const listedAfterDelete = await request(app)
+      .get('/cities')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(listedAfterDelete.status).toBe(200);
+    expect(listedAfterDelete.body.some((city: any) => city.name === 'Cidade de Teste')).toBe(false);
   });
 });
 

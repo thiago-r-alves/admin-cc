@@ -14,6 +14,12 @@ export interface IClient {
   createdAt?: string; // Adicionar este campo
 }
 
+export interface ICity {
+  _id: string;
+  name: string;
+  createdAt?: string;
+}
+
 export interface IDriver {
   _id: string;
   username: string;
