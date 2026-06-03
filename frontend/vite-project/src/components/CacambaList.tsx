@@ -197,6 +197,7 @@ interface CacambaListProps {
   onEdit?: (cacamba: ICacamba) => void;
   onDelete?: (cacambaId: string) => void;
   showTitle?: boolean;
+  showTypeBadge?: boolean;
   adminMetaActions?: boolean;
   canEditPrice?: boolean;
   onEditContentType?: (cacamba: ICacamba) => void;
@@ -212,6 +213,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
   onEdit,
   onDelete,
   showTitle = true,
+  showTypeBadge = true,
   adminMetaActions = false,
   canEditPrice = false,
   onEditContentType,
@@ -271,9 +273,11 @@ const CacambaList: React.FC<CacambaListProps> = ({
               <InfoSection>
                 <HeaderInfo>
                   <CacambaNumber>#{cacamba.numero}</CacambaNumber>
-                  <TypeBadge tipo={cacamba.tipo}>
-                    {cacamba.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
-                  </TypeBadge>
+                  {showTypeBadge && (
+                    <TypeBadge tipo={cacamba.tipo}>
+                      {cacamba.tipo === 'entrega' ? 'Entrega' : 'Retirada'}
+                    </TypeBadge>
+                  )}
                   {isPaid && <PaymentBadge>Paga</PaymentBadge>}
                 </HeaderInfo>
 
@@ -318,25 +322,27 @@ const CacambaList: React.FC<CacambaListProps> = ({
               </InfoSection>
 
               <ImageContainer>
-                <CacambaImage
-                  src={thumbs[cacamba._id] || ''}
-                  alt="Foto da caçamba"
-                  onClick={async () => {
-                    if (onImageClick && cacamba.imageUrl) {
-                      const full = cacamba.imageUrl.startsWith('http')
-                        ? cacamba.imageUrl
-                        : `${apiUrl}${cacamba.imageUrl}`;
-                      try {
-                        const mod = await import('../utils/image');
-                        const large = await mod.resizeImage(full, 1200, 0.8);
-                        onImageClick(large);
-                      } catch (e) {
-                        console.error('Erro redimensionando imagem:', e);
-                        onImageClick(full);
+                {cacamba.imageUrl ? (
+                  <CacambaImage
+                    src={thumbs[cacamba._id] || cacamba.imageUrl}
+                    alt="Foto da caçamba"
+                    onClick={async () => {
+                      if (onImageClick && cacamba.imageUrl) {
+                        const full = cacamba.imageUrl.startsWith('http')
+                          ? cacamba.imageUrl
+                          : `${apiUrl}${cacamba.imageUrl}`;
+                        try {
+                          const mod = await import('../utils/image');
+                          const large = await mod.resizeImage(full, 1200, 0.8);
+                          onImageClick(large);
+                        } catch (e) {
+                          console.error('Erro redimensionando imagem:', e);
+                          onImageClick(full);
+                        }
                       }
-                    }
-                  }}
-                />
+                    }}
+                  />
+                ) : null}
               </ImageContainer>
             </CardContent>
 

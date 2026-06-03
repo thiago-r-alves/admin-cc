@@ -544,6 +544,11 @@ const OrderActions = styled.div`
   }
 `;
 
+const AcompanhamentoActions = styled(OrderActions)`
+  margin-top: 1rem;
+  margin-left: 0;
+`;
+
 const EmptyState = styled.div`
   border: 1px dashed #fecaca;
   border-radius: 8px;
@@ -1506,6 +1511,36 @@ const AdminPage: React.FC = () => {
     });
   };
 
+  const handleDeleteAcompanhamentoCacamba = async (cacambaId: string, numero: string) => {
+    openConfirm({
+      title: 'Excluir caçamba do acompanhamento',
+      description: `Tem certeza que deseja excluir definitivamente a caçamba #${numero}?`,
+      variant: 'danger',
+      confirmLabel: 'Excluir',
+      onConfirm: async () => {
+        setConfirmLoading(true);
+        try {
+          const response = await authenticatedFetch(`${apiUrl}/cacambas/${cacambaId}`, {
+            method: 'DELETE',
+          });
+          if (response.ok) {
+            setFeedback({ tone: 'success', message: `Caçamba #${numero} excluída com sucesso.` });
+            await fetchData();
+            setConfirmState(null);
+          } else {
+            const data = await response.json();
+            setFeedback({ tone: 'error', message: data.message || 'Erro ao excluir caçamba.' });
+          }
+        } catch (err) {
+          console.error(err);
+          setFeedback({ tone: 'error', message: 'Erro ao excluir caçamba.' });
+        } finally {
+          setConfirmLoading(false);
+        }
+      },
+    });
+  };
+
   const handleUpdateCacambaMeta = async (
     cacambaId: string,
     updates: { contentType?: string; price?: number }
@@ -1886,7 +1921,6 @@ const AdminPage: React.FC = () => {
                               >
                                 {formatDaysOnSite(daysOnSite)}
                               </CacambaAgeBadge>
-                              <OrderTypeBadge $type={cacamba.tipo}>{typeLabels[cacamba.tipo]}</OrderTypeBadge>
                             </OrderHeaderBadges>
                           </OrderCardHeader>
 
@@ -1925,6 +1959,10 @@ const AdminPage: React.FC = () => {
                                 <InfoValue>{motoristaNome || '-'}</InfoValue>
                               </InfoTile>
                               <InfoTile>
+                                <InfoLabel>CNPJ/CPF</InfoLabel>
+                                <InfoValue>{order.cnpjCpf || '-'}</InfoValue>
+                              </InfoTile>
+                              <InfoTile>
                                 <InfoLabel>Contato</InfoLabel>
                                 <InfoValue>{contato || '-'}</InfoValue>
                               </InfoTile>
@@ -1933,6 +1971,15 @@ const AdminPage: React.FC = () => {
                                 <InfoValue>{formatOrderAddress(order)}</InfoValue>
                               </InfoTile>
                             </InfoGrid>
+                            <AcompanhamentoActions>
+                              <DeleteOrderButton
+                                type="button"
+                                data-testid={`acompanhamento-delete-${cacamba._id}`}
+                                onClick={() => handleDeleteAcompanhamentoCacamba(cacamba._id, numero)}
+                              >
+                                Excluir caçamba
+                              </DeleteOrderButton>
+                            </AcompanhamentoActions>
                           </OrderCardBody>
                         </OrderCard>
                       );
