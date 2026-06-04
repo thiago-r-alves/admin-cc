@@ -449,7 +449,6 @@ export const setupMockApi = async (page: Page) => {
       const startDate = searchParams.get('startDate');
       const endDate = searchParams.get('endDate');
       const granularity = searchParams.get('granularity') || 'monthly';
-      const paymentStatus = searchParams.get('paymentStatus') || 'all';
       const city = searchParams.get('city') || '';
       const clientId = searchParams.get('clientId') || '';
       const contentType = searchParams.get('contentType') || '';
@@ -475,20 +474,13 @@ export const setupMockApi = async (page: Page) => {
           .flatMap((order) =>
             order.cacambas
               .filter((cacamba) => cacamba.tipo === 'retirada')
+              .filter((cacamba) => cacamba.paymentStatus === 'paga')
               .filter((cacamba) => typeof cacamba.price === 'number' && cacamba.price > 0)
               .filter((cacamba) => !contentType || cacamba.contentType === contentType)
-              .filter((cacamba) => {
-                const status = cacamba.paymentStatus || 'pendente';
-                if (paymentStatus === 'pending') return status === 'pendente';
-                if (paymentStatus === 'invoice_pending') return status === 'nota_fiscal_pendente';
-                if (paymentStatus === 'paid') return status === 'paga';
-                return true;
-              })
               .map((cacamba) => ({
                 clientId: order.clientId,
                 clientName: order.clientName,
                 city: order.city || 'Sem cidade',
-                paymentStatus: cacamba.paymentStatus || 'pendente',
                 contentType: cacamba.contentType || 'Sem tipo',
                 price: Number(cacamba.price || 0),
                 updatedAt: new Date(order.updatedAt),
@@ -550,19 +542,6 @@ export const setupMockApi = async (page: Page) => {
         revenue: item.revenue,
         cacambaCount: item.cacambaCount,
       }));
-      const paymentBreakdown = [
-        { status: 'pendente', label: 'Pendente' },
-        { status: 'nota_fiscal_pendente', label: 'NF pendente' },
-        { status: 'paga', label: 'Pago' },
-      ].map((item) => {
-        const rows = currentRows.filter((row) => row.paymentStatus === item.status);
-        return {
-          ...item,
-          revenue: roundCurrency(rows.reduce((sum, row) => sum + row.price, 0)),
-          count: rows.length,
-        };
-      });
-
       const bestBucket = buckets.reduce((best, bucket) => (bucket.revenue > best.revenue ? bucket : best), {
         label: '',
         start: '',
@@ -581,14 +560,10 @@ export const setupMockApi = async (page: Page) => {
           totalCacambas: currentRows.length,
           averageTicket: currentRows.length ? roundCurrency(totalRevenue / currentRows.length) : 0,
           activeClients: new Set(currentRows.map((row) => row.clientId)).size,
-          paidRevenue: roundCurrency(paymentBreakdown.find((item) => item.status === 'paga')?.revenue || 0),
-          pendingRevenue: roundCurrency(paymentBreakdown.find((item) => item.status === 'pendente')?.revenue || 0),
-          invoicePendingRevenue: roundCurrency(paymentBreakdown.find((item) => item.status === 'nota_fiscal_pendente')?.revenue || 0),
           previousPeriodRevenue: roundCurrency(previousRevenue),
           revenueDeltaPercent: roundCurrency(delta),
         },
         timeseries: buckets,
-        paymentBreakdown,
         topClients,
         topCities,
         topContentTypes,

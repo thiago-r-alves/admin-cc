@@ -39,18 +39,3 @@ export const getTopAverageTicketClients = (summary: IBillingSummaryResponse | nu
         a.clientName.localeCompare(b.clientName, 'pt-BR'),
     )
     .slice(0, limit);
-
-export const getPaidVsPendingPercentage = (summary: IBillingSummaryResponse | null) => {
-  const total = summary?.summary.totalRevenue || 0;
-  if (!total) {
-    return {
-      paid: 0,
-      pending: 0,
-    };
-  }
-
-  return {
-    paid: Number((((summary?.summary.paidRevenue || 0) / total) * 100).toFixed(1)),
-    pending: Number(((((summary?.summary.pendingRevenue || 0) + (summary?.summary.invoicePendingRevenue || 0)) / total) * 100).toFixed(1)),
-  };
-};

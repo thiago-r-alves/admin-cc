@@ -1,6 +1,5 @@
 import type { ICacamba } from '../models/Cacamba';
 
-export type BillingPaymentFilter = 'all' | 'pending' | 'invoice_pending' | 'paid';
 export type BillingGranularity = 'monthly' | 'semiannual' | 'annual';
 
 export type BillingRow = {
@@ -8,7 +7,6 @@ export type BillingRow = {
   clientName: string;
   city: string;
   updatedAt: Date;
-  paymentStatus: ICacamba['paymentStatus'];
   contentType: string;
   price: number;
 };
@@ -19,9 +17,6 @@ export type BillingSummaryResponse = {
     totalCacambas: number;
     averageTicket: number;
     activeClients: number;
-    paidRevenue: number;
-    pendingRevenue: number;
-    invoicePendingRevenue: number;
     previousPeriodRevenue: number;
     revenueDeltaPercent: number;
   };
@@ -29,12 +24,6 @@ export type BillingSummaryResponse = {
     label: string;
     start: string;
     end: string;
-    revenue: number;
-    count: number;
-  }>;
-  paymentBreakdown: Array<{
-    status: 'pendente' | 'nota_fiscal_pendente' | 'paga';
-    label: string;
     revenue: number;
     count: number;
   }>;
@@ -68,12 +57,6 @@ export const parseBillingGranularity = (value: unknown): BillingGranularity => {
   if (value === 'annual') return 'annual';
   return 'monthly';
 };
-
-const currencyStatuses: Array<{ status: 'pendente' | 'nota_fiscal_pendente' | 'paga'; label: string }> = [
-  { status: 'pendente', label: 'Pendente' },
-  { status: 'nota_fiscal_pendente', label: 'NF pendente' },
-  { status: 'paga', label: 'Pago' },
-];
 
 const monthFormatter = new Intl.DateTimeFormat('pt-BR', { month: 'short', year: 'numeric' });
 
@@ -155,13 +138,6 @@ export const buildBuckets = (start: Date, end: Date, granularity: BillingGranula
 
 const roundCurrency = (value: number) => Number(value.toFixed(2));
 
-const matchesPaymentFilter = (status: ICacamba['paymentStatus'], filter: BillingPaymentFilter) => {
-  if (filter === 'pending') return status === 'pendente';
-  if (filter === 'invoice_pending') return status === 'nota_fiscal_pendente';
-  if (filter === 'paid') return status === 'paga';
-  return true;
-};
-
 const sumRevenue = (rows: BillingRow[]) => rows.reduce((sum, row) => sum + row.price, 0);
 
 export const extractBillingRows = (
@@ -173,7 +149,6 @@ export const extractBillingRows = (
     cacambas?: Array<Partial<ICacamba> & { _id?: unknown }>;
   }>,
   filters: {
-    paymentStatus: BillingPaymentFilter;
     contentType?: string;
   },
 ) => {
@@ -186,16 +161,15 @@ export const extractBillingRows = (
     return (order.cacambas || [])
       .filter((cacamba) => cacamba.tipo === 'retirada')
       .filter((cacamba) => typeof cacamba.price === 'number' && Number.isFinite(cacamba.price) && cacamba.price > 0)
+      .filter((cacamba) => cacamba.paymentStatus === 'paga')
       .map((cacamba) => ({
         clientId: String(order.clientId || ''),
         clientName: String(order.clientName || 'Cliente sem nome'),
         city: String(order.city || 'Sem cidade'),
         updatedAt,
-        paymentStatus: (cacamba.paymentStatus || 'pendente') as ICacamba['paymentStatus'],
         contentType: String(cacamba.contentType || 'Sem tipo'),
         price: Number(cacamba.price || 0),
       }))
-      .filter((row) => matchesPaymentFilter(row.paymentStatus, filters.paymentStatus))
       .filter((row) => !normalizedContentType || row.contentType === normalizedContentType);
   });
 };
@@ -237,9 +211,6 @@ export const buildBillingSummary = (
   const previousPeriodRevenueRaw = sumRevenue(previousRows);
   const totalCacambas = currentRows.length;
   const activeClients = new Set(currentRows.map((row) => row.clientId)).size;
-  const paidRevenue = sumRevenue(currentRows.filter((row) => row.paymentStatus === 'paga'));
-  const pendingRevenue = sumRevenue(currentRows.filter((row) => row.paymentStatus === 'pendente'));
-  const invoicePendingRevenue = sumRevenue(currentRows.filter((row) => row.paymentStatus === 'nota_fiscal_pendente'));
   const averageTicket = totalCacambas ? totalRevenueRaw / totalCacambas : 0;
   const revenueDeltaPercent =
     previousPeriodRevenueRaw === 0
@@ -257,16 +228,6 @@ export const buildBillingSummary = (
       end: endOfDay(bucket.end).toISOString(),
       revenue: roundCurrency(sumRevenue(bucketRows)),
       count: bucketRows.length,
-    };
-  });
-
-  const paymentBreakdown = currencyStatuses.map(({ status, label }) => {
-    const statusRows = currentRows.filter((row) => row.paymentStatus === status);
-    return {
-      status,
-      label,
-      revenue: roundCurrency(sumRevenue(statusRows)),
-      count: statusRows.length,
     };
   });
 
@@ -315,14 +276,10 @@ export const buildBillingSummary = (
       totalCacambas,
       averageTicket: roundCurrency(averageTicket),
       activeClients,
-      paidRevenue: roundCurrency(paidRevenue),
-      pendingRevenue: roundCurrency(pendingRevenue),
-      invoicePendingRevenue: roundCurrency(invoicePendingRevenue),
       previousPeriodRevenue: roundCurrency(previousPeriodRevenueRaw),
       revenueDeltaPercent: roundCurrency(revenueDeltaPercent),
     },
     timeseries,
-    paymentBreakdown,
     topClients: clientRanking,
     topCities,
     topContentTypes,

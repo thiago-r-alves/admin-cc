@@ -826,15 +826,12 @@ describe('Admin APIs', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(summary.status).toBe(200);
-    expect(summary.body.summary.totalRevenue).toBe(680);
-    expect(summary.body.summary.totalCacambas).toBe(3);
-    expect(summary.body.summary.averageTicket).toBeCloseTo(226.67, 2);
-    expect(summary.body.summary.activeClients).toBe(2);
-    expect(summary.body.summary.paidRevenue).toBe(200);
-    expect(summary.body.summary.pendingRevenue).toBe(300);
-    expect(summary.body.summary.invoicePendingRevenue).toBe(180);
+    expect(summary.body.summary.totalRevenue).toBe(200);
+    expect(summary.body.summary.totalCacambas).toBe(1);
+    expect(summary.body.summary.averageTicket).toBe(200);
+    expect(summary.body.summary.activeClients).toBe(1);
     expect(summary.body.summary.previousPeriodRevenue).toBe(100);
-    expect(summary.body.summary.revenueDeltaPercent).toBe(580);
+    expect(summary.body.summary.revenueDeltaPercent).toBe(100);
     expect(summary.body.topClients[0].clientName).toBe('Cliente Faturamento A');
     expect(summary.body.topCities[0].city).toBe('Jacarei');
     expect(summary.body.topContentTypes[0].contentType).toBe('Terra');
@@ -842,7 +839,7 @@ describe('Admin APIs', () => {
     expect(summary.body.highlights.bestBucketLabel).toContain('2026');
 
     const paidOnly = await request(app)
-      .get('/billing/summary?startDate=2026-05-01&endDate=2026-05-31&granularity=monthly&paymentStatus=paid')
+      .get('/billing/summary?startDate=2026-05-01&endDate=2026-05-31&granularity=monthly')
       .set('Authorization', `Bearer ${token}`);
     expect(paidOnly.status).toBe(200);
     expect(paidOnly.body.summary.totalRevenue).toBe(200);
@@ -852,8 +849,8 @@ describe('Admin APIs', () => {
       .get(`/billing/summary?startDate=2026-05-01&endDate=2026-05-31&granularity=monthly&city=Jacarei&clientId=${clientA._id}&contentType=Terra`)
       .set('Authorization', `Bearer ${token}`);
     expect(filtered.status).toBe(200);
-    expect(filtered.body.summary.totalRevenue).toBe(380);
-    expect(filtered.body.summary.totalCacambas).toBe(2);
+    expect(filtered.body.summary.totalRevenue).toBe(200);
+    expect(filtered.body.summary.totalCacambas).toBe(1);
     expect(filtered.body.topClients).toHaveLength(1);
 
     const semiannual = await request(app)

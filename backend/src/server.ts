@@ -396,7 +396,6 @@ app.get('/billing/summary', authenticateToken, isAdmin, async (req, res) => {
       startDate,
       endDate,
       granularity,
-      paymentStatus,
       city,
       clientId,
       contentType,
@@ -404,7 +403,6 @@ app.get('/billing/summary', authenticateToken, isAdmin, async (req, res) => {
       startDate?: string;
       endDate?: string;
       granularity?: string;
-      paymentStatus?: string;
       city?: string;
       clientId?: string;
       contentType?: string;
@@ -421,7 +419,6 @@ app.get('/billing/summary', authenticateToken, isAdmin, async (req, res) => {
 
     const previousRange = buildPreviousPeriodRange(currentRange.start, currentRange.end);
     const resolvedGranularity = parseBillingGranularity(granularity);
-    const resolvedPaymentStatus = parseClosurePaymentFilter(paymentStatus);
     const normalizedCity = String(city || '').trim();
     const normalizedContentType = String(contentType || '').trim();
     const normalizedClientId = String(clientId || '').trim();
@@ -460,11 +457,9 @@ app.get('/billing/summary', authenticateToken, isAdmin, async (req, res) => {
     ]);
 
     const currentRows = extractBillingRows(currentOrders as any[], {
-      paymentStatus: resolvedPaymentStatus,
       contentType: normalizedContentType,
     });
     const previousRows = extractBillingRows(previousOrders as any[], {
-      paymentStatus: resolvedPaymentStatus,
       contentType: normalizedContentType,
     });
 

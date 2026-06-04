@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import type {
-  BillingFilterStatus,
   BillingGranularity,
   IBillingSummaryResponse,
   ICity,
@@ -34,19 +33,15 @@ const SectionCard = styled.section`
 
 const FiltersGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.85rem;
   align-items: end;
 
   @media (max-width: 1200px) {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  @media (max-width: 720px) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  @media (max-width: 560px) {
+  @media (max-width: 720px) {
     grid-template-columns: 1fr;
   }
 `;
@@ -175,20 +170,6 @@ const KpiFootnote = styled.span`
   font-weight: 700;
 `;
 
-const ChartsGrid = styled.div`
-  display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.95fr);
-  gap: 1rem;
-
-  @media (max-width: 980px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const ChartCard = styled(SectionCard)`
-  padding: 1rem;
-`;
-
 const CardHeader = styled.div`
   display: flex;
   align-items: flex-start;
@@ -255,49 +236,9 @@ const LegendPill = styled.span`
   }
 `;
 
-const BreakdownList = styled.div`
-  display: grid;
-  gap: 0.75rem;
-`;
-
-const BreakdownItem = styled.div`
-  display: grid;
-  gap: 0.45rem;
-`;
-
-const BreakdownMeta = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-  color: #374151;
-  font-size: 0.86rem;
-  font-weight: 700;
-`;
-
-const BreakdownTrack = styled.div`
-  width: 100%;
-  height: 12px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #f3f4f6;
-`;
-
-const BreakdownBar = styled.div<{ $width: number; $tone: 'paid' | 'pending' | 'invoice' }>`
-  width: ${({ $width }) => `${Math.max($width, 4)}%`};
-  height: 100%;
-  border-radius: 999px;
-  background: ${({ $tone }) =>
-    $tone === 'paid'
-      ? 'linear-gradient(90deg, #22c55e 0%, #15803d 100%)'
-      : $tone === 'invoice'
-        ? 'linear-gradient(90deg, #f59e0b 0%, #b45309 100%)'
-        : 'linear-gradient(90deg, #ef4444 0%, #b91c1c 100%)'};
-`;
-
 const InsightsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.9rem;
 
   @media (max-width: 1100px) {
@@ -407,12 +348,6 @@ const FilterTitle = styled.h3`
   color: #111827;
   font-size: 1rem;
 `;
-
-const toneByStatus = {
-  paga: 'paid',
-  pendente: 'pending',
-  nota_fiscal_pendente: 'invoice',
-} as const;
 
 const TrendChart = ({ items }: { items: IBillingSummaryResponse['timeseries'] }) => {
   const maxRevenue = Math.max(...items.map((item) => item.revenue), 0);
@@ -529,7 +464,6 @@ const FaturamentoPage: React.FC = () => {
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [granularity, setGranularity] = useState<BillingGranularity>('monthly');
-  const [paymentStatus, setPaymentStatus] = useState<BillingFilterStatus>('all');
   const [startDate, setStartDate] = useState(defaultRange.startDate);
   const [endDate, setEndDate] = useState(defaultRange.endDate);
   const [city, setCity] = useState('');
@@ -600,7 +534,6 @@ const FaturamentoPage: React.FC = () => {
           startDate,
           endDate,
           granularity,
-          paymentStatus,
         });
         if (city) query.append('city', city);
         if (clientId) query.append('clientId', clientId);
@@ -632,7 +565,7 @@ const FaturamentoPage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [city, clientId, contentType, endDate, granularity, paymentStatus, startDate]);
+  }, [city, clientId, contentType, endDate, granularity, startDate]);
 
   const hasResults = Boolean(summary && summary.summary.totalCacambas > 0);
   const topAverageClients = useMemo(() => getTopAverageTicketClients(summary), [summary]);
@@ -689,19 +622,6 @@ const FaturamentoPage: React.FC = () => {
               value={endDate}
               onChange={(event) => setEndDate(event.target.value)}
             />
-          </Field>
-          <Field>
-            <Label htmlFor="billing-payment-status">Pagamento</Label>
-            <Select
-              id="billing-payment-status"
-              value={paymentStatus}
-              onChange={(event) => setPaymentStatus(event.target.value as BillingFilterStatus)}
-            >
-              <option value="all">Todas</option>
-              <option value="pending">Pendentes</option>
-              <option value="invoice_pending">NF pendente</option>
-              <option value="paid">Pagas</option>
-            </Select>
           </Field>
           <Field>
             <Label htmlFor="billing-city">Cidade</Label>
@@ -776,42 +696,15 @@ const FaturamentoPage: React.FC = () => {
             </KpiCard>
           </KpiGrid>
 
-          <ChartsGrid>
-            <ChartCard>
-              <CardHeader>
-                <div>
-                  <CardTitle>Evolução do faturamento</CardTitle>
-                  <CardSubtitle>Leitura por bucket temporal para validar sazonalidade e ritmo de fechamento.</CardSubtitle>
-                </div>
-              </CardHeader>
-              <TrendChart items={summary.timeseries} />
-            </ChartCard>
-
-            <ChartCard>
-              <CardHeader>
-                <div>
-                  <CardTitle>Composição por status</CardTitle>
-                  <CardSubtitle>Mostra o quanto da receita já virou pago e o que ainda está represado.</CardSubtitle>
-                </div>
-              </CardHeader>
-              <BreakdownList data-testid="billing-breakdown-chart">
-                {summary.paymentBreakdown.map((item) => {
-                  const width = summary.summary.totalRevenue > 0 ? (item.revenue / summary.summary.totalRevenue) * 100 : 0;
-                  return (
-                    <BreakdownItem key={item.status}>
-                      <BreakdownMeta>
-                        <span>{item.label}</span>
-                        <span>{`${formatCurrency(item.revenue)} • ${item.count} caçambas`}</span>
-                      </BreakdownMeta>
-                      <BreakdownTrack>
-                        <BreakdownBar $width={width} $tone={toneByStatus[item.status]} />
-                      </BreakdownTrack>
-                    </BreakdownItem>
-                  );
-                })}
-              </BreakdownList>
-            </ChartCard>
-          </ChartsGrid>
+          <SectionCard>
+            <CardHeader>
+              <div>
+                <CardTitle>Evolução do faturamento</CardTitle>
+                <CardSubtitle>Leitura por bucket temporal para validar sazonalidade e ritmo de fechamento.</CardSubtitle>
+              </div>
+            </CardHeader>
+            <TrendChart items={summary.timeseries} />
+          </SectionCard>
 
           <InsightsGrid>
             <InsightCard>
@@ -825,12 +718,8 @@ const FaturamentoPage: React.FC = () => {
               </InsightValue>
             </InsightCard>
             <InsightCard>
-              <InsightLabel>Receita paga</InsightLabel>
-              <InsightValue>{formatCurrency(summary.summary.paidRevenue)}</InsightValue>
-            </InsightCard>
-            <InsightCard>
-              <InsightLabel>Receita pendente</InsightLabel>
-              <InsightValue>{formatCurrency(summary.summary.pendingRevenue + summary.summary.invoicePendingRevenue)}</InsightValue>
+              <InsightLabel>Caçambas pagas</InsightLabel>
+              <InsightValue>{summary.summary.totalCacambas}</InsightValue>
             </InsightCard>
           </InsightsGrid>
 
