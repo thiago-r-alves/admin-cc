@@ -46,6 +46,14 @@ type Order = {
   price?: number;
 };
 
+type BillingBucket = {
+  label: string;
+  start: string;
+  end: string;
+  revenue: number;
+  count: number;
+};
+
 const initialDrivers: Driver[] = [
   { _id: 'drv-1', username: 'adalberto' },
   { _id: 'drv-2', username: 'jhonatan' },
@@ -236,6 +244,71 @@ const json = (route: Route, data: unknown, status = 200) =>
 const getOrderMotoristaId = (order: Order) =>
   typeof order.motorista === 'string' ? order.motorista : order.motorista._id;
 
+const parseInputDate = (value: string) => {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day, 0, 0, 0, 0);
+};
+
+const buildPreviousRange = (start: Date, end: Date) => {
+  const duration = end.getTime() - start.getTime() + 1;
+  const previousEnd = new Date(start.getTime() - 1);
+  const previousStart = new Date(previousEnd.getTime() - duration + 1);
+  return { previousStart, previousEnd };
+};
+
+const buildBuckets = (start: Date, end: Date, granularity: string): BillingBucket[] => {
+  const buckets: BillingBucket[] = [];
+  const buildBucket = (label: string, bucketStart: Date, bucketEnd: Date) => ({
+    label,
+    start: bucketStart.toISOString(),
+    end: bucketEnd.toISOString(),
+    revenue: 0,
+    count: 0,
+  });
+
+  if (granularity === 'annual') {
+    let cursor = new Date(start.getFullYear(), 0, 1, 0, 0, 0, 0);
+    while (cursor <= end) {
+      const year = cursor.getFullYear();
+      buckets.push(buildBucket(String(year), new Date(year, 0, 1, 0, 0, 0, 0), new Date(year, 11, 31, 23, 59, 59, 999)));
+      cursor = new Date(year + 1, 0, 1, 0, 0, 0, 0);
+    }
+    return buckets;
+  }
+
+  if (granularity === 'semiannual') {
+    let cursor = new Date(start.getFullYear(), start.getMonth() < 6 ? 0 : 6, 1, 0, 0, 0, 0);
+    while (cursor <= end) {
+      const firstHalf = cursor.getMonth() < 6;
+      buckets.push(
+        buildBucket(
+          `${firstHalf ? '1o' : '2o'} sem/${cursor.getFullYear()}`,
+          new Date(cursor),
+          new Date(cursor.getFullYear(), firstHalf ? 5 : 11, firstHalf ? 30 : 31, 23, 59, 59, 999),
+        ),
+      );
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 6, 1, 0, 0, 0, 0);
+    }
+    return buckets;
+  }
+
+  let cursor = new Date(start.getFullYear(), start.getMonth(), 1, 0, 0, 0, 0);
+  while (cursor <= end) {
+    const label = `${String(cursor.getMonth() + 1).padStart(2, '0')}/${cursor.getFullYear()}`;
+    buckets.push(
+      buildBucket(
+        label,
+        new Date(cursor),
+        new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0, 23, 59, 59, 999),
+      ),
+    );
+    cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1, 0, 0, 0, 0);
+  }
+  return buckets;
+};
+
+const roundCurrency = (value: number) => Number(value.toFixed(2));
+
 export const seedSession = async (page: Page, role: Role) => {
   const token = createJwt(role);
   await page.addInitScript(([tk, rl]) => {
@@ -359,6 +432,173 @@ export const setupMockApi = async (page: Page) => {
       if (idx === -1) return json(route, { message: 'Motorista não encontrado' }, 404);
       drivers[idx] = { ...drivers[idx], ...body };
       return json(route, drivers[idx]);
+    }
+
+    if (pathname === '/cities' && method === 'GET') {
+      const uniqueCities = Array.from(new Set(clients.map((client) => client.city).filter(Boolean)));
+      return json(
+        route,
+        uniqueCities.map((name, index) => ({
+          _id: `city-${index + 1}`,
+          name,
+        })),
+      );
+    }
+
+    if (pathname === '/billing/summary' && method === 'GET') {
+      const startDate = searchParams.get('startDate');
+      const endDate = searchParams.get('endDate');
+      const granularity = searchParams.get('granularity') || 'monthly';
+      const paymentStatus = searchParams.get('paymentStatus') || 'all';
+      const city = searchParams.get('city') || '';
+      const clientId = searchParams.get('clientId') || '';
+      const contentType = searchParams.get('contentType') || '';
+
+      if (!startDate || !endDate) {
+        return json(route, { message: 'startDate e endDate são obrigatórios.' }, 400);
+      }
+
+      const start = parseInputDate(startDate);
+      const end = parseInputDate(endDate);
+      end.setHours(23, 59, 59, 999);
+      const { previousStart, previousEnd } = buildPreviousRange(start, end);
+
+      const buildRows = (rangeStart: Date, rangeEnd: Date) =>
+        orders
+          .filter((order) => order.type === 'retirada' && order.status === 'concluido')
+          .filter((order) => !city || order.city === city)
+          .filter((order) => !clientId || order.clientId === clientId)
+          .filter((order) => {
+            const updatedAt = new Date(order.updatedAt).getTime();
+            return updatedAt >= rangeStart.getTime() && updatedAt <= rangeEnd.getTime();
+          })
+          .flatMap((order) =>
+            order.cacambas
+              .filter((cacamba) => cacamba.tipo === 'retirada')
+              .filter((cacamba) => typeof cacamba.price === 'number' && cacamba.price > 0)
+              .filter((cacamba) => !contentType || cacamba.contentType === contentType)
+              .filter((cacamba) => {
+                const status = cacamba.paymentStatus || 'pendente';
+                if (paymentStatus === 'pending') return status === 'pendente';
+                if (paymentStatus === 'invoice_pending') return status === 'nota_fiscal_pendente';
+                if (paymentStatus === 'paid') return status === 'paga';
+                return true;
+              })
+              .map((cacamba) => ({
+                clientId: order.clientId,
+                clientName: order.clientName,
+                city: order.city || 'Sem cidade',
+                paymentStatus: cacamba.paymentStatus || 'pendente',
+                contentType: cacamba.contentType || 'Sem tipo',
+                price: Number(cacamba.price || 0),
+                updatedAt: new Date(order.updatedAt),
+              })),
+          );
+
+      const currentRows = buildRows(start, end);
+      const previousRows = buildRows(previousStart, previousEnd);
+      const buckets = buildBuckets(start, end, granularity);
+      const totalRevenue = currentRows.reduce((sum, row) => sum + row.price, 0);
+      const previousRevenue = previousRows.reduce((sum, row) => sum + row.price, 0);
+
+      currentRows.forEach((row) => {
+        const bucket = buckets.find((item) => {
+          const bucketStart = new Date(item.start).getTime();
+          const bucketEnd = new Date(item.end).getTime();
+          const value = row.updatedAt.getTime();
+          return value >= bucketStart && value <= bucketEnd;
+        });
+        if (bucket) {
+          bucket.revenue = roundCurrency(bucket.revenue + row.price);
+          bucket.count += 1;
+        }
+      });
+
+      const groupRows = (keySelector: (row: (typeof currentRows)[number]) => string) => {
+        const grouped = new Map<string, { revenue: number; cacambaCount: number }>();
+        currentRows.forEach((row) => {
+          const key = keySelector(row);
+          const current = grouped.get(key) || { revenue: 0, cacambaCount: 0 };
+          current.revenue += row.price;
+          current.cacambaCount += 1;
+          grouped.set(key, current);
+        });
+        return Array.from(grouped.entries())
+          .map(([key, value]) => ({
+            key,
+            revenue: roundCurrency(value.revenue),
+            cacambaCount: value.cacambaCount,
+            averageTicket: value.cacambaCount ? roundCurrency(value.revenue / value.cacambaCount) : 0,
+          }))
+          .sort((a, b) => b.revenue - a.revenue || b.cacambaCount - a.cacambaCount || a.key.localeCompare(b.key));
+      };
+
+      const topClients = groupRows((row) => row.clientId).map((item) => ({
+        clientId: item.key,
+        clientName: currentRows.find((row) => row.clientId === item.key)?.clientName || item.key,
+        revenue: item.revenue,
+        cacambaCount: item.cacambaCount,
+        averageTicket: item.averageTicket,
+      }));
+      const topCities = groupRows((row) => row.city).map((item) => ({
+        city: item.key,
+        revenue: item.revenue,
+        cacambaCount: item.cacambaCount,
+      }));
+      const topContentTypes = groupRows((row) => row.contentType).map((item) => ({
+        contentType: item.key,
+        revenue: item.revenue,
+        cacambaCount: item.cacambaCount,
+      }));
+      const paymentBreakdown = [
+        { status: 'pendente', label: 'Pendente' },
+        { status: 'nota_fiscal_pendente', label: 'NF pendente' },
+        { status: 'paga', label: 'Pago' },
+      ].map((item) => {
+        const rows = currentRows.filter((row) => row.paymentStatus === item.status);
+        return {
+          ...item,
+          revenue: roundCurrency(rows.reduce((sum, row) => sum + row.price, 0)),
+          count: rows.length,
+        };
+      });
+
+      const bestBucket = buckets.reduce((best, bucket) => (bucket.revenue > best.revenue ? bucket : best), {
+        label: '',
+        start: '',
+        end: '',
+        revenue: 0,
+        count: 0,
+      });
+      const delta =
+        previousRevenue === 0
+          ? (totalRevenue > 0 ? 100 : 0)
+          : ((totalRevenue - previousRevenue) / previousRevenue) * 100;
+
+      return json(route, {
+        summary: {
+          totalRevenue: roundCurrency(totalRevenue),
+          totalCacambas: currentRows.length,
+          averageTicket: currentRows.length ? roundCurrency(totalRevenue / currentRows.length) : 0,
+          activeClients: new Set(currentRows.map((row) => row.clientId)).size,
+          paidRevenue: roundCurrency(paymentBreakdown.find((item) => item.status === 'paga')?.revenue || 0),
+          pendingRevenue: roundCurrency(paymentBreakdown.find((item) => item.status === 'pendente')?.revenue || 0),
+          invoicePendingRevenue: roundCurrency(paymentBreakdown.find((item) => item.status === 'nota_fiscal_pendente')?.revenue || 0),
+          previousPeriodRevenue: roundCurrency(previousRevenue),
+          revenueDeltaPercent: roundCurrency(delta),
+        },
+        timeseries: buckets,
+        paymentBreakdown,
+        topClients,
+        topCities,
+        topContentTypes,
+        highlights: {
+          topClientName: topClients[0]?.clientName || '',
+          topClientRevenue: topClients[0]?.revenue || 0,
+          bestBucketLabel: bestBucket.label,
+          bestBucketRevenue: bestBucket.revenue,
+        },
+      });
     }
 
     if (pathname === '/clients' && method === 'GET') {

@@ -670,6 +670,204 @@ describe('Admin APIs', () => {
     expect(listedAfterDelete.status).toBe(200);
     expect(listedAfterDelete.body.some((city: any) => city.name === 'Cidade de Teste')).toBe(false);
   });
+
+  it('GET /billing/summary agrega faturamento, respeita filtros e compara com período anterior', async () => {
+    const app = await loadApp();
+    const { admin } = await ensureUsers();
+    const token = signToken(String(admin._id), 'admin');
+
+    const clientA = await ClientModel.create({
+      clientName: 'Cliente Faturamento A',
+      contactName: 'Contato A',
+      contactNumber: '111',
+      neighborhood: 'Centro',
+      address: 'Rua A',
+      addressNumber: '10',
+      city: 'Jacarei',
+    });
+    const clientB = await ClientModel.create({
+      clientName: 'Cliente Faturamento B',
+      contactName: 'Contato B',
+      contactNumber: '222',
+      neighborhood: 'Centro',
+      address: 'Rua B',
+      addressNumber: '20',
+      city: 'Sao Jose dos Campos',
+    });
+
+    const currentOrderA = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: clientA._id,
+      clientName: clientA.clientName,
+      city: 'Jacarei',
+      contactName: clientA.contactName,
+      contactNumber: clientA.contactNumber,
+      neighborhood: clientA.neighborhood,
+      address: clientA.address,
+      addressNumber: clientA.addressNumber,
+      type: 'retirada',
+      status: 'concluido',
+      updatedAt: new Date('2026-05-10T12:00:00.000Z'),
+      createdAt: new Date('2026-05-10T08:00:00.000Z'),
+    });
+    const currentOrderB = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: clientB._id,
+      clientName: clientB.clientName,
+      city: 'Sao Jose dos Campos',
+      contactName: clientB.contactName,
+      contactNumber: clientB.contactNumber,
+      neighborhood: clientB.neighborhood,
+      address: clientB.address,
+      addressNumber: clientB.addressNumber,
+      type: 'retirada',
+      status: 'concluido',
+      updatedAt: new Date('2026-05-20T12:00:00.000Z'),
+      createdAt: new Date('2026-05-20T08:00:00.000Z'),
+    });
+    const previousOrder = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: clientA._id,
+      clientName: clientA.clientName,
+      city: 'Jacarei',
+      contactName: clientA.contactName,
+      contactNumber: clientA.contactNumber,
+      neighborhood: clientA.neighborhood,
+      address: clientA.address,
+      addressNumber: clientA.addressNumber,
+      type: 'retirada',
+      status: 'concluido',
+      updatedAt: new Date('2026-04-10T12:00:00.000Z'),
+      createdAt: new Date('2026-04-10T08:00:00.000Z'),
+    });
+    await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: clientA._id,
+      clientName: clientA.clientName,
+      city: 'Jacarei',
+      contactName: clientA.contactName,
+      contactNumber: clientA.contactNumber,
+      neighborhood: clientA.neighborhood,
+      address: clientA.address,
+      addressNumber: clientA.addressNumber,
+      type: 'entrega',
+      status: 'concluido',
+      updatedAt: new Date('2026-05-22T12:00:00.000Z'),
+      createdAt: new Date('2026-05-22T08:00:00.000Z'),
+    });
+
+    const currentPaid = await CacambaModel.create({
+      numero: '801',
+      tipo: 'retirada',
+      paymentStatus: 'paga',
+      contentType: 'Terra',
+      price: 200,
+      imageUrl: '/files/507f1f77bcf86cd799439081',
+      orderId: currentOrderA._id,
+      local: 'via_publica',
+      horaServicoDigitos: '801',
+    });
+    const currentInvoicePending = await CacambaModel.create({
+      numero: '802',
+      tipo: 'retirada',
+      paymentStatus: 'nota_fiscal_pendente',
+      contentType: 'Terra',
+      price: 180,
+      imageUrl: '/files/507f1f77bcf86cd799439082',
+      orderId: currentOrderA._id,
+      local: 'via_publica',
+      horaServicoDigitos: '802',
+    });
+    const currentPending = await CacambaModel.create({
+      numero: '803',
+      tipo: 'retirada',
+      paymentStatus: 'pendente',
+      contentType: 'Entulho limpo',
+      price: 300,
+      imageUrl: '/files/507f1f77bcf86cd799439083',
+      orderId: currentOrderB._id,
+      local: 'via_publica',
+      horaServicoDigitos: '803',
+    });
+    const ignoredWithoutPrice = await CacambaModel.create({
+      numero: '804',
+      tipo: 'retirada',
+      paymentStatus: 'pendente',
+      contentType: 'Entulho limpo',
+      imageUrl: '/files/507f1f77bcf86cd799439084',
+      orderId: currentOrderB._id,
+      local: 'via_publica',
+      horaServicoDigitos: '804',
+    });
+    const previousPaid = await CacambaModel.create({
+      numero: '805',
+      tipo: 'retirada',
+      paymentStatus: 'paga',
+      contentType: 'Terra',
+      price: 100,
+      imageUrl: '/files/507f1f77bcf86cd799439085',
+      orderId: previousOrder._id,
+      local: 'via_publica',
+      horaServicoDigitos: '805',
+    });
+
+    await OrderModel.findByIdAndUpdate(currentOrderA._id, {
+      $push: { cacambas: { $each: [currentPaid._id, currentInvoicePending._id] } },
+    });
+    await OrderModel.findByIdAndUpdate(currentOrderB._id, {
+      $push: { cacambas: { $each: [currentPending._id, ignoredWithoutPrice._id] } },
+    });
+    await OrderModel.findByIdAndUpdate(previousOrder._id, {
+      $push: { cacambas: previousPaid._id },
+    });
+
+    const summary = await request(app)
+      .get('/billing/summary?startDate=2026-05-01&endDate=2026-05-31&granularity=monthly')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(summary.status).toBe(200);
+    expect(summary.body.summary.totalRevenue).toBe(680);
+    expect(summary.body.summary.totalCacambas).toBe(3);
+    expect(summary.body.summary.averageTicket).toBeCloseTo(226.67, 2);
+    expect(summary.body.summary.activeClients).toBe(2);
+    expect(summary.body.summary.paidRevenue).toBe(200);
+    expect(summary.body.summary.pendingRevenue).toBe(300);
+    expect(summary.body.summary.invoicePendingRevenue).toBe(180);
+    expect(summary.body.summary.previousPeriodRevenue).toBe(100);
+    expect(summary.body.summary.revenueDeltaPercent).toBe(580);
+    expect(summary.body.topClients[0].clientName).toBe('Cliente Faturamento A');
+    expect(summary.body.topCities[0].city).toBe('Jacarei');
+    expect(summary.body.topContentTypes[0].contentType).toBe('Terra');
+    expect(summary.body.highlights.topClientName).toBe('Cliente Faturamento A');
+    expect(summary.body.highlights.bestBucketLabel).toContain('2026');
+
+    const paidOnly = await request(app)
+      .get('/billing/summary?startDate=2026-05-01&endDate=2026-05-31&granularity=monthly&paymentStatus=paid')
+      .set('Authorization', `Bearer ${token}`);
+    expect(paidOnly.status).toBe(200);
+    expect(paidOnly.body.summary.totalRevenue).toBe(200);
+    expect(paidOnly.body.summary.totalCacambas).toBe(1);
+
+    const filtered = await request(app)
+      .get(`/billing/summary?startDate=2026-05-01&endDate=2026-05-31&granularity=monthly&city=Jacarei&clientId=${clientA._id}&contentType=Terra`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(filtered.status).toBe(200);
+    expect(filtered.body.summary.totalRevenue).toBe(380);
+    expect(filtered.body.summary.totalCacambas).toBe(2);
+    expect(filtered.body.topClients).toHaveLength(1);
+
+    const semiannual = await request(app)
+      .get('/billing/summary?startDate=2026-01-01&endDate=2026-12-31&granularity=semiannual')
+      .set('Authorization', `Bearer ${token}`);
+    expect(semiannual.status).toBe(200);
+    expect(semiannual.body.timeseries.some((bucket: any) => bucket.label === '1o sem/2026')).toBe(true);
+
+    const annual = await request(app)
+      .get('/billing/summary?startDate=2025-01-01&endDate=2026-12-31&granularity=annual')
+      .set('Authorization', `Bearer ${token}`);
+    expect(annual.status).toBe(200);
+    expect(annual.body.timeseries.some((bucket: any) => bucket.label === '2026')).toBe(true);
+  });
 });
 
 

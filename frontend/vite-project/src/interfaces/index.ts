@@ -72,6 +72,8 @@ export interface IClosureGroup {
 }
 
 export type OrderType = 'entrega' | 'retirada';
+export type BillingGranularity = 'monthly' | 'semiannual' | 'annual';
+export type BillingFilterStatus = 'all' | 'pending' | 'invoice_pending' | 'paid';
 
 export interface IOrder {
   _id: string;
@@ -95,4 +97,54 @@ export interface IOrder {
   createdAt?: string;
   updatedAt?: string; // adicionado para evitar erro no orderPdf e modais
   placa?: string; // Adicione este campo
+}
+
+export interface IBillingSummaryResponse {
+  summary: {
+    totalRevenue: number;
+    totalCacambas: number;
+    averageTicket: number;
+    activeClients: number;
+    paidRevenue: number;
+    pendingRevenue: number;
+    invoicePendingRevenue: number;
+    previousPeriodRevenue: number;
+    revenueDeltaPercent: number;
+  };
+  timeseries: Array<{
+    label: string;
+    start: string;
+    end: string;
+    revenue: number;
+    count: number;
+  }>;
+  paymentBreakdown: Array<{
+    status: 'pendente' | 'nota_fiscal_pendente' | 'paga';
+    label: string;
+    revenue: number;
+    count: number;
+  }>;
+  topClients: Array<{
+    clientId: string;
+    clientName: string;
+    revenue: number;
+    cacambaCount: number;
+    averageTicket: number;
+  }>;
+  topCities: Array<{
+    city: string;
+    revenue: number;
+    cacambaCount: number;
+  }>;
+  topContentTypes: Array<{
+    contentType: string;
+    revenue: number;
+    cacambaCount: number;
+  }>;
+  highlights: {
+    topClientName: string;
+    topClientRevenue: number;
+    bestBucketLabel: string;
+    bestBucketRevenue: number;
+  };
 }

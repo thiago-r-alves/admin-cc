@@ -11,6 +11,7 @@ import LoadingScreen from '../components/LoadingScreen';
 import ImageModal from '../components/ImageModal';
 import ClientPage from './ClientPage';
 import FechamentoPage from './FechamentoPage';
+import FaturamentoPage from './FaturamentoPage';
 // socket.io-client and PDF download will be dynamically imported to avoid parsing on initial load
 
 // ==========================================================
@@ -986,7 +987,7 @@ const GlobalStyle = createGlobalStyle`
   body { margin: 0; background: #f6f7fb; }
 `;
 
-type AdminTab = 'pedidos' | 'acompanhamentos' | 'clientes' | 'fechamento' | 'motoristas';
+type AdminTab = 'pedidos' | 'acompanhamentos' | 'clientes' | 'fechamento' | 'faturamento' | 'motoristas';
 type SidebarIconName = AdminTab | 'sair' | 'menu';
 
 const SidebarIcon = ({ name }: { name: SidebarIconName }) => {
@@ -1027,10 +1028,11 @@ const SidebarIcon = ({ name }: { name: SidebarIconName }) => {
   if (name === 'acompanhamentos') {
     return (
       <svg {...common}>
-        <path d="M3 12h3l2-4 4 8 2-4h7" />
-        <circle cx="6" cy="12" r="1" />
-        <circle cx="12" cy="16" r="1" />
-        <circle cx="17" cy="12" r="1" />
+        <path d="M2 12c2.5-4.5 6.5-7 10-7s7.5 2.5 10 7c-2.5 4.5-6.5 7-10 7s-7.5-2.5-10-7z" />
+        <circle cx="12" cy="12" r="3" />
+        <path d="M12 9v-2" />
+        <path d="M9.5 10.5l-1.5-1.5" />
+        <path d="M14.5 10.5l1.5-1.5" />
       </svg>
     );
   }
@@ -1055,6 +1057,17 @@ const SidebarIcon = ({ name }: { name: SidebarIconName }) => {
         <path d="M3 10h18" />
         <path d="M8 14h8" />
         <path d="M8 18h5" />
+      </svg>
+    );
+  }
+
+  if (name === 'faturamento') {
+    return (
+      <svg {...common}>
+        <path d="M4 19h16" />
+        <path d="M7 16V9" />
+        <path d="M12 16V5" />
+        <path d="M17 16v-7" />
       </svg>
     );
   }
@@ -1103,6 +1116,7 @@ const sidebarItems: Array<{ key: AdminTab; label: string }> = [
   { key: 'pedidos', label: 'Pedidos' },
   { key: 'clientes', label: 'Clientes' },
   { key: 'fechamento', label: 'Fechamento' },
+  { key: 'faturamento', label: 'Faturamento' },
   { key: 'acompanhamentos', label: 'Acompanhamentos' },
   { key: 'motoristas', label: 'Motoristas' },
 ];
@@ -1836,6 +1850,10 @@ const AdminPage: React.FC = () => {
 
           {activeTab === 'fechamento' && (
             <FechamentoPage />
+          )}
+
+          {activeTab === 'faturamento' && (
+            <FaturamentoPage />
           )}
 
           {activeTab === 'acompanhamentos' && (

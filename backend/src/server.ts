@@ -22,6 +22,7 @@ import { PushSubscriptionModel, IPushSubscription } from './models/PushSubscript
 import path from 'path';
 import { compressImage, extractGridFsIdFromUrl } from './utils/image';
 import { buildLocalDateRange, mapPriority } from './utils/order';
+import { buildBillingSummary, buildPreviousPeriodRange, extractBillingRows, parseBillingGranularity } from './utils/billing';
 import { pipeline } from 'stream';
 import { promisify } from 'util';
 const pipe = promisify(pipeline);
@@ -386,6 +387,99 @@ app.delete('/cities/:id', authenticateToken, isAdmin, async (req, res) => {
   } catch (error) {
     console.error('Erro ao remover cidade:', error);
     return res.status(500).json({ message: 'Erro ao remover cidade.' });
+  }
+});
+
+app.get('/billing/summary', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const {
+      startDate,
+      endDate,
+      granularity,
+      paymentStatus,
+      city,
+      clientId,
+      contentType,
+    } = req.query as {
+      startDate?: string;
+      endDate?: string;
+      granularity?: string;
+      paymentStatus?: string;
+      city?: string;
+      clientId?: string;
+      contentType?: string;
+    };
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ message: 'startDate e endDate são obrigatórios.' });
+    }
+
+    const currentRange = buildLocalDateRange(startDate, endDate);
+    if (!currentRange) {
+      return res.status(400).json({ message: 'Período de datas inválido.' });
+    }
+
+    const previousRange = buildPreviousPeriodRange(currentRange.start, currentRange.end);
+    const resolvedGranularity = parseBillingGranularity(granularity);
+    const resolvedPaymentStatus = parseClosurePaymentFilter(paymentStatus);
+    const normalizedCity = String(city || '').trim();
+    const normalizedContentType = String(contentType || '').trim();
+    const normalizedClientId = String(clientId || '').trim();
+
+    const buildBillingOrderQuery = (start: Date, end: Date) => {
+      const query: any = {
+        status: 'concluido',
+        type: 'retirada',
+        updatedAt: { $gte: start, $lte: end },
+      };
+
+      if (normalizedCity) {
+        query.city = normalizedCity;
+      }
+
+      if (normalizedClientId) {
+        query.$or = buildClientIdMatch(normalizedClientId);
+      }
+
+      return query;
+    };
+
+    const [currentOrders, previousOrders] = await Promise.all([
+      OrderModel.find(buildBillingOrderQuery(currentRange.start, currentRange.end))
+        .populate({
+          path: 'cacambas',
+          select: 'tipo paymentStatus contentType price',
+        })
+        .lean(),
+      OrderModel.find(buildBillingOrderQuery(previousRange.start, previousRange.end))
+        .populate({
+          path: 'cacambas',
+          select: 'tipo paymentStatus contentType price',
+        })
+        .lean(),
+    ]);
+
+    const currentRows = extractBillingRows(currentOrders as any[], {
+      paymentStatus: resolvedPaymentStatus,
+      contentType: normalizedContentType,
+    });
+    const previousRows = extractBillingRows(previousOrders as any[], {
+      paymentStatus: resolvedPaymentStatus,
+      contentType: normalizedContentType,
+    });
+
+    return res.status(200).json(
+      buildBillingSummary(
+        currentRows,
+        previousRows,
+        currentRange.start,
+        currentRange.end,
+        resolvedGranularity,
+      ),
+    );
+  } catch (error) {
+    console.error('Erro ao gerar resumo de faturamento:', error);
+    return res.status(500).json({ message: 'Erro ao gerar resumo de faturamento.' });
   }
 });
 
