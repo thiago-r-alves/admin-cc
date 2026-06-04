@@ -9,91 +9,13 @@ import type {
 } from '../interfaces';
 import { CACAMBA_CONTENT_TYPES } from '../interfaces';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
-import { getDefaultBillingDateRange, getPaidVsPendingPercentage, getTopAverageTicketClients, formatCurrency, formatPercent } from './billing.helpers';
+import { getDefaultBillingDateRange, getTopAverageTicketClients, formatCurrency, formatPercent } from './billing.helpers';
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
 const Page = styled.div`
   display: grid;
   gap: 1.25rem;
-`;
-
-const Hero = styled.section`
-  position: relative;
-  overflow: hidden;
-  border-radius: 24px;
-  padding: 1.5rem;
-  color: #fff;
-  background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.18), transparent 28%),
-    linear-gradient(135deg, #7f1d1d 0%, #b91c1c 48%, #111827 100%);
-  box-shadow: 0 24px 60px rgba(127, 29, 29, 0.22);
-
-  @media (max-width: 640px) {
-    padding: 1.1rem;
-  }
-`;
-
-const HeroGrid = styled.div`
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.9fr);
-  gap: 1rem;
-
-  @media (max-width: 980px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const HeroTitle = styled.h2`
-  margin: 0;
-  font-size: clamp(1.9rem, 3vw, 2.7rem);
-  line-height: 1;
-`;
-
-const HeroCopy = styled.p`
-  margin: 0.8rem 0 0;
-  max-width: 64ch;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 0.98rem;
-  line-height: 1.5;
-`;
-
-const HeroHighlights = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  align-self: stretch;
-
-  @media (max-width: 560px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const HeroHighlightCard = styled.div`
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 18px;
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(10px);
-`;
-
-const HeroHighlightLabel = styled.span`
-  display: block;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-`;
-
-const HeroHighlightValue = styled.strong`
-  display: block;
-  margin-top: 0.55rem;
-  color: #ffffff;
-  font-size: 1.15rem;
-  line-height: 1.25;
 `;
 
 const SectionCard = styled.section`
@@ -714,7 +636,6 @@ const FaturamentoPage: React.FC = () => {
 
   const hasResults = Boolean(summary && summary.summary.totalCacambas > 0);
   const topAverageClients = useMemo(() => getTopAverageTicketClients(summary), [summary]);
-  const paidVsPending = useMemo(() => getPaidVsPendingPercentage(summary), [summary]);
   const granularityLabels: Record<BillingGranularity, string> = {
     monthly: 'Mensal',
     semiannual: 'Semestral',
