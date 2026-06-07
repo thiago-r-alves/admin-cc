@@ -550,6 +550,21 @@ const AcompanhamentoActions = styled(OrderActions)`
   margin-left: 0;
 `;
 
+const AcompanhamentoImageContainer = styled.div`
+  margin-left: 0.35rem;
+  flex: 0 0 auto;
+`;
+
+const AcompanhamentoImage = styled.img`
+  width: 66px;
+  height: 66px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+`;
+
 const EmptyState = styled.div`
   border: 1px dashed #fecaca;
   border-radius: 8px;
@@ -1205,6 +1220,7 @@ const AdminPage: React.FC = () => {
     contact: '',
     phone: '',
     serviceOrder: '',
+    serviceOrderDigital: '',
     address: '',
     neighborhood: '',
     city: '',
@@ -1298,6 +1314,7 @@ const AdminPage: React.FC = () => {
       phone: norm(acompanhamentoFilters.phone).trim(),
       phoneDigits: digits(acompanhamentoFilters.phone),
       serviceOrder: norm(acompanhamentoFilters.serviceOrder).trim(),
+      serviceOrderDigital: norm(acompanhamentoFilters.serviceOrderDigital).trim(),
       address: norm(acompanhamentoFilters.address).trim(),
       neighborhood: norm(acompanhamentoFilters.neighborhood).trim(),
       city: norm(acompanhamentoFilters.city).trim(),
@@ -1315,6 +1332,7 @@ const AdminPage: React.FC = () => {
       const phoneValue = norm(order.contactNumber);
       const phoneDigitsValue = digits(order.contactNumber);
       const serviceOrderValue = norm(cacamba.horaServicoDigitos);
+      const serviceOrderDigitalValue = norm(order.orderNumber);
       const addressValue = norm([order.address, order.addressNumber].filter(Boolean).join(' '));
       const neighborhoodValue = norm(order.neighborhood);
       const cityValue = norm(order.city);
@@ -1329,6 +1347,7 @@ const AdminPage: React.FC = () => {
           phoneValue.includes(filters.phone) ||
           (Boolean(filters.phoneDigits) && phoneDigitsValue.includes(filters.phoneDigits))) &&
         (!filters.serviceOrder || serviceOrderValue.includes(filters.serviceOrder)) &&
+        (!filters.serviceOrderDigital || serviceOrderDigitalValue.includes(filters.serviceOrderDigital)) &&
         (!filters.address || addressValue.includes(filters.address)) &&
         (!filters.neighborhood || neighborhoodValue.includes(filters.neighborhood)) &&
         (!filters.city || cityValue.includes(filters.city)) &&
@@ -1891,6 +1910,15 @@ const AdminPage: React.FC = () => {
                     <AcompanhamentoFilterInput id="filtro-ordem-servico" type="text" value={acompanhamentoFilters.serviceOrder} onChange={(e) => setAcompanhamentoFilters((prev) => ({ ...prev, serviceOrder: e.target.value }))} />
                   </AcompanhamentoFilterField>
                   <AcompanhamentoFilterField>
+                    <AcompanhamentoFilterLabel htmlFor="filtro-ordem-servico-digital">Ordem de serviço digital</AcompanhamentoFilterLabel>
+                    <AcompanhamentoFilterInput
+                      id="filtro-ordem-servico-digital"
+                      type="text"
+                      value={acompanhamentoFilters.serviceOrderDigital}
+                      onChange={(e) => setAcompanhamentoFilters((prev) => ({ ...prev, serviceOrderDigital: e.target.value }))}
+                    />
+                  </AcompanhamentoFilterField>
+                  <AcompanhamentoFilterField>
                     <AcompanhamentoFilterLabel htmlFor="filtro-endereco">Endereço</AcompanhamentoFilterLabel>
                     <AcompanhamentoFilterInput id="filtro-endereco" type="text" value={acompanhamentoFilters.address} onChange={(e) => setAcompanhamentoFilters((prev) => ({ ...prev, address: e.target.value }))} />
                   </AcompanhamentoFilterField>
@@ -1926,7 +1954,7 @@ const AdminPage: React.FC = () => {
                       const daysOnSiteTone = getDaysOnSiteTone(daysOnSite);
 
                       return (
-                        <OrderCard key={cacamba._id} status={order.status}>
+                        <OrderCard key={cacamba._id} status={order.status} data-testid={`acompanhamento-card-${cacamba._id}`}>
                           <OrderCardHeader>
                             <OrderHeaderMeta>
                               <OrderNumber>Caçamba #{numero}</OrderNumber>
@@ -1961,12 +1989,37 @@ const AdminPage: React.FC = () => {
                                 <InfoValue>{cacamba.horaServicoDigitos || '-'}</InfoValue>
                               </InfoTile>
                               <InfoTile>
+                                <InfoLabel>Ordem de serviço digital</InfoLabel>
+                                <InfoValue>{order.orderNumber ?? '-'}</InfoValue>
+                              </InfoTile>
+                              <InfoTile>
                                 <InfoLabel>Placa do caminhão</InfoLabel>
                                 <InfoValue style={{ textTransform: 'uppercase', color: '#e30613', fontWeight: 800 }}>
                                   {order.placa || '-'}
                                 </InfoValue>
                               </InfoTile>
                             </InfoGrid>
+
+                            {cacamba.imageUrl && (
+                              <AcompanhamentoImageContainer>
+                                <AcompanhamentoImage
+                                  src={cacamba.imageUrl.startsWith('http') ? cacamba.imageUrl : `${apiUrl}${cacamba.imageUrl}`}
+                                  alt="Foto da caçamba"
+                                  data-testid={`acompanhamento-image-${cacamba._id}`}
+                                  onClick={async () => {
+                                    const full = cacamba.imageUrl!.startsWith('http') ? cacamba.imageUrl! : `${apiUrl}${cacamba.imageUrl}`;
+                                    try {
+                                      const mod = await import('../utils/image');
+                                      const large = await mod.resizeImage(full, 1200, 0.8);
+                                      setModalImage(large);
+                                    } catch (e) {
+                                      console.error('Erro redimensionando imagem:', e);
+                                      setModalImage(full);
+                                    }
+                                  }}
+                                />
+                              </AcompanhamentoImageContainer>
+                            )}
 
                             <OrderDetailsDivider />
 

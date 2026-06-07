@@ -20,7 +20,25 @@ test.describe('Admin acompanhamentos', () => {
 
     await expect(page.getByRole('heading', { name: 'Acompanhamentos' })).toBeVisible();
     await expect(page.getByText('39.003.660/0001-61')).toBeVisible();
+    const acompanhamentoCard = page.getByTestId('acompanhamento-card-cac-2');
+    await expect(acompanhamentoCard.getByText('Ordem de serviço digital')).toBeVisible();
+    await expect(acompanhamentoCard.getByText('1500')).toBeVisible();
     await expect(page.getByTestId('acompanhamento-delete-cac-2')).toBeVisible();
+  });
+
+  test('filtra por ordem de serviço digital e exibe a imagem da caçamba', async ({ page, isMobile }) => {
+    await openMenuIfMobile(page, isMobile);
+    await page.getByRole('button', { name: 'Acompanhamentos' }).click();
+
+    await expect(page.getByLabel('Ordem de serviço digital')).toBeVisible();
+    await page.locator('#filtro-ordem-servico-digital').fill('1500');
+
+    const acompanhamentoCard = page.getByTestId('acompanhamento-card-cac-2');
+    await expect(acompanhamentoCard).toBeVisible();
+    await expect(acompanhamentoCard.getByText('Caçamba #415')).toBeVisible();
+    await expect(acompanhamentoCard.getByText('Ordem de serviço digital')).toBeVisible();
+    await expect(acompanhamentoCard.getByText('1500')).toBeVisible();
+    await expect(acompanhamentoCard.getByTestId('acompanhamento-image-cac-2')).toBeVisible();
   });
 
   test('exclui a caçamba do acompanhamento após confirmação', async ({ page, isMobile }) => {
