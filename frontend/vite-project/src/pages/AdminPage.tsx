@@ -550,11 +550,6 @@ const AcompanhamentoActions = styled(OrderActions)`
   margin-left: 0;
 `;
 
-const AcompanhamentoImageContainer = styled.div`
-  margin-left: 0.35rem;
-  flex: 0 0 auto;
-`;
-
 const AcompanhamentoImage = styled.img`
   width: 66px;
   height: 66px;
@@ -1998,28 +1993,30 @@ const AdminPage: React.FC = () => {
                                   {order.placa || '-'}
                                 </InfoValue>
                               </InfoTile>
+                              {cacamba.imageUrl && (
+                              <InfoTile>
+                                <InfoLabel>Imagem da caçamba</InfoLabel>
+                                <div style={{ marginTop: '0.4rem' }}>
+                                  <AcompanhamentoImage
+                                    src={cacamba.imageUrl.startsWith('http') ? cacamba.imageUrl : `${apiUrl}${cacamba.imageUrl}`}
+                                      alt="Foto da caçamba"
+                                      data-testid={`acompanhamento-image-${cacamba._id}`}
+                                      onClick={async () => {
+                                        const full = cacamba.imageUrl!.startsWith('http') ? cacamba.imageUrl! : `${apiUrl}${cacamba.imageUrl}`;
+                                        try {
+                                          const mod = await import('../utils/image');
+                                          const large = await mod.resizeImage(full, 1200, 0.8);
+                                          setModalImage(large);
+                                        } catch (e) {
+                                          console.error('Erro redimensionando imagem:', e);
+                                          setModalImage(full);
+                                        }
+                                    }}
+                                  />
+                                </div>
+                              </InfoTile>
+                              )}
                             </InfoGrid>
-
-                            {cacamba.imageUrl && (
-                              <AcompanhamentoImageContainer>
-                                <AcompanhamentoImage
-                                  src={cacamba.imageUrl.startsWith('http') ? cacamba.imageUrl : `${apiUrl}${cacamba.imageUrl}`}
-                                  alt="Foto da caçamba"
-                                  data-testid={`acompanhamento-image-${cacamba._id}`}
-                                  onClick={async () => {
-                                    const full = cacamba.imageUrl!.startsWith('http') ? cacamba.imageUrl! : `${apiUrl}${cacamba.imageUrl}`;
-                                    try {
-                                      const mod = await import('../utils/image');
-                                      const large = await mod.resizeImage(full, 1200, 0.8);
-                                      setModalImage(large);
-                                    } catch (e) {
-                                      console.error('Erro redimensionando imagem:', e);
-                                      setModalImage(full);
-                                    }
-                                  }}
-                                />
-                              </AcompanhamentoImageContainer>
-                            )}
 
                             <OrderDetailsDivider />
 
