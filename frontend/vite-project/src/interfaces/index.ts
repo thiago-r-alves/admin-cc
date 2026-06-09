@@ -12,6 +12,10 @@ export interface IClient {
   city?: string;
   cep?: string;
   createdAt?: string; // Adicionar este campo
+  hasPendingClosureItems?: boolean;
+  hasGeneratedClosureGroups?: boolean;
+  pendingClosureCount?: number;
+  generatedClosureGroupsCount?: number;
 }
 
 export interface ICity {

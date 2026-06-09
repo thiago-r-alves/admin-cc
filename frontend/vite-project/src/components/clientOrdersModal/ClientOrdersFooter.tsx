@@ -43,6 +43,7 @@ interface ClientOrdersFooterProps {
   disabled: boolean;
   isSubmittingPayment: boolean;
   closureMode: boolean;
+  actionLabel?: string;
 }
 
 const ClientOrdersFooter: React.FC<ClientOrdersFooterProps> = ({
@@ -50,6 +51,7 @@ const ClientOrdersFooter: React.FC<ClientOrdersFooterProps> = ({
   disabled,
   isSubmittingPayment,
   closureMode,
+  actionLabel,
 }) => (
   <ModalFooter>
     <DownloadButton
@@ -60,7 +62,9 @@ const ClientOrdersFooter: React.FC<ClientOrdersFooterProps> = ({
     >
       {isSubmittingPayment
         ? 'Processando...'
-        : closureMode
+        : actionLabel
+          ? actionLabel
+          : closureMode
           ? 'Baixar nota com caçambas selecionada'
           : 'Baixar'}
     </DownloadButton>

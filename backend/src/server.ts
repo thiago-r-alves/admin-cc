@@ -521,6 +521,56 @@ app.get('/clients', authenticateToken, isAdmin, async (req: express.Request, res
           },
         },
         {
+          $addFields: {
+            pendingClosureCount: {
+              $size: {
+                $filter: {
+                  input: '$closureCacambas',
+                  as: 'cacamba',
+                  cond: {
+                    $or: [
+                      { $eq: ['$$cacamba.paymentStatus', 'pendente'] },
+                      { $eq: ['$$cacamba.paymentStatus', null] },
+                      {
+                        $not: [
+                          {
+                            $ifNull: ['$$cacamba.paymentStatus', false],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+            invoicePendingClosureCount: {
+              $size: {
+                $filter: {
+                  input: '$closureCacambas',
+                  as: 'cacamba',
+                  cond: { $eq: ['$$cacamba.paymentStatus', 'nota_fiscal_pendente'] },
+                },
+              },
+            },
+            paidClosureCount: {
+              $size: {
+                $filter: {
+                  input: '$closureCacambas',
+                  as: 'cacamba',
+                  cond: { $eq: ['$$cacamba.paymentStatus', 'paga'] },
+                },
+              },
+            },
+          },
+        },
+        {
+          $addFields: {
+            generatedClosureGroupsCount: {
+              $add: ['$invoicePendingClosureCount', '$paidClosureCount'],
+            },
+          },
+        },
+        {
           $match: {
             closureCacambas: { $ne: [] },
           },
@@ -528,31 +578,19 @@ app.get('/clients', authenticateToken, isAdmin, async (req: express.Request, res
         ...(closurePaymentFilter === 'pending'
           ? [{
             $match: {
-              closureCacambas: {
-                $elemMatch: {
-                  $or: [
-                    { paymentStatus: 'pendente' },
-                    { paymentStatus: { $exists: false } },
-                    { paymentStatus: null },
-                  ],
-                },
-              },
+              pendingClosureCount: { $gt: 0 },
             },
           }]
           : closurePaymentFilter === 'invoice_pending'
             ? [{
               $match: {
-                closureCacambas: {
-                  $elemMatch: { paymentStatus: 'nota_fiscal_pendente' },
-                },
+                invoicePendingClosureCount: { $gt: 0 },
               },
             }]
           : closurePaymentFilter === 'paid'
             ? [{
               $match: {
-                closureCacambas: {
-                  $elemMatch: { paymentStatus: 'paga' },
-                },
+                paidClosureCount: { $gt: 0 },
               },
             }]
             : []),
@@ -560,6 +598,8 @@ app.get('/clients', authenticateToken, isAdmin, async (req: express.Request, res
           $project: {
             updatedAt: 1,
             clientIdString: { $toString: '$clientId' },
+            pendingClosureCount: 1,
+            generatedClosureGroupsCount: 1,
           },
         },
         {
@@ -567,6 +607,8 @@ app.get('/clients', authenticateToken, isAdmin, async (req: express.Request, res
             _id: '$clientIdString',
             latestCompletion: { $max: '$updatedAt' },
             orderCount: { $sum: 1 },
+            pendingClosureCount: { $sum: '$pendingClosureCount' },
+            generatedClosureGroupsCount: { $sum: '$generatedClosureGroupsCount' },
           },
         },
         {
@@ -616,7 +658,20 @@ app.get('/clients', authenticateToken, isAdmin, async (req: express.Request, res
         });
       }
 
-      return res.status(200).json(aggregated.map((row: any) => row.client).filter(Boolean));
+      return res.status(200).json(
+        aggregated
+          .map((row: any) => {
+            if (!row.client) return null;
+            return {
+              ...row.client,
+              hasPendingClosureItems: Number(row.pendingClosureCount || 0) > 0,
+              hasGeneratedClosureGroups: Number(row.generatedClosureGroupsCount || 0) > 0,
+              pendingClosureCount: Number(row.pendingClosureCount || 0),
+              generatedClosureGroupsCount: Number(row.generatedClosureGroupsCount || 0),
+            };
+          })
+          .filter(Boolean),
+      );
     }
 
     if (startDate && endDate) {
@@ -1388,13 +1443,18 @@ app.patch('/closure-groups/:id/invoice', authenticateToken, isAdmin, async (req,
     }
 
     group.invoiceNumber = normalizedInvoice;
-    group.status = 'paga';
+    const shouldMarkAsPaid = group.status !== 'paga';
+    if (shouldMarkAsPaid) {
+      group.status = 'paga';
+    }
     await group.save();
 
-    await CacambaModel.updateMany(
-      { _id: { $in: group.cacambaIds } },
-      { $set: { paymentStatus: 'paga' } }
-    );
+    if (shouldMarkAsPaid) {
+      await CacambaModel.updateMany(
+        { _id: { $in: group.cacambaIds } },
+        { $set: { paymentStatus: 'paga' } }
+      );
+    }
 
     return res.status(200).json({
       closureGroup: {

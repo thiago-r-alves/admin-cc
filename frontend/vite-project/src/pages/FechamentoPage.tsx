@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import type { IClient } from '../interfaces';
 import ClientOrdersModal from '../components/ClientOrdersModal';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
+import type { ClientOrdersModalProps } from '../components/clientOrdersModal/types';
 
 const Container = styled.div`
   display: flex;
@@ -126,17 +127,16 @@ const ClientsWrap = styled.div`
   background: #ffffff;
 `;
 
-const ClientRow = styled.button`
+const ClientRow = styled.div`
   width: 100%;
+  box-sizing: border-box;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
   padding: 0.95rem 1.1rem;
-  border: 0;
   border-bottom: 1px solid #fee2e2;
   background: #ffffff;
-  cursor: pointer;
   text-align: left;
 
   &:last-child {
@@ -147,32 +147,78 @@ const ClientRow = styled.button`
     background: #fffafa;
   }
 
+  @media (max-width: 980px) {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   @media (max-width: 640px) {
     flex-direction: column;
     align-items: flex-start;
   }
 `;
 
+const ClientInfo = styled.div`
+  min-width: 0;
+  flex: 1 1 340px;
+`;
+
 const ClientName = styled.span`
+  display: block;
   color: #1f2937;
   font-size: 1rem;
   font-weight: 900;
   text-transform: uppercase;
+  line-height: 1.3;
+  word-break: break-word;
 `;
 
-const ViewOrdersBadge = styled.span`
+const ActionButtons = styled.div`
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+  min-width: min(100%, 420px);
+
+  @media (max-width: 980px) {
+    width: 100%;
+    min-width: 0;
+    justify-content: flex-start;
+  }
+`;
+
+const ClientActionButton = styled.button`
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 34px;
-  padding: 0.45rem 0.8rem;
+  min-height: 38px;
+  padding: 0.6rem 0.95rem;
   border: 1px solid #d8b4b4;
   border-radius: 4px;
   color: #6b1f1f;
   font-size: 0.76rem;
   font-weight: 900;
   text-transform: uppercase;
-  white-space: nowrap;
+  background: #ffffff;
+  cursor: pointer;
+  flex: 0 0 auto;
+  max-width: 100%;
+  line-height: 1.2;
+  text-align: center;
+
+  &:hover {
+    border-color: #e30613;
+    color: #991b1b;
+    background: #fff1f2;
+  }
+
+  @media (max-width: 640px) {
+    width: 100%;
+  }
 `;
 
 const EmptyState = styled.div`
@@ -202,6 +248,7 @@ const FechamentoPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [selectedClient, setSelectedClient] = useState<IClient | null>(null);
   const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(false);
+  const [modalViewMode, setModalViewMode] = useState<ClientOrdersModalProps['viewMode']>('create_closure');
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
 
   const fetchClosureClients = async () => {
@@ -254,8 +301,12 @@ const FechamentoPage: React.FC = () => {
     });
   }, [clients, search]);
 
-  const openOrdersModal = (client: IClient) => {
+  const openOrdersModal = (
+    client: IClient,
+    viewMode: ClientOrdersModalProps['viewMode'] = 'create_closure',
+  ) => {
     setSelectedClient(client);
+    setModalViewMode(viewMode);
     setIsOrdersModalOpen(true);
   };
 
@@ -336,11 +387,28 @@ const FechamentoPage: React.FC = () => {
       ) : filteredClients.length ? (
         <ClientsWrap>
           {filteredClients.map((client) => (
-            <ClientRow key={client._id} data-testid={`closure-client-row-${client._id}`} type="button" onClick={() => openOrdersModal(client)}>
-              <div>
+            <ClientRow key={client._id} data-testid={`closure-client-row-${client._id}`}>
+              <ClientInfo>
                 <ClientName>{client.clientName}</ClientName>
-              </div>
-              <ViewOrdersBadge>Ver pedidos</ViewOrdersBadge>
+              </ClientInfo>
+              <ActionButtons>
+                {client.hasPendingClosureItems && (
+                  <ClientActionButton
+                    type="button"
+                    onClick={() => openOrdersModal(client, 'create_closure')}
+                  >
+                    Gerar fechamento do cliente
+                  </ClientActionButton>
+                )}
+                {client.hasGeneratedClosureGroups && (
+                  <ClientActionButton
+                    type="button"
+                    onClick={() => openOrdersModal(client, 'generated_notes')}
+                  >
+                    Ver notas geradas
+                  </ClientActionButton>
+                )}
+              </ActionButtons>
             </ClientRow>
           ))}
         </ClientsWrap>
@@ -356,6 +424,7 @@ const FechamentoPage: React.FC = () => {
           startDate={startDate}
           endDate={endDate}
           type="retirada"
+          viewMode={modalViewMode}
           paymentStatus={paymentStatus}
           closureMode
           onPaymentCompleted={fetchClosureClients}

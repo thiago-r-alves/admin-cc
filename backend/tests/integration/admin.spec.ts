@@ -480,6 +480,12 @@ describe('Admin APIs', () => {
     expect(listNames).toContain('Retirada String');
     expect(listNames).not.toContain('Somente Entrega');
     expect(listNames).not.toContain('Retirada Fora');
+    const objectClient = list.body.find((c: any) => c.clientName === 'Retirada ObjectId');
+    const stringClient = list.body.find((c: any) => c.clientName === 'Retirada String');
+    expect(objectClient?.hasPendingClosureItems).toBe(true);
+    expect(objectClient?.hasGeneratedClosureGroups).toBe(false);
+    expect(stringClient?.hasPendingClosureItems).toBe(true);
+    expect(stringClient?.hasGeneratedClosureGroups).toBe(false);
 
     const modalObjectId = await request(app)
       .get(`/clients/${hasRetiradaObjectId._id}/orders?closure=true&startDate=2026-05-15&endDate=2026-05-19`)
@@ -572,6 +578,9 @@ describe('Admin APIs', () => {
       .set('Authorization', `Bearer ${token}`);
     expect(invoicePendingClients.status).toBe(200);
     expect(invoicePendingClients.body.some((c: any) => String(c._id) === String(client._id))).toBe(true);
+    const invoicePendingClient = invoicePendingClients.body.find((c: any) => String(c._id) === String(client._id));
+    expect(invoicePendingClient?.hasPendingClosureItems).toBe(true);
+    expect(invoicePendingClient?.hasGeneratedClosureGroups).toBe(true);
 
     const saveInvoice = await request(app)
       .patch(`/closure-groups/${ok.body.closureGroup._id}/invoice`)
@@ -583,11 +592,25 @@ describe('Admin APIs', () => {
     const c1Paid = await CacambaModel.findById(c1._id).lean();
     expect(c1Paid?.paymentStatus).toBe('paga');
 
+    const editPaidInvoice = await request(app)
+      .patch(`/closure-groups/${ok.body.closureGroup._id}/invoice`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ invoiceNumber: 'NF-12345-EDIT' });
+    expect(editPaidInvoice.status).toBe(200);
+    expect(editPaidInvoice.body.closureGroup?.status).toBe('paga');
+    expect(editPaidInvoice.body.closureGroup?.invoiceNumber).toBe('NF-12345-EDIT');
+
+    const c1PaidAfterEdit = await CacambaModel.findById(c1._id).lean();
+    expect(c1PaidAfterEdit?.paymentStatus).toBe('paga');
+
     const paidClients = await request(app)
       .get('/clients?closure=true&startDate=2026-05-15&endDate=2026-05-19&paymentStatus=paid')
       .set('Authorization', `Bearer ${token}`);
     expect(paidClients.status).toBe(200);
     expect(paidClients.body.some((c: any) => String(c._id) === String(client._id))).toBe(true);
+    const paidClient = paidClients.body.find((c: any) => String(c._id) === String(client._id));
+    expect(paidClient?.hasPendingClosureItems).toBe(true);
+    expect(paidClient?.hasGeneratedClosureGroups).toBe(true);
 
     const secondGroup = await request(app)
       .post('/closures/download')
@@ -604,7 +627,7 @@ describe('Admin APIs', () => {
     const duplicatedInvoice = await request(app)
       .patch(`/closure-groups/${secondGroup.body.closureGroup._id}/invoice`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ invoiceNumber: 'nf-12345' });
+      .send({ invoiceNumber: 'nf-12345-edit' });
     expect(duplicatedInvoice.status).toBe(409);
     expect(duplicatedInvoice.body.message).toContain('já utilizado');
 
@@ -612,6 +635,9 @@ describe('Admin APIs', () => {
       .get('/clients?closure=true&paymentStatus=all')
       .set('Authorization', `Bearer ${token}`);
     expect(allWithoutDate.status).toBe(200);
+    const allClient = allWithoutDate.body.find((c: any) => String(c._id) === String(client._id));
+    expect(allClient?.hasPendingClosureItems).toBe(false);
+    expect(allClient?.hasGeneratedClosureGroups).toBe(true);
 
     const groupsWithoutDate = await request(app)
       .get(`/clients/${client._id}/closure-groups?status=all`)

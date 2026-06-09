@@ -220,6 +220,44 @@ const initialOrders: Order[] = [
     updatedAt: '2026-05-15T12:00:00.000Z',
     price: 320.0,
   },
+  {
+    _id: 'ord-5',
+    orderNumber: 2234,
+    clientId: 'cli-1',
+    clientName: '3GK HOLDING E PARTICIPACOES OBRA 1',
+    cnpjCpf: '39.003.660/0001-61',
+    city: 'JacareÃ­',
+    cep: '12338-500',
+    contactName: 'SR SAMIIR',
+    contactNumber: '(12) 98195-6675',
+    neighborhood: 'Jardim CalifÃ³rnia',
+    address: 'Rodovia Geraldo Scavone',
+    addressNumber: '4975',
+    placa: 'QWE1R23',
+    type: 'retirada',
+    priority: 0,
+    status: 'concluido',
+    motorista: { _id: 'drv-2', username: 'jhonatan' },
+    cacambas: [
+      {
+        _id: 'cac-5',
+        numero: '778',
+        tipo: 'retirada',
+        contentType: 'Entulho limpo',
+        local: 'via_publica',
+        orderId: 'ord-5',
+        imageUrl: '/uploads/cac-5.jpg',
+        createdAt: nowIso,
+        horaServicoDigitos: '778',
+        paymentStatus: 'paga',
+        price: 280,
+      },
+    ],
+    imageUrls: [],
+    createdAt: '2026-05-14T09:00:00.000Z',
+    updatedAt: '2026-05-14T12:00:00.000Z',
+    price: 280.0,
+  },
 ];
 
 const createJwt = (role: Role) => {
@@ -326,7 +364,20 @@ export const setupMockApi = async (page: Page) => {
     cacambas: o.cacambas.map((c) => ({ ...c })),
     imageUrls: [...o.imageUrls],
   }));
-  const closureGroups: ClosureGroup[] = [];
+  const closureGroups: ClosureGroup[] = [
+    {
+      _id: 'grp-existing-1',
+      clientId: 'cli-1',
+      clientSequenceNumber: 1,
+      startDate: '2026-05-10',
+      endDate: '2026-05-14',
+      status: 'paga',
+      invoiceNumber: 'NF-EXIST-001',
+      cacambaIds: orders.find((order) => order._id === 'ord-5')?.cacambas.map((cacamba) => ({ ...cacamba })) || [],
+      createdAt: '2026-05-14T12:30:00.000Z',
+      updatedAt: '2026-05-14T12:40:00.000Z',
+    },
+  ];
 
   await page.route('**/*', async (route) => {
     const req = route.request();
@@ -583,35 +634,84 @@ export const setupMockApi = async (page: Page) => {
       const type = searchParams.get('type');
       const paymentStatus = searchParams.get('paymentStatus') || 'all';
 
+      const buildClosureClientPayload = (range?: { start: Date; end: Date }) => {
+        const closureClientMeta = new Map<
+          string,
+          {
+            hasPendingClosureItems: boolean;
+            hasGeneratedClosureGroups: boolean;
+            pendingClosureCount: number;
+            generatedClosureGroupsCount: number;
+            matchesFilter: boolean;
+          }
+        >();
+
+        orders
+          .filter((o) => o.status === 'concluido')
+          .filter((o) => (closure ? o.type === 'retirada' : true))
+          .filter((o) => (type ? o.type === type : true))
+          .filter((o) => {
+            if (!range) return true;
+            const updated = new Date(o.updatedAt).getTime();
+            return updated >= range.start.getTime() && updated <= range.end.getTime();
+          })
+          .forEach((order) => {
+            const retirada = order.cacambas.filter((c) => c.tipo === 'retirada');
+            if (closure && retirada.length === 0) return;
+
+            const pendingCount = retirada.filter((c) => (c.paymentStatus || 'pendente') === 'pendente').length;
+            const generatedCount = retirada.filter((c) =>
+              c.paymentStatus === 'nota_fiscal_pendente' || c.paymentStatus === 'paga',
+            ).length;
+            const invoicePendingCount = retirada.filter((c) => c.paymentStatus === 'nota_fiscal_pendente').length;
+            const paidCount = retirada.filter((c) => c.paymentStatus === 'paga').length;
+            const matchesFilter =
+              !closure ||
+              paymentStatus === 'all' ||
+              (paymentStatus === 'pending' && pendingCount > 0) ||
+              (paymentStatus === 'invoice_pending' && invoicePendingCount > 0) ||
+              (paymentStatus === 'paid' && paidCount > 0);
+
+            const current = closureClientMeta.get(order.clientId) || {
+              hasPendingClosureItems: false,
+              hasGeneratedClosureGroups: false,
+              pendingClosureCount: 0,
+              generatedClosureGroupsCount: 0,
+              matchesFilter: false,
+            };
+
+            current.hasPendingClosureItems = current.hasPendingClosureItems || pendingCount > 0;
+            current.hasGeneratedClosureGroups = current.hasGeneratedClosureGroups || generatedCount > 0;
+            current.pendingClosureCount += pendingCount;
+            current.generatedClosureGroupsCount += generatedCount;
+            current.matchesFilter = current.matchesFilter || matchesFilter;
+            closureClientMeta.set(order.clientId, current);
+          });
+
+        return clients
+          .filter((client) => {
+            if (!closure) return true;
+            return Boolean(closureClientMeta.get(client._id)?.matchesFilter);
+          })
+          .map((client) => ({
+            ...client,
+            ...(closureClientMeta.get(client._id) || {
+              hasPendingClosureItems: false,
+              hasGeneratedClosureGroups: false,
+              pendingClosureCount: 0,
+              generatedClosureGroupsCount: 0,
+            }),
+          }));
+      };
+
       if (startDate && endDate) {
         const start = new Date(startDate);
         const end = new Date(endDate);
         end.setHours(23, 59, 59, 999);
-
-        const concludedClientIds = new Set(
-          orders
-            .filter((o) => o.status === 'concluido')
-            .filter((o) => (closure ? o.type === 'retirada' : true))
-            .filter((o) => (type ? o.type === type : true))
-            .filter((o) => {
-              if (!closure) return true;
-              const retirada = o.cacambas.filter((c) => c.tipo === 'retirada');
-              if (paymentStatus === 'pending') return retirada.some((c) => (c.paymentStatus || 'pendente') === 'pendente');
-              if (paymentStatus === 'invoice_pending') return retirada.some((c) => c.paymentStatus === 'nota_fiscal_pendente');
-              if (paymentStatus === 'paid') return closureGroups.some((g) => g.clientId === o.clientId && g.status === 'paga');
-              return true;
-            })
-            .filter((o) => {
-              const updated = new Date(o.updatedAt).getTime();
-              return updated >= start.getTime() && updated <= end.getTime();
-            })
-            .map((o) => o.clientId),
-        );
-
-        return json(route, clients.filter((c) => concludedClientIds.has(c._id)));
+        return json(route, buildClosureClientPayload({ start, end }));
       }
 
-      return json(route, clients);
+      return json(route, closure ? buildClosureClientPayload() : clients);
     }
     if (pathname === '/clients' && method === 'POST') {
       const body = req.postDataJSON() as Record<string, unknown>;
