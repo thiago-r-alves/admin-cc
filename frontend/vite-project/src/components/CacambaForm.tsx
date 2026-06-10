@@ -49,9 +49,9 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!numero.trim()) return setError('Número da caçamba é obrigatório');
-    if (files.length === 0) return setError('Imagem é obrigatória');
-    if (orderType === 'retirada' && !contentType) return setError('Tipo de conteúdo é obrigatório para retirada.');
+    if (!numero.trim()) return setError('NÃºmero da caÃ§amba Ã© obrigatÃ³rio');
+    if (files.length === 0) return setError('Imagem Ã© obrigatÃ³ria');
+    if (orderType === 'retirada' && !contentType) return setError('Tipo de conteÃºdo Ã© obrigatÃ³rio para retirada.');
 
     setLoading(true);
     setError('');
@@ -68,13 +68,13 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
       const response = await fetch(`${apiUrl}/driver/orders/${orderId}/cacambas`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Erro ao registrar caçamba');
+        throw new Error(errorData.message || 'Erro ao registrar caÃ§amba');
       }
       const data = await response.json();
       onCacambaAdded(data.cacamba);
       setNumero(''); setHoraServicoDigitos(''); setLocal('via_publica'); setContentType(''); setFiles([]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao registrar caçamba');
+      setError(err instanceof Error ? err.message : 'Erro ao registrar caÃ§amba');
     } finally {
       setLoading(false);
     }
@@ -84,26 +84,26 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
     <ModalOverlay onClick={onClose}>
       <ModalContent onClick={(e) => e.stopPropagation()}>
         <ModalHeader>
-          <TitleWrap><TitleAccent /><Title>Registrar Caçamba</Title></TitleWrap>
-          <CloseButton type="button" variant="ghost" onClick={onClose} aria-label="Fechar modal">×</CloseButton>
+          <TitleWrap><TitleAccent /><Title>Registrar CaÃ§amba</Title></TitleWrap>
+          <CloseButton type="button" variant="ghost" onClick={onClose} aria-label="Fechar modal">X</CloseButton>
         </ModalHeader>
         <Form onSubmit={handleSubmit}>
           <ModalBody>
             <Section>
-              <SectionTitle>Dados da Caçamba</SectionTitle>
+              <SectionTitle>Dados da CaÃ§amba</SectionTitle>
               <FieldGrid>
-                <GridField><UIField label="Número da Caçamba" htmlFor="cacamba-numero"><TextInput id="cacamba-numero" type="text" value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="Ex: 501" required /></UIField></GridField>
-                <GridField><UIField label="3 últimos dígitos da OS" htmlFor="cacamba-os"><TextInput id="cacamba-os" type="text" value={horaServicoDigitos} onChange={(e) => setHoraServicoDigitos(e.target.value)} placeholder="Ex: 123" maxLength={3} inputMode="numeric" pattern="[0-9]{3}" required /></UIField></GridField>
+                <GridField><UIField label="NÃºmero da CaÃ§amba" htmlFor="cacamba-numero"><TextInput id="cacamba-numero" type="text" value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="Ex: 501" required /></UIField></GridField>
+                <GridField><UIField label="3 Ãšltimos DÃ­gitos da OS" htmlFor="cacamba-os"><TextInput id="cacamba-os" type="text" value={horaServicoDigitos} onChange={(e) => setHoraServicoDigitos(e.target.value)} placeholder="Ex: 123" maxLength={3} inputMode="numeric" pattern="[0-9]{3}" required /></UIField></GridField>
                 <GridField><UIField label="Tipo"><TypeBadge>{orderType === 'entrega' ? 'Entrega' : 'Retirada'}</TypeBadge></UIField></GridField>
-                <GridField><UIField label="Local" htmlFor="cacamba-local"><SelectInput id="cacamba-local" value={local} onChange={e => setLocal(e.target.value as 'via_publica' | 'canteiro_obra')} required><option value="via_publica">Via pública</option><option value="canteiro_obra">Canteiro de obra</option></SelectInput></UIField></GridField>
-                {orderType === 'retirada' && <GridField $span={2}><UIField label="Tipo de conteúdo" htmlFor="cacamba-content-type"><SelectInput id="cacamba-content-type" value={contentType} onChange={e => setContentType(e.target.value as CacambaContentType | '')} required><option value="">Selecione...</option>{CACAMBA_CONTENT_TYPES.map((option) => <option key={option} value={option}>{option}</option>)}</SelectInput></UIField></GridField>}
+                <GridField><UIField label="Local" htmlFor="cacamba-local"><SelectInput id="cacamba-local" value={local} onChange={e => setLocal(e.target.value as 'via_publica' | 'canteiro_obra')} required><option value="via_publica">Via pÃºblica</option><option value="canteiro_obra">Canteiro de obra</option></SelectInput></UIField></GridField>
+                {orderType === 'retirada' && <GridField $span={2}><UIField label="Tipo de conteÃºdo" htmlFor="cacamba-content-type"><SelectInput id="cacamba-content-type" value={contentType} onChange={e => setContentType(e.target.value as CacambaContentType | '')} required><option value="">Selecione...</option>{CACAMBA_CONTENT_TYPES.map((option) => <option key={option} value={option}>{option}</option>)}</SelectInput></UIField></GridField>}
               </FieldGrid>
             </Section>
             <Section>
               <SectionTitle>Imagem</SectionTitle>
               <FileInputWrap>
-                <UIField label="Foto da caçamba" htmlFor="cacamba-imagem"><TextInput id="cacamba-imagem" type="file" multiple accept="image/*" onChange={handleFileChange} onClick={() => setError('')} /></UIField>
-                <FileHint>{files.length > 0 ? `${files.length} arquivo${files.length > 1 ? 's' : ''} selecionado${files.length > 1 ? 's' : ''}.` : 'Selecione uma ou mais imagens para registrar a caçamba.'}</FileHint>
+                <UIField label="Foto da caÃ§amba" htmlFor="cacamba-imagem"><TextInput id="cacamba-imagem" type="file" multiple accept="image/*" onChange={handleFileChange} onClick={() => setError('')} /></UIField>
+                <FileHint>{files.length > 0 ? `${files.length} arquivo${files.length > 1 ? 's' : ''} selecionado${files.length > 1 ? 's' : ''}.` : 'Selecione uma ou mais imagens para registrar a caÃ§amba.'}</FileHint>
               </FileInputWrap>
             </Section>
             {error && <ErrorMessage>{error}</ErrorMessage>}
