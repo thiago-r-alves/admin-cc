@@ -69,6 +69,53 @@ const buildClosureGroupClientMatch = (id: string) => {
 
 const CLOSURE_DEBUG = String(process.env.CLOSURE_DEBUG || '').toLowerCase() === 'true';
 
+const ORDER_CLIENT_SNAPSHOT_FIELDS = [
+  'clientId',
+  'clientName',
+  'cnpjCpf',
+  'contactName',
+  'contactNumber',
+  'neighborhood',
+  'address',
+  'addressNumber',
+  'city',
+  'cep',
+] as const;
+
+const buildOrderClientSnapshot = (client: {
+  _id: unknown;
+  clientName?: string;
+  cnpjCpf?: string;
+  contactName?: string;
+  contactNumber?: string;
+  neighborhood?: string;
+  address?: string;
+  addressNumber?: string;
+  city?: string;
+  cep?: string;
+}) => ({
+  clientId: client._id,
+  clientName: String(client.clientName || '').trim(),
+  cnpjCpf: String(client.cnpjCpf || '').trim(),
+  contactName: String(client.contactName || '').trim(),
+  contactNumber: String(client.contactNumber || '').trim(),
+  neighborhood: String(client.neighborhood || '').trim(),
+  address: String(client.address || '').trim(),
+  addressNumber: String(client.addressNumber || '').trim(),
+  city: String(client.city || '').trim(),
+  cep: String(client.cep || '').trim(),
+});
+
+const getNextClosureGroupSequence = async (clientId: string | ObjectId) => {
+  const latestGroupForClient = (await ClosureGroupModel.findOne({
+    $or: buildClosureGroupClientMatch(String(clientId)),
+  })
+    .sort({ clientSequenceNumber: -1 })
+    .select('clientSequenceNumber')
+    .lean()) as { clientSequenceNumber?: number } | null;
+  return (latestGroupForClient?.clientSequenceNumber || 0) + 1;
+};
+
 const app = express();
 const port = process.env.PORT || 3001;
 const server = createServer(app);                    // AJUSTADO
@@ -274,6 +321,135 @@ app.get('/orders', authenticateToken, isAdmin, async (req, res) => {
     }
 });
 
+// PATCH /orders/:id/change-client
+app.patch('/orders/:id/change-client', authenticateToken, isAdmin, async (req: AuthenticatedRequest, res) => {
+  try {
+    const { id } = req.params;
+    const normalizedClientId = String(req.body?.clientId || '').trim();
+    if (!normalizedClientId) {
+      return res.status(400).json({ message: 'clientId é obrigatório.' });
+    }
+
+    const order = await OrderModel.findById(id).populate({
+      path: 'cacambas',
+      select: '_id paymentStatus closureGroupId tipo',
+    });
+    if (!order) {
+      return res.status(404).json({ message: 'Pedido não encontrado.' });
+    }
+
+    if (String(order.clientId) === normalizedClientId) {
+      return res.status(400).json({ message: 'O pedido já está vinculado a este cliente.' });
+    }
+
+    const targetClient = await ClientModel.findById(normalizedClientId).lean();
+    if (!targetClient) {
+      return res.status(404).json({ message: 'Cliente de destino não encontrado.' });
+    }
+
+    const snapshot = buildOrderClientSnapshot(targetClient);
+    const orderCacambas = ((order.cacambas || []) as any[])
+      .filter(Boolean)
+      .map((cacamba) => ({
+        _id: String(cacamba._id),
+        paymentStatus: String(cacamba.paymentStatus || 'pendente'),
+        closureGroupId: cacamba.closureGroupId ? String(cacamba.closureGroupId) : '',
+        tipo: String(cacamba.tipo || ''),
+      }));
+
+    const groupedCacambas = orderCacambas.filter(
+      (cacamba) =>
+        cacamba.tipo === 'retirada' &&
+        cacamba.closureGroupId &&
+        (cacamba.paymentStatus === 'nota_fiscal_pendente' || cacamba.paymentStatus === 'paga'),
+    );
+
+    const groupedIds = new Set(groupedCacambas.map((cacamba) => cacamba._id));
+    const closureGroupIds = Array.from(new Set(groupedCacambas.map((cacamba) => cacamba.closureGroupId)));
+    const closureGroups = closureGroupIds.length
+      ? await ClosureGroupModel.find({ _id: { $in: closureGroupIds } })
+      : [];
+    const closureGroupMap = new Map(closureGroups.map((group) => [String(group._id), group]));
+
+    for (const cacamba of groupedCacambas) {
+      const group = closureGroupMap.get(cacamba.closureGroupId);
+      if (!group) {
+        return res.status(409).json({ message: 'Grupo de fechamento relacionado não foi encontrado.' });
+      }
+      const groupIds = new Set((group.cacambaIds || []).map((item) => String(item)));
+      if (!groupIds.has(cacamba._id)) {
+        return res.status(409).json({ message: 'Há caçambas vinculadas a um grupo de fechamento incompatível.' });
+      }
+    }
+
+    Object.assign(order, snapshot);
+    await order.save();
+
+    let migratedCacambas = 0;
+    let createdClosureGroups = 0;
+    let updatedClosureGroups = 0;
+    let deletedClosureGroups = 0;
+
+    for (const sourceGroupId of closureGroupIds) {
+      const sourceGroup = closureGroupMap.get(sourceGroupId);
+      if (!sourceGroup) continue;
+
+      const sourceIds = (sourceGroup.cacambaIds || []).map((item) => String(item));
+      const movingIds = sourceIds.filter((item) => groupedIds.has(item));
+      if (!movingIds.length) continue;
+
+      const nextSequence = await getNextClosureGroupSequence(normalizedClientId);
+      const newGroup = await ClosureGroupModel.create({
+        clientId: normalizedClientId,
+        clientSequenceNumber: nextSequence,
+        startDate: sourceGroup.startDate,
+        endDate: sourceGroup.endDate,
+        cacambaIds: movingIds.map((item) => new ObjectId(item)),
+        status: sourceGroup.status,
+        invoiceNumber: sourceGroup.invoiceNumber || '',
+        createdBy: sourceGroup.createdBy,
+      });
+      createdClosureGroups += 1;
+
+      await CacambaModel.updateMany(
+        { _id: { $in: movingIds } },
+        { $set: { closureGroupId: newGroup._id } },
+      );
+      migratedCacambas += movingIds.length;
+
+      const remainingIds = sourceIds.filter((item) => !groupedIds.has(item));
+      if (remainingIds.length === 0) {
+        await ClosureGroupModel.deleteOne({ _id: sourceGroup._id });
+        deletedClosureGroups += 1;
+      } else {
+        sourceGroup.cacambaIds = remainingIds.map((item) => new ObjectId(item)) as any;
+        await sourceGroup.save();
+        updatedClosureGroups += 1;
+      }
+    }
+
+    const updatedOrder = await OrderModel.findById(order._id)
+      .populate('motorista')
+      .populate('cacambas')
+      .lean();
+
+    io.emit('orders_updated');
+
+    return res.status(200).json({
+      order: updatedOrder,
+      migration: {
+        migratedCacambas,
+        createdClosureGroups,
+        updatedClosureGroups,
+        deletedClosureGroups,
+      },
+    });
+  } catch (error) {
+    console.error('Erro ao corrigir cliente do pedido:', error);
+    return res.status(500).json({ message: 'Erro ao corrigir cliente do pedido.' });
+  }
+});
+
 // PATCH /orders/:id
 app.patch('/orders/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
@@ -283,9 +459,10 @@ app.patch('/orders/:id', authenticateToken, isAdmin, async (req, res) => {
       return res.status(400).json({ message: 'type deve ser entrega ou retirada' });
     }
     const fields = [
-      'clientId','clientName','cnpjCpf','city','cep', // ADICIONADO
-      'contactName','contactNumber','neighborhood',
-      'address','addressNumber','type','status','motorista'
+      ...ORDER_CLIENT_SNAPSHOT_FIELDS,
+      'type',
+      'status',
+      'motorista',
     ];
     for (const f of fields) if (req.body[f] !== undefined) updates[f] = req.body[f];
     if (req.body.priority !== undefined) updates.priority = mapPriority(req.body.priority);
@@ -1334,13 +1511,7 @@ app.post('/closures/download', authenticateToken, isAdmin, async (req: Authentic
       return res.status(400).json({ message: 'Seleção contém caçambas inválidas, fora do período ou já agrupadas/pagas.' });
     }
 
-    const latestGroupForClient = (await ClosureGroupModel.findOne({
-      $or: buildClosureGroupClientMatch(clientId),
-    })
-      .sort({ clientSequenceNumber: -1 })
-      .select('clientSequenceNumber')
-      .lean()) as { clientSequenceNumber?: number } | null;
-    const nextClientSequenceNumber = (latestGroupForClient?.clientSequenceNumber || 0) + 1;
+    const nextClientSequenceNumber = await getNextClosureGroupSequence(clientId);
 
     const closureGroup = await ClosureGroupModel.create({
       clientSequenceNumber: nextClientSequenceNumber,

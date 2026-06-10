@@ -9,6 +9,7 @@ import ActionConfirmModal from '../components/ActionConfirmModal';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import LoadingScreen from '../components/LoadingScreen';
 import ImageModal from '../components/ImageModal';
+import ChangeOrderClientModal from '../components/ChangeOrderClientModal';
 import ClientPage from './ClientPage';
 import FechamentoPage from './FechamentoPage';
 import FaturamentoPage from './FaturamentoPage';
@@ -1192,6 +1193,7 @@ const AdminPage: React.FC = () => {
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [isDriverModalOpen, setIsDriverModalOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<IDriver | null>(null);
+  const [changingClientOrder, setChangingClientOrder] = useState<IOrder | null>(null);
   const [modalImage, setModalImage] = useState<string | null>(null);
   const [cacambaMetaModal, setCacambaMetaModal] = useState<{
     mode: 'contentType' | 'price';
@@ -1539,6 +1541,20 @@ const AdminPage: React.FC = () => {
     });
   };
 
+  const handleOrderClientChanged = async (payload: { order: IOrder; migration?: Record<string, number> }) => {
+    const migratedCacambas = Number(payload.migration?.migratedCacambas || 0);
+    const createdClosureGroups = Number(payload.migration?.createdClosureGroups || 0);
+    setFeedback({
+      tone: 'success',
+      message:
+        migratedCacambas > 0 || createdClosureGroups > 0
+          ? `Cliente corrigido com sucesso. ${migratedCacambas} caçamba(s) e ${createdClosureGroups} grupo(s) de fechamento foram transferidos.`
+          : 'Cliente corrigido com sucesso.',
+    });
+    setChangingClientOrder(null);
+    await fetchData();
+  };
+
   const handleDeleteAcompanhamentoCacamba = async (cacambaId: string, numero: string) => {
     openConfirm({
       title: 'Excluir caçamba do acompanhamento',
@@ -1768,6 +1784,9 @@ const AdminPage: React.FC = () => {
             )}
 
             <OrderActions>
+              <ActionButton type="button" onClick={() => setChangingClientOrder(order)}>
+                Corrigir Cliente
+              </ActionButton>
               <DeleteOrderButton onClick={() => handleDeleteOrder(order._id)}>Excluir</DeleteOrderButton>
               {order.status === 'concluido' && (
                 <DownloadOrderButton
@@ -2235,6 +2254,14 @@ const AdminPage: React.FC = () => {
             onClose={() => { setIsDriverModalOpen(false); setEditingDriver(null); }}
             onDriverCreated={fetchData}
             editingDriver={editingDriver}
+          />
+        )}
+        {changingClientOrder && (
+          <ChangeOrderClientModal
+            apiUrl={apiUrl}
+            order={changingClientOrder}
+            onClose={() => setChangingClientOrder(null)}
+            onChanged={handleOrderClientChanged}
           />
         )}
         {confirmState && (

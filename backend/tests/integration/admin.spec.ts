@@ -5,6 +5,7 @@ import { CityModel } from '../../src/models/City';
 import { OrderModel } from '../../src/models/Order';
 import { UserModel } from '../../src/models/User';
 import { CacambaModel } from '../../src/models/Cacamba';
+import { ClosureGroupModel } from '../../src/models/ClosureGroup';
 
 describe('Admin APIs', () => {
   let nextOrderNumber = 1000;
@@ -84,6 +85,294 @@ describe('Admin APIs', () => {
       .delete(`/orders/${create.body._id}`)
       .set('Authorization', `Bearer ${adminToken}`);
     expect(del404.status).toBe(404);
+  });
+
+  it('PATCH /orders/:id/change-client transfere pedido, fechamento e faturamento para o novo cliente', async () => {
+    const app = await loadApp();
+    const { admin } = await ensureUsers();
+    const adminToken = signToken(String(admin._id), 'admin');
+
+    const sourceClient = await ClientModel.create({
+      clientName: 'Cliente Origem',
+      cnpjCpf: '11.111.111/0001-11',
+      contactName: 'Contato Origem',
+      contactNumber: '1111',
+      neighborhood: 'Centro',
+      address: 'Rua A',
+      addressNumber: '10',
+      city: 'Jacarei',
+      cep: '12345-000',
+    });
+    const targetClient = await ClientModel.create({
+      clientName: 'Cliente Destino',
+      cnpjCpf: '22.222.222/0001-22',
+      contactName: 'Contato Destino',
+      contactNumber: '2222',
+      neighborhood: 'Bairro Novo',
+      address: 'Rua B',
+      addressNumber: '20',
+      city: 'Sao Jose dos Campos',
+      cep: '54321-000',
+    });
+
+    const orderToMove = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: sourceClient._id,
+      clientName: sourceClient.clientName,
+      cnpjCpf: sourceClient.cnpjCpf,
+      contactName: sourceClient.contactName,
+      contactNumber: sourceClient.contactNumber,
+      neighborhood: sourceClient.neighborhood,
+      address: sourceClient.address,
+      addressNumber: sourceClient.addressNumber,
+      city: sourceClient.city,
+      cep: sourceClient.cep,
+      type: 'retirada',
+      status: 'concluido',
+      updatedAt: new Date('2026-05-18T10:00:00.000Z'),
+      createdAt: new Date('2026-05-18T08:00:00.000Z'),
+    });
+    const otherSourceOrder = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: sourceClient._id,
+      clientName: sourceClient.clientName,
+      cnpjCpf: sourceClient.cnpjCpf,
+      contactName: sourceClient.contactName,
+      contactNumber: sourceClient.contactNumber,
+      neighborhood: sourceClient.neighborhood,
+      address: sourceClient.address,
+      addressNumber: sourceClient.addressNumber,
+      city: sourceClient.city,
+      cep: sourceClient.cep,
+      type: 'retirada',
+      status: 'concluido',
+      updatedAt: new Date('2026-05-18T10:30:00.000Z'),
+      createdAt: new Date('2026-05-18T08:30:00.000Z'),
+    });
+
+    const paidOwnGroup = await ClosureGroupModel.create({
+      clientId: sourceClient._id,
+      clientSequenceNumber: 1,
+      startDate: new Date('2026-05-15T00:00:00.000Z'),
+      endDate: new Date('2026-05-19T23:59:59.999Z'),
+      cacambaIds: [],
+      status: 'paga',
+      invoiceNumber: 'NF-ORIGEM-1',
+      createdBy: admin._id,
+    });
+    const mixedInvoicePendingGroup = await ClosureGroupModel.create({
+      clientId: sourceClient._id,
+      clientSequenceNumber: 2,
+      startDate: new Date('2026-05-15T00:00:00.000Z'),
+      endDate: new Date('2026-05-19T23:59:59.999Z'),
+      cacambaIds: [],
+      status: 'nota_fiscal_pendente',
+      invoiceNumber: 'NF-ORIGEM-2',
+      createdBy: admin._id,
+    });
+
+    const paidCacamba = await CacambaModel.create({
+      numero: '901',
+      tipo: 'retirada',
+      paymentStatus: 'paga',
+      closureGroupId: paidOwnGroup._id,
+      contentType: 'Entulho limpo',
+      price: 350,
+      imageUrl: '/files/507f1f77bcf86cd799439041',
+      orderId: orderToMove._id,
+      local: 'via_publica',
+      horaServicoDigitos: '901',
+    });
+    const splitCacamba = await CacambaModel.create({
+      numero: '902',
+      tipo: 'retirada',
+      paymentStatus: 'nota_fiscal_pendente',
+      closureGroupId: mixedInvoicePendingGroup._id,
+      contentType: 'Terra',
+      price: 180,
+      imageUrl: '/files/507f1f77bcf86cd799439042',
+      orderId: orderToMove._id,
+      local: 'via_publica',
+      horaServicoDigitos: '902',
+    });
+    const otherCacamba = await CacambaModel.create({
+      numero: '903',
+      tipo: 'retirada',
+      paymentStatus: 'nota_fiscal_pendente',
+      closureGroupId: mixedInvoicePendingGroup._id,
+      contentType: 'Terra',
+      price: 90,
+      imageUrl: '/files/507f1f77bcf86cd799439043',
+      orderId: otherSourceOrder._id,
+      local: 'via_publica',
+      horaServicoDigitos: '903',
+    });
+    const pendingCacamba = await CacambaModel.create({
+      numero: '904',
+      tipo: 'retirada',
+      paymentStatus: 'pendente',
+      contentType: 'Entulho limpo',
+      price: 120,
+      imageUrl: '/files/507f1f77bcf86cd799439044',
+      orderId: orderToMove._id,
+      local: 'via_publica',
+      horaServicoDigitos: '904',
+    });
+
+    await OrderModel.findByIdAndUpdate(orderToMove._id, {
+      $push: { cacambas: { $each: [paidCacamba._id, splitCacamba._id, pendingCacamba._id] } },
+    });
+    await OrderModel.findByIdAndUpdate(otherSourceOrder._id, {
+      $push: { cacambas: otherCacamba._id },
+    });
+    await ClosureGroupModel.findByIdAndUpdate(paidOwnGroup._id, {
+      $set: { cacambaIds: [paidCacamba._id] },
+    });
+    await ClosureGroupModel.findByIdAndUpdate(mixedInvoicePendingGroup._id, {
+      $set: { cacambaIds: [splitCacamba._id, otherCacamba._id] },
+    });
+
+    const changeClient = await request(app)
+      .patch(`/orders/${orderToMove._id}/change-client`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ clientId: String(targetClient._id) });
+
+    expect(changeClient.status).toBe(200);
+    expect(changeClient.body.order?.clientName).toBe('Cliente Destino');
+    expect(changeClient.body.order?.clientId).toBe(String(targetClient._id));
+    expect(changeClient.body.migration).toEqual({
+      migratedCacambas: 2,
+      createdClosureGroups: 2,
+      updatedClosureGroups: 1,
+      deletedClosureGroups: 1,
+    });
+
+    const movedOrder = await OrderModel.findById(orderToMove._id).lean();
+    expect(String(movedOrder?.clientId)).toBe(String(targetClient._id));
+    expect(movedOrder?.contactName).toBe(targetClient.contactName);
+    expect(movedOrder?.address).toBe(targetClient.address);
+
+    const movedPaid = await CacambaModel.findById(paidCacamba._id).lean();
+    const movedSplit = await CacambaModel.findById(splitCacamba._id).lean();
+    const untouchedPending = await CacambaModel.findById(pendingCacamba._id).lean();
+    const untouchedOther = await CacambaModel.findById(otherCacamba._id).lean();
+    expect(String(untouchedPending?.closureGroupId || '')).toBe('');
+    expect(String(movedPaid?.closureGroupId || '')).not.toBe(String(paidOwnGroup._id));
+    expect(String(movedSplit?.closureGroupId || '')).not.toBe(String(mixedInvoicePendingGroup._id));
+    expect(String(untouchedOther?.closureGroupId || '')).toBe(String(mixedInvoicePendingGroup._id));
+
+    const sourcePaidGroupAfter = await ClosureGroupModel.findById(paidOwnGroup._id).lean();
+    const sourceMixedGroupAfter = await ClosureGroupModel.findById(mixedInvoicePendingGroup._id).lean();
+    expect(sourcePaidGroupAfter).toBeNull();
+    expect(sourceMixedGroupAfter?.cacambaIds.map((id: any) => String(id))).toEqual([String(otherCacamba._id)]);
+
+    const targetGroups = await ClosureGroupModel.find({
+      $or: [{ clientId: targetClient._id }, { clientId: String(targetClient._id) }],
+    })
+      .sort({ clientSequenceNumber: 1 })
+      .lean();
+    expect(targetGroups).toHaveLength(2);
+    expect(targetGroups[0]?.clientSequenceNumber).toBe(1);
+    expect(targetGroups[0]?.invoiceNumber).toBe('NF-ORIGEM-1');
+    expect(targetGroups[0]?.status).toBe('paga');
+    expect(targetGroups[1]?.clientSequenceNumber).toBe(2);
+    expect(targetGroups[1]?.invoiceNumber).toBe('NF-ORIGEM-2');
+    expect(targetGroups[1]?.status).toBe('nota_fiscal_pendente');
+
+    const paidSummary = await request(app)
+      .get(`/billing/summary?startDate=2026-05-01&endDate=2026-05-31&granularity=monthly&clientId=${targetClient._id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(paidSummary.status).toBe(200);
+    expect(paidSummary.body.summary.totalRevenue).toBe(350);
+
+    const sourceClosurePaid = await request(app)
+      .get(`/clients/${sourceClient._id}/closure-groups?status=all`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(sourceClosurePaid.status).toBe(200);
+    expect(sourceClosurePaid.body).toHaveLength(1);
+
+    const targetClosureGroups = await request(app)
+      .get(`/clients/${targetClient._id}/closure-groups?status=all`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(targetClosureGroups.status).toBe(200);
+    expect(targetClosureGroups.body).toHaveLength(2);
+  });
+
+  it('PATCH /orders/:id/change-client move pedido sem fechamento agrupado para o novo cliente', async () => {
+    const app = await loadApp();
+    const { admin } = await ensureUsers();
+    const adminToken = signToken(String(admin._id), 'admin');
+
+    const sourceClient = await ClientModel.create({
+      clientName: 'Cliente Base',
+      contactName: 'Contato Base',
+      contactNumber: '1000',
+      neighborhood: 'Centro',
+      address: 'Rua 1',
+      addressNumber: '10',
+    });
+    const targetClient = await ClientModel.create({
+      clientName: 'Cliente Novo',
+      contactName: 'Contato Novo',
+      contactNumber: '2000',
+      neighborhood: 'Jardim',
+      address: 'Rua 2',
+      addressNumber: '20',
+      city: 'Caçapava',
+      cep: '12222-000',
+    });
+
+    const order = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: sourceClient._id,
+      clientName: sourceClient.clientName,
+      contactName: sourceClient.contactName,
+      contactNumber: sourceClient.contactNumber,
+      neighborhood: sourceClient.neighborhood,
+      address: sourceClient.address,
+      addressNumber: sourceClient.addressNumber,
+      type: 'retirada',
+      status: 'concluido',
+      updatedAt: new Date('2026-05-18T11:00:00.000Z'),
+      createdAt: new Date('2026-05-18T08:00:00.000Z'),
+    });
+
+    const pendingCacamba = await CacambaModel.create({
+      numero: '950',
+      tipo: 'retirada',
+      paymentStatus: 'pendente',
+      contentType: 'Entulho limpo',
+      price: 210,
+      imageUrl: '/files/507f1f77bcf86cd799439045',
+      orderId: order._id,
+      local: 'via_publica',
+      horaServicoDigitos: '950',
+    });
+    await OrderModel.findByIdAndUpdate(order._id, { $push: { cacambas: pendingCacamba._id } });
+
+    const response = await request(app)
+      .patch(`/orders/${order._id}/change-client`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ clientId: String(targetClient._id) });
+
+    expect(response.status).toBe(200);
+    expect(response.body.migration).toEqual({
+      migratedCacambas: 0,
+      createdClosureGroups: 0,
+      updatedClosureGroups: 0,
+      deletedClosureGroups: 0,
+    });
+
+    const updatedOrder = await OrderModel.findById(order._id).lean();
+    expect(updatedOrder?.clientName).toBe('Cliente Novo');
+    expect(updatedOrder?.city).toBe('Caçapava');
+
+    const closureClients = await request(app)
+      .get('/clients?closure=true&startDate=2026-05-01&endDate=2026-05-31&paymentStatus=pending')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(closureClients.status).toBe(200);
+    expect(closureClients.body.some((client: any) => String(client._id) === String(targetClient._id))).toBe(true);
+    expect(closureClients.body.some((client: any) => String(client._id) === String(sourceClient._id))).toBe(false);
   });
 
   it('Clientes: filtros, ordenação por período, patch e delete com bloqueio', async () => {

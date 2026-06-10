@@ -250,6 +250,7 @@ const initialOrders: Order[] = [
         createdAt: nowIso,
         horaServicoDigitos: '778',
         paymentStatus: 'paga',
+        closureGroupId: 'grp-existing-1',
         price: 280,
       },
     ],
@@ -346,6 +347,12 @@ const buildBuckets = (start: Date, end: Date, granularity: string): BillingBucke
 };
 
 const roundCurrency = (value: number) => Number(value.toFixed(2));
+const getNextClosureGroupSequence = (closureGroups: ClosureGroup[], clientId: string) =>
+  closureGroups.reduce((max, group) => {
+    if (group.clientId !== clientId) return max;
+    const value = Number(group.clientSequenceNumber || 0);
+    return value > max ? value : max;
+  }, 0) + 1;
 
 export const seedSession = async (page: Page, role: Role) => {
   const token = createJwt(role);
@@ -453,6 +460,108 @@ export const setupMockApi = async (page: Page) => {
       }
       orders[idx] = next;
       return json(route, next);
+    }
+    if (/^\/orders\/[^/]+\/change-client$/.test(pathname) && method === 'PATCH') {
+      const orderId = pathname.split('/')[2];
+      const body = req.postDataJSON() as { clientId?: string };
+      const targetClientId = String(body.clientId || '').trim();
+      const orderIndex = orders.findIndex((order) => order._id === orderId);
+      if (orderIndex === -1) return json(route, { message: 'Pedido não encontrado.' }, 404);
+      const targetClient = clients.find((client) => client._id === targetClientId);
+      if (!targetClient) return json(route, { message: 'Cliente de destino não encontrado.' }, 404);
+
+      const order = orders[orderIndex];
+      const groupedCacambas = order.cacambas.filter(
+        (cacamba) =>
+          cacamba.tipo === 'retirada' &&
+          Boolean(cacamba.closureGroupId) &&
+          (cacamba.paymentStatus === 'nota_fiscal_pendente' || cacamba.paymentStatus === 'paga'),
+      );
+
+      let migratedCacambas = 0;
+      let createdClosureGroups = 0;
+      let updatedClosureGroups = 0;
+      let deletedClosureGroups = 0;
+
+      for (const groupId of Array.from(new Set(groupedCacambas.map((cacamba) => String(cacamba.closureGroupId))))) {
+        const groupIndex = closureGroups.findIndex((group) => group._id === groupId);
+        if (groupIndex === -1) {
+          return json(route, { message: 'Grupo de fechamento relacionado não foi encontrado.' }, 409);
+        }
+        const group = closureGroups[groupIndex];
+        const movingIds = group.cacambaIds
+          .map((cacamba) => cacamba._id)
+          .filter((cacambaId) => groupedCacambas.some((cacamba) => cacamba._id === cacambaId));
+        if (!movingIds.length) continue;
+
+        const newGroupId = `grp-${closureGroups.length + 1}`;
+        const nextSequence = getNextClosureGroupSequence(closureGroups, targetClientId);
+        const movedGroupCacambas = group.cacambaIds
+          .filter((cacamba) => movingIds.includes(cacamba._id))
+          .map((cacamba) => ({ ...cacamba, closureGroupId: newGroupId }));
+
+        closureGroups.unshift({
+          _id: newGroupId,
+          clientId: targetClientId,
+          clientSequenceNumber: nextSequence,
+          startDate: group.startDate,
+          endDate: group.endDate,
+          status: group.status,
+          invoiceNumber: group.invoiceNumber,
+          cacambaIds: movedGroupCacambas,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        });
+        createdClosureGroups += 1;
+        migratedCacambas += movingIds.length;
+
+        orders.forEach((existingOrder) => {
+          existingOrder.cacambas = existingOrder.cacambas.map((cacamba) =>
+            movingIds.includes(cacamba._id) ? { ...cacamba, closureGroupId: newGroupId } : cacamba,
+          );
+        });
+
+        const remainingCacambas = group.cacambaIds.filter((cacamba) => !movingIds.includes(cacamba._id));
+        const sourceGroupIndexAfterCreate = closureGroups.findIndex((item) => item._id === groupId);
+        if (!remainingCacambas.length) {
+          if (sourceGroupIndexAfterCreate >= 0) {
+            closureGroups.splice(sourceGroupIndexAfterCreate, 1);
+          }
+          deletedClosureGroups += 1;
+        } else if (sourceGroupIndexAfterCreate >= 0) {
+          closureGroups[sourceGroupIndexAfterCreate] = {
+            ...group,
+            cacambaIds: remainingCacambas,
+            updatedAt: nowIso,
+          };
+          updatedClosureGroups += 1;
+        }
+      }
+
+      const updatedOrder: Order = {
+        ...order,
+        clientId: targetClient._id,
+        clientName: targetClient.clientName,
+        cnpjCpf: targetClient.cnpjCpf || '',
+        city: targetClient.city || '',
+        cep: targetClient.cep || '',
+        contactName: targetClient.contactName || '',
+        contactNumber: targetClient.contactNumber || '',
+        neighborhood: targetClient.neighborhood || '',
+        address: targetClient.address || '',
+        addressNumber: targetClient.addressNumber || '',
+      };
+      orders[orderIndex] = updatedOrder;
+
+      return json(route, {
+        order: updatedOrder,
+        migration: {
+          migratedCacambas,
+          createdClosureGroups,
+          updatedClosureGroups,
+          deletedClosureGroups,
+        },
+      });
     }
     if (/^\/orders\/[^/]+$/.test(pathname) && method === 'DELETE') {
       const id = pathname.split('/')[2];
