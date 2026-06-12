@@ -109,4 +109,107 @@ describe('FechamentoPage', () => {
       ),
     );
   });
+  it('envia metadata_pending no filtro de pagamento e exibe a nova opção', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/clients?')) {
+        return buildJsonResponse([]);
+      }
+      return buildJsonResponse([]);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<FechamentoPage />);
+
+    expect(screen.getByRole('option', { name: 'Informações pendentes' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Pagamento'), {
+      target: { value: 'metadata_pending' },
+    });
+
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(([input]) =>
+          String(input).includes('paymentStatus=metadata_pending'),
+        ),
+      ).toBe(true),
+    );
+  });
+  it('troca o CTA principal no filtro de informações pendentes', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/clients?')) {
+        return buildJsonResponse([
+          {
+            _id: 'cli-1',
+            clientName: 'Cliente Pendencia',
+            hasPendingClosureItems: true,
+            hasPendingClosureMetadata: true,
+            hasGeneratedClosureGroups: false,
+          },
+        ]);
+      }
+      return buildJsonResponse([]);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<FechamentoPage />);
+
+    fireEvent.change(screen.getByLabelText('Pagamento'), {
+      target: { value: 'metadata_pending' },
+    });
+
+    expect(await screen.findByText('Cliente Pendencia')).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Ver caçambas com informações pendentes' }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('client-orders-modal-mock')).toHaveTextContent(
+        'Cliente Pendencia::create_closure',
+      ),
+    );
+    expect(screen.queryByRole('button', { name: 'Gerar fechamento do cliente' })).not.toBeInTheDocument();
+  });
+  it('mantém o modal aberto sem loading bloqueante durante refetch da página', async () => {
+    let clientsRequestCount = 0;
+    const stalledResponse = new Promise<Response>(() => undefined);
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/clients?')) {
+        clientsRequestCount += 1;
+        if (clientsRequestCount === 1) {
+          return buildJsonResponse([
+            {
+              _id: 'cli-1',
+              clientName: 'Cliente Pendencia',
+              hasPendingClosureItems: true,
+              hasPendingClosureMetadata: true,
+              hasGeneratedClosureGroups: false,
+            },
+          ]);
+        }
+        return stalledResponse;
+      }
+      return buildJsonResponse([]);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<FechamentoPage />);
+
+    expect(await screen.findByText('Cliente Pendencia')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Gerar fechamento do cliente' }));
+    await waitFor(() =>
+      expect(screen.getByTestId('client-orders-modal-mock')).toHaveTextContent(
+        'Cliente Pendencia::create_closure',
+      ),
+    );
+
+    fireEvent.change(screen.getByLabelText('Pagamento'), {
+      target: { value: 'metadata_pending' },
+    });
+
+    await waitFor(() => expect(clientsRequestCount).toBeGreaterThan(1));
+    expect(screen.queryByText('Carregando clientes para fechamento...')).not.toBeInTheDocument();
+    expect(screen.getByTestId('client-orders-modal-mock')).toBeInTheDocument();
+  });
 });

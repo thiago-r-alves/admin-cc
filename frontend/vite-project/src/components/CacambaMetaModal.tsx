@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 import { CACAMBA_CONTENT_TYPES, type CacambaContentType, type ICacamba } from '../interfaces';
 
@@ -129,9 +129,11 @@ const CacambaMetaModal: React.FC<CacambaMetaModalProps> = ({ mode, cacamba, onCl
   );
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const shouldCloseOnMouseUpRef = useRef(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setError('');
 
     if (mode === 'contentType') {
@@ -166,9 +168,25 @@ const CacambaMetaModal: React.FC<CacambaMetaModalProps> = ({ mode, cacamba, onCl
     }
   };
 
+  const handleOverlayMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+    shouldCloseOnMouseUpRef.current = event.target === event.currentTarget;
+  };
+
+  const handleOverlayMouseUp = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (shouldCloseOnMouseUpRef.current && event.target === event.currentTarget) {
+      onClose();
+    }
+    shouldCloseOnMouseUpRef.current = false;
+  };
+
   return (
-    <Overlay onClick={onClose}>
-      <Modal onClick={(e) => e.stopPropagation()}>
+    <Overlay onMouseDown={handleOverlayMouseDown} onMouseUp={handleOverlayMouseUp}>
+      <Modal
+        onMouseDown={() => {
+          shouldCloseOnMouseUpRef.current = false;
+        }}
+        onMouseUp={(e) => e.stopPropagation()}
+      >
         <Header>
           <Title>
             {mode === 'contentType' ? 'Editar tipo de conteúdo' : (cacamba.price ? 'Editar valor da caçamba' : 'Adicionar valor da caçamba')}
@@ -178,7 +196,7 @@ const CacambaMetaModal: React.FC<CacambaMetaModalProps> = ({ mode, cacamba, onCl
           </CloseButton>
         </Header>
 
-        <Form onSubmit={handleSubmit}>
+        <Form onSubmit={handleSubmit} onClick={(event) => event.stopPropagation()}>
           <Body>
             {mode === 'contentType' ? (
               <>
@@ -214,7 +232,12 @@ const CacambaMetaModal: React.FC<CacambaMetaModalProps> = ({ mode, cacamba, onCl
 
           <Footer>
             <Button type="button" onClick={onClose} disabled={saving}>Cancelar</Button>
-            <Button type="submit" $primary disabled={saving}>
+            <Button
+              type="submit"
+              $primary
+              disabled={saving}
+              onClick={(event) => event.stopPropagation()}
+            >
               {saving ? 'Salvando...' : 'Salvar'}
             </Button>
           </Footer>

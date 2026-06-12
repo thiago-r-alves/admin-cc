@@ -310,6 +310,196 @@ test.describe('Admin', () => {
     await expect(page.getByText('Nenhum pedido encontrado para os filtros selecionados.')).toHaveCount(0);
   });
 
+  test('fechamento: salvar valor pendente no filtro de informações pendentes mantém modal aberto e não reseta a tela', async ({ page, isMobile }) => {
+    let clientsFetchCount = 0;
+    let patchCount = 0;
+    let closureOrdersFetchUrl = '';
+
+    await page.route('**/clients?**closure=true**', async (route) => {
+      clientsFetchCount += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            _id: 'cli-katu',
+            clientName: 'Katu Participacoes Ltda OBRA 1',
+            cnpjCpf: '',
+            contactName: 'Contato',
+            contactNumber: '(12) 99999-9999',
+            address: 'Rua A',
+            addressNumber: '100',
+            neighborhood: 'Centro',
+            city: 'Jacarei',
+            cep: '12345-000',
+            hasPendingClosureItems: true,
+            hasGeneratedClosureGroups: false,
+            hasPendingClosureMetadata: true,
+            pendingClosureCount: 1,
+            generatedClosureGroupsCount: 0,
+            pendingClosureMetadataCount: 1,
+          },
+        ]),
+      });
+    });
+
+    await page.route('**/clients/cli-katu/orders?**closure=true**', async (route) => {
+      closureOrdersFetchUrl = route.request().url();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            _id: 'ord-katu-1',
+            orderNumber: 4001,
+            clientId: 'cli-katu',
+            clientName: 'Katu Participacoes Ltda OBRA 1',
+            cnpjCpf: '',
+            city: 'Jacarei',
+            cep: '12345-000',
+            contactName: 'Contato',
+            contactNumber: '(12) 99999-9999',
+            neighborhood: 'Centro',
+            address: 'Rua A',
+            addressNumber: '100',
+            placa: 'ABC1D23',
+            type: 'retirada',
+            priority: 0,
+            status: 'concluido',
+            motorista: { _id: 'drv-1', username: 'adalberto' },
+            cacambas: [
+              {
+                _id: 'cac-1',
+                numero: '101',
+                tipo: 'retirada',
+                paymentStatus: 'pendente',
+                contentType: 'Entulho limpo',
+                orderId: 'ord-katu-1',
+                createdAt: '2026-05-16T12:00:00.000Z',
+              },
+            ],
+            imageUrls: [],
+            createdAt: '2026-05-16T08:00:00.000Z',
+            updatedAt: '2026-05-16T12:00:00.000Z',
+          },
+        ]),
+      });
+    });
+
+    await page.route('**/cacambas/cac-1', async (route) => {
+      patchCount += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          cacamba: {
+            _id: 'cac-1',
+            numero: '101',
+            tipo: 'retirada',
+            paymentStatus: 'pendente',
+            contentType: 'Entulho limpo',
+            price: 180,
+            orderId: 'ord-katu-1',
+            createdAt: '2026-05-16T12:00:00.000Z',
+          },
+        }),
+      });
+    });
+
+    await openMenuIfMobile(page, isMobile);
+    await page.getByRole('button', { name: 'Fechamento' }).click();
+    await page.locator('#closure-start-date').fill('2026-05-15');
+    await page.locator('#closure-end-date').fill('2026-05-31');
+    await page.locator('#closure-payment-status').selectOption('metadata_pending');
+    await page.getByRole('button', { name: /Ver caçambas com informações pendentes/i }).first().click();
+
+    await expect(page.getByText('Pedido #4001')).toBeVisible();
+    const fetchesBeforeEdit = clientsFetchCount;
+    expect(closureOrdersFetchUrl).toContain('paymentStatus=metadata_pending');
+
+    await page.getByRole('button', { name: 'Adicionar valor' }).click();
+    await page.locator('#cacamba-price').fill('180');
+    await page.getByRole('button', { name: 'Salvar' }).click();
+
+    await expect.poll(() => patchCount).toBe(1);
+    await expect(page.getByTestId('client-orders-modal')).toBeVisible();
+    await expect(page.getByText('Nenhuma caçamba com informações pendentes encontrada para este cliente.')).toBeVisible();
+    await expect(page.getByText('Pedido #4001')).toHaveCount(0);
+    expect(clientsFetchCount).toBe(fetchesBeforeEdit);
+  });
+
+  test('fechamento: filtro informações pendentes busca somente clientes com metadados pendentes', async ({ page, isMobile }) => {
+    await page.route('**/clients?**closure=true**', async (route) => {
+      const url = new URL(route.request().url());
+      const currentPaymentStatus = url.searchParams.get('paymentStatus') || 'all';
+      const body =
+        currentPaymentStatus === 'metadata_pending'
+          ? [
+              {
+                _id: 'cli-pendente',
+                clientName: 'Cliente Com Pendencia',
+                cnpjCpf: '',
+                hasPendingClosureItems: true,
+                hasGeneratedClosureGroups: false,
+                hasPendingClosureMetadata: true,
+                pendingClosureCount: 1,
+                generatedClosureGroupsCount: 0,
+                pendingClosureMetadataCount: 1,
+              },
+            ]
+          : [
+              {
+                _id: 'cli-pendente',
+                clientName: 'Cliente Com Pendencia',
+                cnpjCpf: '',
+                hasPendingClosureItems: true,
+                hasGeneratedClosureGroups: false,
+                hasPendingClosureMetadata: true,
+                pendingClosureCount: 1,
+                generatedClosureGroupsCount: 0,
+                pendingClosureMetadataCount: 1,
+              },
+              {
+                _id: 'cli-ok',
+                clientName: 'Cliente Sem Pendencia',
+                cnpjCpf: '',
+                hasPendingClosureItems: true,
+                hasGeneratedClosureGroups: false,
+                hasPendingClosureMetadata: false,
+                pendingClosureCount: 1,
+                generatedClosureGroupsCount: 0,
+                pendingClosureMetadataCount: 0,
+              },
+            ];
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(body),
+      });
+    });
+
+    await openMenuIfMobile(page, isMobile);
+    await page.getByRole('button', { name: 'Fechamento' }).click();
+    await page.locator('#closure-payment-status').selectOption('metadata_pending');
+
+    await expect(page.getByText('Cliente Com Pendencia')).toBeVisible();
+    await expect(page.getByText('Cliente Sem Pendencia')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Ver caçambas com informações pendentes' }),
+    ).toBeVisible();
+
+    await page.getByRole('button', { name: 'Ver caçambas com informações pendentes' }).click();
+    await expect(page.getByTestId('client-orders-modal')).toBeVisible();
+    await expect(page.getByTestId('client-orders-modal').getByTestId('closure-stepper')).toHaveCount(0);
+    await expect(
+      page.getByTestId('client-orders-modal').getByText(/Total do cliente \(Retiradas\)/i),
+    ).toHaveCount(0);
+    await expect(
+      page.getByTestId('client-orders-modal').getByRole('button', { name: 'Gerar fechamento' }),
+    ).toHaveCount(0);
+  });
+
   test('logout limpa sessao e volta para login', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
     await page.getByRole('button', { name: 'Sair' }).click();

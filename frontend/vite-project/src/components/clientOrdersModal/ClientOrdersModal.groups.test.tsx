@@ -259,4 +259,21 @@ describe('ClientOrdersModal (closure flow)', () => {
     expect(screen.getByTestId('closure-groups-list')).toBeInTheDocument();
     expect(screen.queryByTestId('client-orders-download')).not.toBeInTheDocument();
   });
+
+  it('oculta stepper e resumo no modo de informações pendentes', () => {
+    render(
+      <ClientOrdersModal
+        client={{ _id: 'client-1', clientName: 'Cliente Teste' }}
+        onClose={vi.fn()}
+        closureMode
+        paymentStatus="metadata_pending"
+      />,
+    );
+
+    expect(screen.queryByTestId('closure-stepper')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Total do cliente \(Retiradas\):/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Quantidade total de pedidos:/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId('client-orders-download')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Gerar fechamento' })).not.toBeInTheDocument();
+  });
 });

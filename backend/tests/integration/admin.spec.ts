@@ -773,8 +773,23 @@ describe('Admin APIs', () => {
     const stringClient = list.body.find((c: any) => c.clientName === 'Retirada String');
     expect(objectClient?.hasPendingClosureItems).toBe(true);
     expect(objectClient?.hasGeneratedClosureGroups).toBe(false);
+    expect(objectClient?.hasPendingClosureMetadata).toBe(true);
+    expect(objectClient?.pendingClosureMetadataCount).toBe(1);
     expect(stringClient?.hasPendingClosureItems).toBe(true);
     expect(stringClient?.hasGeneratedClosureGroups).toBe(false);
+    expect(stringClient?.hasPendingClosureMetadata).toBe(true);
+    expect(stringClient?.pendingClosureMetadataCount).toBe(1);
+
+    const metadataPendingList = await request(app)
+      .get('/clients?closure=true&startDate=2026-05-15&endDate=2026-05-19&paymentStatus=metadata_pending')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(metadataPendingList.status).toBe(200);
+    const metadataPendingNames = metadataPendingList.body.map((c: any) => c.clientName);
+    expect(metadataPendingNames).toContain('Retirada ObjectId');
+    expect(metadataPendingNames).toContain('Retirada String');
+    expect(metadataPendingNames).not.toContain('Somente Entrega');
+    expect(metadataPendingNames).not.toContain('Retirada Fora');
 
     const modalObjectId = await request(app)
       .get(`/clients/${hasRetiradaObjectId._id}/orders?closure=true&startDate=2026-05-15&endDate=2026-05-19`)
@@ -789,6 +804,16 @@ describe('Admin APIs', () => {
     expect(modalString.status).toBe(200);
     expect(modalString.body.length).toBeGreaterThan(0);
     expect(modalString.body.every((o: any) => o.type === 'retirada' && o.status === 'concluido')).toBe(true);
+
+    const metadataPendingModal = await request(app)
+      .get(
+        `/clients/${hasRetiradaObjectId._id}/orders?closure=true&startDate=2026-05-15&endDate=2026-05-19&paymentStatus=metadata_pending`,
+      )
+      .set('Authorization', `Bearer ${token}`);
+    expect(metadataPendingModal.status).toBe(200);
+    expect(metadataPendingModal.body).toHaveLength(1);
+    expect(metadataPendingModal.body[0]?.cacambas).toHaveLength(1);
+    expect(metadataPendingModal.body[0]?.cacambas[0]?.numero).toBe('701');
 
     const modalEntregaOnly = await request(app)
       .get(`/clients/${onlyEntrega._id}/orders?closure=true&startDate=2026-05-15&endDate=2026-05-19`)

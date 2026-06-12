@@ -14,8 +14,12 @@ export interface IClient {
   createdAt?: string; // Adicionar este campo
   hasPendingClosureItems?: boolean;
   hasGeneratedClosureGroups?: boolean;
+  hasPendingClosureMetadata?: boolean;
   pendingClosureCount?: number;
   generatedClosureGroupsCount?: number;
+  pendingClosureMetadataCount?: number;
+  pendingClosureMissingPriceCount?: number;
+  pendingClosureMissingContentTypeCount?: number;
 }
 
 export interface ICity {

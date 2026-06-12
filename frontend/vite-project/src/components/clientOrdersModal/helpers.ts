@@ -6,6 +6,11 @@ export const hasValidPrice = (cacamba: ICacamba) =>
 export const hasValidContentType = (cacamba: ICacamba) =>
   typeof cacamba.contentType === 'string' && cacamba.contentType.trim().length > 0;
 
+export const hasPendingClosureMetadata = (cacamba: ICacamba) =>
+  cacamba.tipo === 'retirada' &&
+  cacamba.paymentStatus !== 'paga' &&
+  (!hasValidPrice(cacamba) || !hasValidContentType(cacamba));
+
 export const isEligibleForClosureSelection = (cacamba: ICacamba) =>
   cacamba.tipo === 'retirada' &&
   cacamba.paymentStatus !== 'paga' &&

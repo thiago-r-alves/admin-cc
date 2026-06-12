@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 import type { IClient } from '../interfaces';
 import ClientOrdersModal from '../components/ClientOrdersModal';
@@ -239,21 +239,42 @@ const norm = (s: unknown) =>
 
 const isIsoDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
 
+type ClosurePaymentStatus = 'all' | 'pending' | 'invoice_pending' | 'paid' | 'metadata_pending';
+
+const getClosureActionLabel = (paymentStatus: ClosurePaymentStatus) =>
+  paymentStatus === 'metadata_pending'
+    ? 'Ver caçambas com informações pendentes'
+    : 'Gerar fechamento do cliente';
+
 const FechamentoPage: React.FC = () => {
   const [clients, setClients] = useState<IClient[]>([]);
   const [search, setSearch] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [paymentStatus, setPaymentStatus] = useState<'all' | 'pending' | 'invoice_pending' | 'paid'>('all');
+  const [paymentStatus, setPaymentStatus] = useState<ClosurePaymentStatus>('all');
   const [loading, setLoading] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<IClient | null>(null);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [selectedClientSnapshot, setSelectedClientSnapshot] = useState<IClient | null>(null);
   const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(false);
   const [modalViewMode, setModalViewMode] = useState<ClientOrdersModalProps['viewMode']>('create_closure');
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const isOrdersModalOpenRef = useRef(false);
+  const selectedClientIdRef = useRef<string | null>(null);
 
-  const fetchClosureClients = async () => {
+  useEffect(() => {
+    isOrdersModalOpenRef.current = isOrdersModalOpen;
+  }, [isOrdersModalOpen]);
+
+  useEffect(() => {
+    selectedClientIdRef.current = selectedClientId;
+  }, [selectedClientId]);
+
+  const fetchClosureClients = useCallback(async () => {
+    const keepModalContext = isOrdersModalOpenRef.current;
     try {
-      setLoading(true);
+      if (!keepModalContext) {
+        setLoading(true);
+      }
       const query = new URLSearchParams();
       query.append('closure', 'true');
       if (isIsoDate(startDate) && isIsoDate(endDate)) {
@@ -267,20 +288,35 @@ const FechamentoPage: React.FC = () => {
       const data = await response.json();
       if (!response.ok) {
         setFeedback({ tone: 'error', message: data.message || 'Erro ao buscar fechamentos.' });
-        setClients([]);
+        if (!keepModalContext) {
+          setClients([]);
+        }
         return;
       }
 
       const fetchedClients = Array.isArray(data) ? (data as IClient[]) : [];
       setClients(fetchedClients);
+      setSelectedClientSnapshot((current) => {
+        const nextSelectedClientId = selectedClientIdRef.current;
+        if (!nextSelectedClientId) return current;
+        return fetchedClients.find((client) => client._id === nextSelectedClientId) || current;
+      });
     } catch (error) {
       console.error(error);
       setFeedback({ tone: 'error', message: 'Erro ao buscar fechamentos.' });
-      setClients([]);
+      if (!keepModalContext) {
+        setClients([]);
+      }
     } finally {
-      setLoading(false);
+      if (!keepModalContext) {
+        setLoading(false);
+      }
     }
-  };
+  }, [startDate, endDate, paymentStatus]);
+
+  const handleClosureStateChanged = useCallback(async () => {
+    await fetchClosureClients();
+  }, [fetchClosureClients]);
 
   const filteredClients = useMemo(() => {
     if (!search.trim()) return clients;
@@ -305,17 +341,32 @@ const FechamentoPage: React.FC = () => {
     client: IClient,
     viewMode: ClientOrdersModalProps['viewMode'] = 'create_closure',
   ) => {
-    setSelectedClient(client);
+    setSelectedClientId(client._id);
+    setSelectedClientSnapshot(client);
     setModalViewMode(viewMode);
     setIsOrdersModalOpen(true);
   };
+
+  const closeOrdersModal = () => {
+    setIsOrdersModalOpen(false);
+    setSelectedClientId(null);
+    setSelectedClientSnapshot(null);
+    setModalViewMode('create_closure');
+  };
+
+  const modalClient = useMemo(() => {
+    if (!selectedClientId) return null;
+    return clients.find((client) => client._id === selectedClientId) || selectedClientSnapshot;
+  }, [clients, selectedClientId, selectedClientSnapshot]);
+
+  const showBlockingLoading = loading && !isOrdersModalOpen;
 
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchClosureClients();
     }, 400);
     return () => clearTimeout(timer);
-  }, [startDate, endDate, paymentStatus, search]);
+  }, [fetchClosureClients, search]);
 
   return (
     <Container>
@@ -356,10 +407,11 @@ const FechamentoPage: React.FC = () => {
           <Select
             id="closure-payment-status"
             value={paymentStatus}
-            onChange={(e) => setPaymentStatus(e.target.value as 'all' | 'pending' | 'invoice_pending' | 'paid')}
+            onChange={(e) => setPaymentStatus(e.target.value as ClosurePaymentStatus)}
           >
             <option value="all">Todas</option>
             <option value="pending">Pendentes</option>
+            <option value="metadata_pending">Informações pendentes</option>
             <option value="invoice_pending">NF pendente</option>
             <option value="paid">Pagas</option>
           </Select>
@@ -382,7 +434,7 @@ const FechamentoPage: React.FC = () => {
         </SearchWrap>
       </Toolbar>
 
-      {loading ? (
+      {showBlockingLoading ? (
         <EmptyState>Carregando clientes para fechamento...</EmptyState>
       ) : filteredClients.length ? (
         <ClientsWrap>
@@ -392,12 +444,14 @@ const FechamentoPage: React.FC = () => {
                 <ClientName>{client.clientName}</ClientName>
               </ClientInfo>
               <ActionButtons>
-                {client.hasPendingClosureItems && (
+                {(paymentStatus === 'metadata_pending'
+                  ? client.hasPendingClosureMetadata
+                  : client.hasPendingClosureItems) && (
                   <ClientActionButton
                     type="button"
                     onClick={() => openOrdersModal(client, 'create_closure')}
                   >
-                    Gerar fechamento do cliente
+                    {getClosureActionLabel(paymentStatus)}
                   </ClientActionButton>
                 )}
                 {client.hasGeneratedClosureGroups && (
@@ -418,17 +472,17 @@ const FechamentoPage: React.FC = () => {
         </EmptyState>
       )}
 
-      {isOrdersModalOpen && selectedClient && (
+      {isOrdersModalOpen && modalClient && (
         <ClientOrdersModal
-          client={selectedClient}
+          client={modalClient}
           startDate={startDate}
           endDate={endDate}
           type="retirada"
           viewMode={modalViewMode}
           paymentStatus={paymentStatus}
           closureMode
-          onPaymentCompleted={fetchClosureClients}
-          onClose={() => setIsOrdersModalOpen(false)}
+          onClosureStateChanged={handleClosureStateChanged}
+          onClose={closeOrdersModal}
         />
       )}
     </Container>

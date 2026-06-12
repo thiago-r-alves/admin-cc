@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ICacamba, IClosureGroup, IOrder } from '../../interfaces';
 import { downloadClientOrdersPdf } from '../../utils/clientOrdersPdf';
-import { buildSelectedOrders, getOrderTotal } from './helpers';
+import {
+  buildSelectedOrders,
+  getOrderTotal,
+  hasPendingClosureMetadata,
+} from './helpers';
 import type { CacambaMetaState, CacambaMetaUpdates, ClientOrdersModalProps } from './types';
 
 interface UseClientOrdersModalArgs
@@ -14,7 +18,7 @@ interface UseClientOrdersModalArgs
     | 'closureMode'
     | 'viewMode'
     | 'paymentStatus'
-    | 'onPaymentCompleted'
+    | 'onClosureStateChanged'
   > {}
 
 const apiUrl = import.meta.env.VITE_API_URL;
@@ -27,7 +31,7 @@ export const useClientOrdersModal = ({
   closureMode = false,
   viewMode = 'create_closure',
   paymentStatus = 'all',
-  onPaymentCompleted,
+  onClosureStateChanged,
 }: UseClientOrdersModalArgs) => {
   const [eligibleOrders, setEligibleOrders] = useState<IOrder[]>([]);
   const [existingClosureGroups, setExistingClosureGroups] = useState<IClosureGroup[]>([]);
@@ -40,6 +44,15 @@ export const useClientOrdersModal = ({
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [cacambaMetaModal, setCacambaMetaModal] = useState<CacambaMetaState | null>(null);
+  const isMetadataPendingMode = closureMode && paymentStatus === 'metadata_pending';
+
+  const filterOrdersForMetadataPending = (orders: IOrder[]) =>
+    orders
+      .map((order) => ({
+        ...order,
+        cacambas: (order.cacambas || []).filter((cacamba) => hasPendingClosureMetadata(cacamba)),
+      }))
+      .filter((order) => (order.cacambas?.length || 0) > 0);
 
   const fetchEligibleOrders = async () => {
     if (viewMode === 'generated_notes') {
@@ -56,7 +69,7 @@ export const useClientOrdersModal = ({
     if (type) query.append('type', type);
     if (closureMode) {
       query.append('closure', 'true');
-      query.append('paymentStatus', 'pending');
+      query.append('paymentStatus', isMetadataPendingMode ? 'metadata_pending' : 'pending');
     } else if (paymentStatus !== 'all') {
       query.append('paymentStatus', paymentStatus);
     }
@@ -67,7 +80,7 @@ export const useClientOrdersModal = ({
     if (!response.ok) return;
 
     const data = (await response.json()) as IOrder[];
-    setEligibleOrders(data);
+    setEligibleOrders(isMetadataPendingMode ? filterOrdersForMetadataPending(data) : data);
     setSelectedCacambaIds([]);
   };
 
@@ -109,7 +122,7 @@ export const useClientOrdersModal = ({
     setSelectedGroupId(null);
     setInvoiceNumber('');
     setIsEditingInvoice(false);
-  }, [client._id, startDate, endDate, type, closureMode, viewMode]);
+  }, [client._id, startDate, endDate, type, closureMode, viewMode, isMetadataPendingMode]);
 
   const selectedOrders = useMemo(() => {
     if (!closureMode) return eligibleOrders;
@@ -150,13 +163,16 @@ export const useClientOrdersModal = ({
     });
   };
 
-  const replaceCacambaInOrders = (orders: IOrder[], updated: ICacamba) =>
-    orders.map((order) => ({
+  const replaceCacambaInOrders = (orders: IOrder[], updated: ICacamba) => {
+    const nextOrders = orders.map((order) => ({
       ...order,
       cacambas: (order.cacambas || []).map((cacamba) =>
         cacamba._id === updated._id ? { ...cacamba, ...updated } : cacamba,
       ),
     }));
+
+    return isMetadataPendingMode ? filterOrdersForMetadataPending(nextOrders) : nextOrders;
+  };
 
   const replaceCacambaInGroup = (group: IClosureGroup | null, updated: ICacamba) => {
     if (!group) return group;
@@ -278,7 +294,7 @@ export const useClientOrdersModal = ({
       setSelectedGroupId(createdGroup._id);
       setInvoiceNumber('');
 
-      await onPaymentCompleted?.();
+      await onClosureStateChanged?.();
       await fetchEligibleOrders();
       return createdGroup;
     } finally {
@@ -357,7 +373,7 @@ export const useClientOrdersModal = ({
 
     setSelectedGroupId(groupId);
     setIsEditingInvoice(false);
-    await onPaymentCompleted?.();
+    await onClosureStateChanged?.();
     await fetchEligibleOrders();
   };
 

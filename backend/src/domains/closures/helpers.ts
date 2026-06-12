@@ -13,12 +13,18 @@ export const buildClosureOrdersQuery = (range: { start: Date; end: Date }) => ({
   updatedAt: { $gte: range.start, $lte: range.end },
 });
 
-export type ClosurePaymentFilter = 'all' | 'pending' | 'invoice_pending' | 'paid';
+export type ClosurePaymentFilter =
+  | 'all'
+  | 'pending'
+  | 'invoice_pending'
+  | 'paid'
+  | 'metadata_pending';
 
 export const parseClosurePaymentFilter = (value: unknown): ClosurePaymentFilter => {
   if (value === 'pending') return 'pending';
   if (value === 'invoice_pending') return 'invoice_pending';
   if (value === 'paid') return 'paid';
+  if (value === 'metadata_pending') return 'metadata_pending';
   return 'all';
 };
 

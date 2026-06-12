@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 import ImageModal from './ImageModal';
 import CacambaMetaModal from './CacambaMetaModal';
@@ -287,7 +287,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
   closureMode = false,
   viewMode = 'create_closure',
   paymentStatus = 'all',
-  onPaymentCompleted,
+  onClosureStateChanged,
 }) => {
   const [step, setStep] = useState<ClosureStep>('select');
   const [showHistory, setShowHistory] = useState(false);
@@ -295,6 +295,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     tone: 'success' | 'error';
     message: string;
   } | null>(null);
+  const shouldCloseOnMouseUpRef = useRef(false);
 
   const {
     orders,
@@ -329,10 +330,11 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     closureMode,
     viewMode,
     paymentStatus,
-    onPaymentCompleted,
+    onClosureStateChanged,
   });
 
   const isGeneratedNotesView = viewMode === 'generated_notes';
+  const isMetadataPendingView = closureMode && paymentStatus === 'metadata_pending';
 
   const displayedGroup = useMemo(() => {
     if (showHistory && selectedGroup) return selectedGroup;
@@ -509,15 +511,32 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     );
   };
 
+  const handleOverlayMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+    shouldCloseOnMouseUpRef.current = event.target === event.currentTarget;
+  };
+
+  const handleOverlayMouseUp = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (shouldCloseOnMouseUpRef.current && event.target === event.currentTarget) {
+      onClose();
+    }
+    shouldCloseOnMouseUpRef.current = false;
+  };
+
   return (
-    <ModalOverlay onClick={onClose}>
+    <ModalOverlay onMouseDown={handleOverlayMouseDown} onMouseUp={handleOverlayMouseUp}>
       {modalImage && <ImageModal url={modalImage} onClose={() => setModalImage(null)} />}
 
-      <ModalContent data-testid="client-orders-modal" onClick={(event) => event.stopPropagation()}>
+      <ModalContent
+        data-testid="client-orders-modal"
+        onMouseDown={() => {
+          shouldCloseOnMouseUpRef.current = false;
+        }}
+        onMouseUp={(event) => event.stopPropagation()}
+      >
         <ClientOrdersModalHeader clientName={client.clientName} onClose={onClose} />
 
         <ModalBody>
-          {closureMode && !isGeneratedNotesView && (
+          {closureMode && !isGeneratedNotesView && !isMetadataPendingView && (
             <Stepper data-testid="closure-stepper">
               {stepItems.map((item, index) => (
                 <StepItem key={item.key} $active={step === item.key} $done={index < stepIndex}>
@@ -528,40 +547,42 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
             </Stepper>
           )}
 
-          <ClientOrdersSummary
-            clientTotal={
-              isGeneratedNotesView
-                ? clientTotal
-                : step === 'select'
+          {!isMetadataPendingView && (
+            <ClientOrdersSummary
+              clientTotal={
+                isGeneratedNotesView
                   ? clientTotal
-                  : getGroupTotal(displayedGroup)
-            }
-            totalOrders={
-              isGeneratedNotesView
-                ? closureGroups.length
-                : step === 'select'
-                  ? orders.length
-                  : displayedGroup
-                    ? 1
-                    : 0
-            }
-            totalCacambas={
-              isGeneratedNotesView
-                ? closureGroups.reduce((sum, group) => sum + (group.cacambaIds?.length || 0), 0)
-                : step === 'select'
-                ? orders.reduce((sum, order) => sum + (order.cacambas?.length || 0), 0)
-                : displayedGroup?.cacambaIds?.length || 0
-            }
-            closureMode={closureMode && !isGeneratedNotesView}
-            selectedCount={
-              isGeneratedNotesView
-                ? displayedGroup?.cacambaIds?.length || 0
-                : step === 'select'
-                ? selectedCacambaIds.length
-                : displayedGroup?.cacambaIds?.length || 0
-            }
-            compactOnlyTotal={isGeneratedNotesView || step !== 'select'}
-          />
+                  : step === 'select'
+                    ? clientTotal
+                    : getGroupTotal(displayedGroup)
+              }
+              totalOrders={
+                isGeneratedNotesView
+                  ? closureGroups.length
+                  : step === 'select'
+                    ? orders.length
+                    : displayedGroup
+                      ? 1
+                      : 0
+              }
+              totalCacambas={
+                isGeneratedNotesView
+                  ? closureGroups.reduce((sum, group) => sum + (group.cacambaIds?.length || 0), 0)
+                  : step === 'select'
+                  ? orders.reduce((sum, order) => sum + (order.cacambas?.length || 0), 0)
+                  : displayedGroup?.cacambaIds?.length || 0
+              }
+              closureMode={closureMode && !isGeneratedNotesView}
+              selectedCount={
+                isGeneratedNotesView
+                  ? displayedGroup?.cacambaIds?.length || 0
+                  : step === 'select'
+                  ? selectedCacambaIds.length
+                  : displayedGroup?.cacambaIds?.length || 0
+              }
+              compactOnlyTotal={isGeneratedNotesView || step !== 'select'}
+            />
+          )}
 
           {invoiceFeedback && (
             <InlineFeedback $tone={invoiceFeedback.tone}>
@@ -574,6 +595,11 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
               <ClientOrdersList
                 orders={orders}
                 closureMode
+                emptyMessage={
+                  isMetadataPendingView
+                    ? 'Nenhuma caçamba com informações pendentes encontrada para este cliente.'
+                    : undefined
+                }
                 selectedCacambaIds={selectedCacambaIds}
                 onToggleSelect={toggleSelectCacamba}
                 onImageClick={setModalImage}
@@ -615,7 +641,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
             )}
           </StageBody>
 
-          {!isGeneratedNotesView && step === 'select' && (
+          {!isGeneratedNotesView && step === 'select' && !isMetadataPendingView && (
             <ClientOrdersFooter
               onDownload={handleGenerateClosure}
               disabled={

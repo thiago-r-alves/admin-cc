@@ -1443,8 +1443,11 @@ const AdminPage: React.FC = () => {
   };
 
   // Carregar pedidos e motoristas
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (options?: { background?: boolean }) => {
+    const isBackgroundRefresh = Boolean(options?.background);
+    if (!isBackgroundRefresh) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const ordersResponse = await authenticatedFetch(`${apiUrl}/orders`);
@@ -1462,7 +1465,9 @@ const AdminPage: React.FC = () => {
         setError("Ocorreu um erro desconhecido ao carregar os dados.");
       }
     } finally {
-      setLoading(false);
+      if (!isBackgroundRefresh) {
+        setLoading(false);
+      }
     }
   };
 
@@ -1479,7 +1484,7 @@ const AdminPage: React.FC = () => {
         if (!mounted) return;
         socketRef.current = mod.io(apiUrl);
         socketRef.current.on('orders_updated', () => {
-          fetchData();
+          void fetchData({ background: true });
         });
       } catch (e) {
         console.error('Falha ao carregar socket.io-client dinamicamente', e);

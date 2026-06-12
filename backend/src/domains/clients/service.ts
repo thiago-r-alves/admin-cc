@@ -54,6 +54,139 @@ export const listClients = async (query: Record<string, unknown>) => {
       },
       {
         $addFields: {
+          pendingClosureMetadataCount: {
+            $size: {
+              $filter: {
+                input: '$closureCacambas',
+                as: 'cacamba',
+                cond: {
+                  $and: [
+                    {
+                      $or: [
+                        { $eq: ['$$cacamba.paymentStatus', 'pendente'] },
+                        { $eq: ['$$cacamba.paymentStatus', null] },
+                        {
+                          $not: [
+                            {
+                              $ifNull: ['$$cacamba.paymentStatus', false],
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                    {
+                      $or: [
+                        {
+                          $not: [
+                            {
+                              $gte: [
+                                {
+                                  $convert: {
+                                    input: '$$cacamba.price',
+                                    to: 'double',
+                                    onError: -1,
+                                    onNull: -1,
+                                  },
+                                },
+                                0,
+                              ],
+                            },
+                          ],
+                        },
+                        {
+                          $eq: [
+                            {
+                              $trim: {
+                                input: { $ifNull: ['$$cacamba.contentType', ''] },
+                              },
+                            },
+                            '',
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          pendingClosureMissingPriceCount: {
+            $size: {
+              $filter: {
+                input: '$closureCacambas',
+                as: 'cacamba',
+                cond: {
+                  $and: [
+                    {
+                      $or: [
+                        { $eq: ['$$cacamba.paymentStatus', 'pendente'] },
+                        { $eq: ['$$cacamba.paymentStatus', null] },
+                        {
+                          $not: [
+                            {
+                              $ifNull: ['$$cacamba.paymentStatus', false],
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                    {
+                      $not: [
+                        {
+                          $gte: [
+                            {
+                              $convert: {
+                                input: '$$cacamba.price',
+                                to: 'double',
+                                onError: -1,
+                                onNull: -1,
+                              },
+                            },
+                            0,
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          pendingClosureMissingContentTypeCount: {
+            $size: {
+              $filter: {
+                input: '$closureCacambas',
+                as: 'cacamba',
+                cond: {
+                  $and: [
+                    {
+                      $or: [
+                        { $eq: ['$$cacamba.paymentStatus', 'pendente'] },
+                        { $eq: ['$$cacamba.paymentStatus', null] },
+                        {
+                          $not: [
+                            {
+                              $ifNull: ['$$cacamba.paymentStatus', false],
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                    {
+                      $eq: [
+                        {
+                          $trim: {
+                            input: { $ifNull: ['$$cacamba.contentType', ''] },
+                          },
+                        },
+                        '',
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          },
           pendingClosureCount: {
             $size: {
               $filter: {
@@ -119,6 +252,12 @@ export const listClients = async (query: Record<string, unknown>) => {
               invoicePendingClosureCount: { $gt: 0 },
             },
           }]
+          : closurePaymentFilter === 'metadata_pending'
+            ? [{
+              $match: {
+                pendingClosureMetadataCount: { $gt: 0 },
+              },
+            }]
           : closurePaymentFilter === 'paid'
             ? [{
               $match: {
@@ -132,6 +271,9 @@ export const listClients = async (query: Record<string, unknown>) => {
           clientIdString: { $toString: '$clientId' },
           pendingClosureCount: 1,
           generatedClosureGroupsCount: 1,
+          pendingClosureMetadataCount: 1,
+          pendingClosureMissingPriceCount: 1,
+          pendingClosureMissingContentTypeCount: 1,
         },
       },
       {
@@ -141,6 +283,9 @@ export const listClients = async (query: Record<string, unknown>) => {
           orderCount: { $sum: 1 },
           pendingClosureCount: { $sum: '$pendingClosureCount' },
           generatedClosureGroupsCount: { $sum: '$generatedClosureGroupsCount' },
+          pendingClosureMetadataCount: { $sum: '$pendingClosureMetadataCount' },
+          pendingClosureMissingPriceCount: { $sum: '$pendingClosureMissingPriceCount' },
+          pendingClosureMissingContentTypeCount: { $sum: '$pendingClosureMissingContentTypeCount' },
         },
       },
       {
@@ -199,8 +344,14 @@ export const listClients = async (query: Record<string, unknown>) => {
             ...row.client,
             hasPendingClosureItems: Number(row.pendingClosureCount || 0) > 0,
             hasGeneratedClosureGroups: Number(row.generatedClosureGroupsCount || 0) > 0,
+            hasPendingClosureMetadata: Number(row.pendingClosureMetadataCount || 0) > 0,
             pendingClosureCount: Number(row.pendingClosureCount || 0),
             generatedClosureGroupsCount: Number(row.generatedClosureGroupsCount || 0),
+            pendingClosureMetadataCount: Number(row.pendingClosureMetadataCount || 0),
+            pendingClosureMissingPriceCount: Number(row.pendingClosureMissingPriceCount || 0),
+            pendingClosureMissingContentTypeCount: Number(
+              row.pendingClosureMissingContentTypeCount || 0,
+            ),
           };
         })
         .filter(Boolean),
@@ -393,8 +544,18 @@ export const listClientOrders = async (clientId: string, query: Record<string, u
       .map((order: any) => {
         const filteredCacambas = (order.cacambas || []).filter((cacamba: any) => {
           if (cacamba?.tipo !== 'retirada') return false;
+          const hasValidPrice =
+            typeof cacamba?.price === 'number' && Number.isFinite(cacamba.price);
+          const hasValidContentType =
+            typeof cacamba?.contentType === 'string' && cacamba.contentType.trim().length > 0;
           if (closurePaymentFilter === 'pending') {
             return (cacamba?.paymentStatus || 'pendente') === 'pendente';
+          }
+          if (closurePaymentFilter === 'metadata_pending') {
+            return (
+              (cacamba?.paymentStatus || 'pendente') === 'pendente' &&
+              (!hasValidPrice || !hasValidContentType)
+            );
           }
           if (closurePaymentFilter === 'invoice_pending') {
             return cacamba?.paymentStatus === 'nota_fiscal_pendente';

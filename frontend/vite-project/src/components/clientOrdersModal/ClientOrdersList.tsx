@@ -22,6 +22,7 @@ const EmptyState = styled.div`
 interface ClientOrdersListProps {
   orders: IOrder[];
   closureMode: boolean;
+  emptyMessage?: string;
   selectedCacambaIds: string[];
   onToggleSelect: (cacamba: ICacamba, checked: boolean) => void;
   onImageClick: (url: string) => void;
@@ -32,6 +33,7 @@ interface ClientOrdersListProps {
 const ClientOrdersList: React.FC<ClientOrdersListProps> = ({
   orders,
   closureMode,
+  emptyMessage = 'Nenhum pedido encontrado para os filtros selecionados.',
   selectedCacambaIds,
   onToggleSelect,
   onImageClick,
@@ -53,7 +55,7 @@ const ClientOrdersList: React.FC<ClientOrdersListProps> = ({
         />
       ))
     ) : (
-      <EmptyState>Nenhum pedido encontrado para os filtros selecionados.</EmptyState>
+      <EmptyState>{emptyMessage}</EmptyState>
     )}
   </OrdersList>
 );

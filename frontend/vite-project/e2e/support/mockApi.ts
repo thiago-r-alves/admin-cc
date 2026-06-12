@@ -749,8 +749,12 @@ export const setupMockApi = async (page: Page) => {
           {
             hasPendingClosureItems: boolean;
             hasGeneratedClosureGroups: boolean;
+            hasPendingClosureMetadata: boolean;
             pendingClosureCount: number;
             generatedClosureGroupsCount: number;
+            pendingClosureMetadataCount: number;
+            pendingClosureMissingPriceCount: number;
+            pendingClosureMissingContentTypeCount: number;
             matchesFilter: boolean;
           }
         >();
@@ -769,30 +773,52 @@ export const setupMockApi = async (page: Page) => {
             if (closure && retirada.length === 0) return;
 
             const pendingCount = retirada.filter((c) => (c.paymentStatus || 'pendente') === 'pendente').length;
+            const metadataPending = retirada.filter((c) => {
+              if ((c.paymentStatus || 'pendente') !== 'pendente') return false;
+              const hasValidPrice = typeof c.price === 'number' && Number.isFinite(c.price) && c.price >= 0;
+              const hasValidContentType = typeof c.contentType === 'string' && c.contentType.trim().length > 0;
+              return !hasValidPrice || !hasValidContentType;
+            });
             const generatedCount = retirada.filter((c) =>
               c.paymentStatus === 'nota_fiscal_pendente' || c.paymentStatus === 'paga',
             ).length;
             const invoicePendingCount = retirada.filter((c) => c.paymentStatus === 'nota_fiscal_pendente').length;
             const paidCount = retirada.filter((c) => c.paymentStatus === 'paga').length;
+            const metadataPendingCount = metadataPending.length;
+            const missingPriceCount = metadataPending.filter((c) =>
+              !(typeof c.price === 'number' && Number.isFinite(c.price) && c.price >= 0),
+            ).length;
+            const missingContentTypeCount = metadataPending.filter((c) =>
+              !(typeof c.contentType === 'string' && c.contentType.trim().length > 0),
+            ).length;
             const matchesFilter =
               !closure ||
               paymentStatus === 'all' ||
               (paymentStatus === 'pending' && pendingCount > 0) ||
+              (paymentStatus === 'metadata_pending' && metadataPendingCount > 0) ||
               (paymentStatus === 'invoice_pending' && invoicePendingCount > 0) ||
               (paymentStatus === 'paid' && paidCount > 0);
 
             const current = closureClientMeta.get(order.clientId) || {
               hasPendingClosureItems: false,
               hasGeneratedClosureGroups: false,
+              hasPendingClosureMetadata: false,
               pendingClosureCount: 0,
               generatedClosureGroupsCount: 0,
+              pendingClosureMetadataCount: 0,
+              pendingClosureMissingPriceCount: 0,
+              pendingClosureMissingContentTypeCount: 0,
               matchesFilter: false,
             };
 
             current.hasPendingClosureItems = current.hasPendingClosureItems || pendingCount > 0;
             current.hasGeneratedClosureGroups = current.hasGeneratedClosureGroups || generatedCount > 0;
+            current.hasPendingClosureMetadata = current.hasPendingClosureMetadata || metadataPendingCount > 0;
             current.pendingClosureCount += pendingCount;
             current.generatedClosureGroupsCount += generatedCount;
+            current.pendingClosureMetadataCount += metadataPendingCount;
+            current.pendingClosureMissingPriceCount += missingPriceCount;
+            current.pendingClosureMissingContentTypeCount += missingContentTypeCount;
             current.matchesFilter = current.matchesFilter || matchesFilter;
             closureClientMeta.set(order.clientId, current);
           });
@@ -807,8 +833,12 @@ export const setupMockApi = async (page: Page) => {
             ...(closureClientMeta.get(client._id) || {
               hasPendingClosureItems: false,
               hasGeneratedClosureGroups: false,
+              hasPendingClosureMetadata: false,
               pendingClosureCount: 0,
               generatedClosureGroupsCount: 0,
+              pendingClosureMetadataCount: 0,
+              pendingClosureMissingPriceCount: 0,
+              pendingClosureMissingContentTypeCount: 0,
             }),
           }));
       };
@@ -870,6 +900,11 @@ export const setupMockApi = async (page: Page) => {
             cacambas: o.cacambas.filter((c) => {
               if (c.tipo !== 'retirada') return false;
               if (paymentStatus === 'pending') return (c.paymentStatus || 'pendente') === 'pendente';
+              if (paymentStatus === 'metadata_pending') {
+                const hasValidPrice = typeof c.price === 'number' && Number.isFinite(c.price) && c.price >= 0;
+                const hasValidContentType = typeof c.contentType === 'string' && c.contentType.trim().length > 0;
+                return (c.paymentStatus || 'pendente') === 'pendente' && (!hasValidPrice || !hasValidContentType);
+              }
               if (paymentStatus === 'invoice_pending') return c.paymentStatus === 'nota_fiscal_pendente';
               if (paymentStatus === 'paid') return c.paymentStatus === 'paga';
               return true;
