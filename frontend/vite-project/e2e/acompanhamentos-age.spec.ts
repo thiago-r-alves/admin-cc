@@ -101,9 +101,11 @@ test.describe('Acompanhamentos - dias na obra', () => {
     await expect(page.getByText('Caçamba #103')).toHaveCount(0);
 
     await page.getByLabel('Telefone').fill('');
-    await page.getByLabel('Ordem de serviço').fill('333');
+    await page.locator('#filtro-ordem-servico').fill('333');
     await expect(page.getByText('Caçamba #103')).toBeVisible();
-    await expect(page.getByText('333')).toBeVisible();
+    await expect(
+      page.getByTestId('acompanhamento-card-cac-age-medium').getByText('333', { exact: true }),
+    ).toBeVisible();
     await expect(page.getByText('Caçamba #104')).toHaveCount(0);
   });
 });
