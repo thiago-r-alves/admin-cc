@@ -167,6 +167,13 @@ const PinIcon = () => (
   </svg>
 );
 
+const MailIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M4 8.5 12 14l8-5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <rect x="3" y="6" width="18" height="12" rx="2" stroke="currentColor" strokeWidth="2" />
+  </svg>
+);
+
 const EditIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
     <path d="M12 20h9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -230,6 +237,10 @@ const ClientList: React.FC<ClientListProps> = ({ clients, onEdit, onDelete, onVi
                 <PinIcon />
                 {formatAddress(client)}
               </AddressItem>
+              <MetaItem>
+                <MailIcon />
+                CEP {client.cep || '-'}
+              </MetaItem>
             </MetaRow>
           </ClientInfo>
 
