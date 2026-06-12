@@ -52,7 +52,7 @@ interface EditCacambaModalProps {
   cacamba: ICacamba;
   orderType?: OrderType;
   onClose: () => void;
-  onUpdate: (updated: Partial<ICacamba> & { image?: File | null }) => void;
+  onUpdate: (updated: Partial<ICacamba> & { image?: File | null }) => Promise<void>;
   beforeUploadFiles?: (files: File[]) => Promise<{ allowed: File[]; error?: string }>; // alterado
 }
 
@@ -74,8 +74,6 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
   const [imgError, setImgError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false); // <-- ADICIONADO
-
-  const apiUrl = import.meta.env.VITE_API_URL; // <-- ADICIONADO
 
   // quais opções mostrar (idêntico ao formulário de adicionar)
   const showEntrega = !props.orderType || props.orderType === 'entrega';
@@ -114,46 +112,45 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
     }
   };
 
-  // SUBSTITUÍDO: agora faz a requisição PATCH diretamente
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
     setFormError(null);
+
+    const normalizedNumero = numero.trim();
+    if (!normalizedNumero) {
+      setFormError('Número da caçamba é obrigatório.');
+      return;
+    }
+
+    const normalizedHoraServico = horaServicoDigitos.trim();
+    if (!/^\d{3}$/.test(normalizedHoraServico)) {
+      setFormError('Ordem de serviço deve conter exatamente 3 dígitos.');
+      return;
+    }
+
+    if (forcedTipo === 'retirada' && !contentType) {
+      setFormError('Tipo de conteúdo é obrigatório para retirada.');
+      return;
+    }
+
     setSaving(true);
-
     try {
-      const fd = new FormData();
-      fd.append('numero', numero);
-      fd.append('horaServicoDigitos', horaServicoDigitos);
-      fd.append('tipo', tipo);
+      const updates: Partial<ICacamba> & { image?: File | null } = {
+        numero: normalizedNumero,
+        horaServicoDigitos: normalizedHoraServico,
+        tipo,
+        local: formData.local || 'via_publica',
+      };
       if (forcedTipo === 'retirada') {
-        if (!contentType) {
-          setFormError('Tipo de conteúdo é obrigatório para retirada.');
-          setSaving(false);
-          return;
-        }
-        fd.append('contentType', contentType);
+        updates.contentType = contentType as CacambaContentType;
       }
-      fd.append('local', formData.local || ''); // Adicionar fallback para string vazia
-      if (file) fd.append('image', file);
+      if (file) updates.image = file;
 
-      const token = localStorage.getItem('token') || '';
-      const resp = await fetch(`${apiUrl}/cacambas/${props.cacamba._id}`, {
-        method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: fd
-      });
-
-      if (!resp.ok) {
-        console.error('Falha ao atualizar caçamba');
-      } else {
-        const data = await resp.json();
-        // mantém compatibilidade: envia objeto retornado (possui os campos esperados)
-        props.onUpdate(data.cacamba || { numero, tipo, local: formData.local, imageUrl: props.cacamba.imageUrl });
-        props.onClose();
-      }
+      await props.onUpdate(updates);
+      props.onClose();
     } catch (err) {
-      console.error('Erro na atualização da caçamba', err);
+      setFormError(err instanceof Error ? err.message : 'Erro ao salvar alterações.');
     } finally {
       setSaving(false);
     }

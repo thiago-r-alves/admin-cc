@@ -237,6 +237,10 @@ const isValidCacambaContentType = (value: unknown): value is CacambaContentType 
   typeof value === 'string' &&
   (CACAMBA_CONTENT_TYPES as readonly string[]).includes(value);
 
+const cacambaLocals = ['via_publica', 'canteiro_obra'] as const;
+const isValidCacambaLocal = (value: unknown): value is typeof cacambaLocals[number] =>
+  typeof value === 'string' && cacambaLocals.includes(value as typeof cacambaLocals[number]);
+
 // POST /orders
 app.post('/orders', authenticateToken, isAdmin, async (req, res) => {
   try {
@@ -1249,12 +1253,42 @@ app.patch('/cacambas/:id',
       const updates: any = {};
       const orderType: 'entrega' | 'retirada' = order.type === 'retirada' ? 'retirada' : 'entrega';
 
-      if (numero !== undefined) updates.numero = String(numero).trim();
-      if (tipo !== undefined) updates.tipo = (tipo === 'retirada' ? 'retirada' : 'entrega');
-      if (local !== undefined) updates.local = local;
+      if (numero !== undefined) {
+        const normalizedNumero = String(numero).trim();
+        if (!normalizedNumero) {
+          return res.status(400).json({ message: 'Número da caçamba é obrigatório.' });
+        }
+
+        const duplicate = await CacambaModel.exists({
+          _id: { $ne: existing._id },
+          orderId: existing.orderId,
+          numero: normalizedNumero,
+        });
+        if (duplicate) {
+          return res.status(400).json({ message: 'Número de caçamba já registrado neste pedido.' });
+        }
+
+        updates.numero = normalizedNumero;
+      }
+
+      if (tipo !== undefined) {
+        if (tipo !== orderType) {
+          return res.status(400).json({ message: 'Tipo da caçamba deve acompanhar o tipo do pedido.' });
+        }
+      }
+      if (existing.tipo !== orderType || tipo !== undefined) {
+        updates.tipo = orderType;
+      }
+
+      if (local !== undefined) {
+        if (!isValidCacambaLocal(local)) {
+          return res.status(400).json({ message: 'Local da caçamba inválido.' });
+        }
+        updates.local = local;
+      }
 
       if (horaServicoDigitos !== undefined) {
-        const digits = String(horaServicoDigitos);
+        const digits = String(horaServicoDigitos).trim();
         if (!/^\d{3}$/.test(digits)) {
           return res.status(400).json({ message: 'Ordem de serviço deve conter exatamente 3 dígitos.' });
         }
@@ -1313,11 +1347,16 @@ app.patch('/cacambas/:id',
         }
       }
 
-      const cacamba = await CacambaModel.findByIdAndUpdate(id, updates, { new: true });
+      const cacamba = await CacambaModel.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
       if (!cacamba) return res.status(404).json({ message: 'Caçamba não encontrada' });
 
+      io.emit('orders_updated');
+
       return res.json({ cacamba });
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.code === 11000) {
+        return res.status(400).json({ message: 'Número de caçamba já registrado neste pedido.' });
+      }
       console.error('Erro ao editar caçamba:', e);
       return res.status(500).json({ message: 'Erro ao editar caçamba' });
     }

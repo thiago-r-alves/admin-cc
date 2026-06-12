@@ -427,12 +427,11 @@ const DriverPage: React.FC = () => {
       body: fd
     });
 
+    const data = await resp.json().catch(() => ({}));
     if (!resp.ok) {
-      console.error('Falha ao atualizar caçamba');
-      return;
+      throw new Error(data.message || 'Falha ao atualizar caçamba.');
     }
 
-    const data = await resp.json();
     const updatedCacamba: ICacamba = data.cacamba || data;
 
     // MERGE preservando campos existentes (inclusive local)
@@ -858,9 +857,9 @@ const DriverPage: React.FC = () => {
           cacamba={editingCacamba}
           orderType={editingOrderType}
           onClose={() => { setIsEditModalOpen(false); setEditingOrderType(undefined); }}
-          onUpdate={(updated) => {
+          onUpdate={async (updated) => {
             if (editingCacamba._id) {
-              handleUpdateCacamba(editingCacamba._id, updated);
+              await handleUpdateCacamba(editingCacamba._id, updated);
             }
           }}
           beforeUploadFiles={beforeUploadForEdit} // usa o guard

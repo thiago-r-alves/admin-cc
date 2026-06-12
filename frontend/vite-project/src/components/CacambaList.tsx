@@ -195,6 +195,7 @@ interface CacambaListProps {
   cacambas: ICacamba[];
   onImageClick?: (url: string) => void;
   onEdit?: (cacamba: ICacamba) => void;
+  editLabel?: string;
   onDelete?: (cacambaId: string) => void;
   showTitle?: boolean;
   showTypeBadge?: boolean;
@@ -211,6 +212,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
   cacambas,
   onImageClick,
   onEdit,
+  editLabel = 'Editar',
   onDelete,
   showTitle = true,
   showTypeBadge = true,
@@ -359,7 +361,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
               )}
               {!selectable && onEdit && (
                 <ActionButton $variant="secondary" onClick={() => onEdit(cacamba)}>
-                  Editar
+                  {editLabel}
                 </ActionButton>
               )}
               {!selectable && onDelete && (

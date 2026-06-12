@@ -225,6 +225,64 @@ describe('Driver APIs', () => {
     expect(adminPriceOk.body.cacamba.price).toBe(200);
   });
 
+  it('PATCH /cacambas/:id permite admin corrigir dados e bloqueia inconsistências', async () => {
+    const app = await loadApp();
+    const { admin, driver } = await ensureUsers();
+    const adminToken = signToken(String(admin._id), 'admin');
+    const order = await createOrderForDriver(String(driver._id), 'entrega');
+    const cacamba = await CacambaModel.create({
+      numero: '415',
+      tipo: 'entrega',
+      imageUrl: '/files/507f1f77bcf86cd799439011',
+      orderId: order._id,
+      local: 'via_publica',
+      horaServicoDigitos: '670',
+    });
+    const duplicate = await CacambaModel.create({
+      numero: '999',
+      tipo: 'entrega',
+      imageUrl: '/files/507f1f77bcf86cd799439011',
+      orderId: order._id,
+      local: 'via_publica',
+      horaServicoDigitos: '671',
+    });
+    await OrderModel.findByIdAndUpdate(order._id, { $push: { cacambas: { $each: [cacamba._id, duplicate._id] } } });
+
+    const ok = await request(app)
+      .patch(`/cacambas/${cacamba._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('numero', '416')
+      .field('horaServicoDigitos', '124')
+      .field('tipo', 'entrega')
+      .field('local', 'canteiro_obra');
+    expect(ok.status).toBe(200);
+    expect(ok.body.cacamba.numero).toBe('416');
+    expect(ok.body.cacamba.horaServicoDigitos).toBe('124');
+    expect(ok.body.cacamba.tipo).toBe('entrega');
+    expect(ok.body.cacamba.local).toBe('canteiro_obra');
+
+    const duplicateNumero = await request(app)
+      .patch(`/cacambas/${cacamba._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('numero', '999');
+    expect(duplicateNumero.status).toBe(400);
+    expect(duplicateNumero.body.message).toMatch(/já registrado/i);
+
+    const badType = await request(app)
+      .patch(`/cacambas/${cacamba._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('tipo', 'retirada');
+    expect(badType.status).toBe(400);
+    expect(badType.body.message).toMatch(/tipo do pedido/i);
+
+    const badLocal = await request(app)
+      .patch(`/cacambas/${cacamba._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('local', 'rua');
+    expect(badLocal.status).toBe(400);
+    expect(badLocal.body.message).toMatch(/local/i);
+  });
+
   it('DELETE /cacambas/:id remove e retorna 404 quando não existe', async () => {
     const app = await loadApp();
     const { driver } = await ensureUsers();

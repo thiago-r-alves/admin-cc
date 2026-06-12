@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
-import type { ICacamba, IDriver, IOrder } from '../interfaces';
+import type { ICacamba, IDriver, IOrder, OrderType } from '../interfaces';
 import CreateOrderModal from '../components/CreateOrderModal';
 import CreateDriverModal from '../components/CreateDriverModal';
 import CacambaList from '../components/CacambaList';
@@ -13,6 +13,7 @@ import ChangeOrderClientModal from '../components/ChangeOrderClientModal';
 import ClientPage from './ClientPage';
 import FechamentoPage from './FechamentoPage';
 import FaturamentoPage from './FaturamentoPage';
+import EditCacambaModal from './EditCacambaModal';
 // socket.io-client and PDF download will be dynamically imported to avoid parsing on initial load
 
 // ==========================================================
@@ -1137,6 +1138,8 @@ const typeLabels: Record<IOrder['type'], string> = {
   retirada: 'Retirada',
 };
 
+const SHOW_ORDER_DOWNLOAD_BUTTON = false;
+
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const getLocalDayIndex = (date: Date) =>
@@ -1198,6 +1201,10 @@ const AdminPage: React.FC = () => {
   const [cacambaMetaModal, setCacambaMetaModal] = useState<{
     mode: 'contentType' | 'price';
     cacamba: ICacamba;
+  } | null>(null);
+  const [editingCacamba, setEditingCacamba] = useState<{
+    cacamba: ICacamba;
+    orderType: OrderType;
   } | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string>(''); // NOVO
   const [completedPage, setCompletedPage] = useState(1);
@@ -1420,8 +1427,9 @@ const AdminPage: React.FC = () => {
       clearSessionAndRedirect();
       throw new Error('Token not found');
     }
+    const isFormData = options?.body instanceof FormData;
     const headers = {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       'Authorization': `Bearer ${token}`,
       ...options?.headers,
     };
@@ -1611,6 +1619,41 @@ const AdminPage: React.FC = () => {
     );
   };
 
+  const handleUpdateCacambaFull = async (
+    cacambaId: string,
+    updates: Partial<ICacamba> & { image?: File | null }
+  ) => {
+    const fd = new FormData();
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && key !== 'image') {
+        fd.append(key, String(value));
+      }
+    });
+    if (updates.image) fd.append('image', updates.image);
+
+    const response = await authenticatedFetch(`${apiUrl}/cacambas/${cacambaId}`, {
+      method: 'PATCH',
+      body: fd,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || 'Erro ao corrigir caçamba.');
+    }
+
+    const updated = data?.cacamba as ICacamba | undefined;
+    if (!updated?._id) {
+      throw new Error('Resposta inválida ao corrigir caçamba.');
+    }
+
+    setOrders((prev) =>
+      prev.map((order) => ({
+        ...order,
+        cacambas: (order.cacambas || []).map((c) => (c._id === updated._id ? { ...c, ...updated } : c)),
+      }))
+    );
+    setFeedback({ tone: 'success', message: `Caçamba #${updated.numero} editada com sucesso.` });
+  };
+
   // Funções de Gerenciamento de Motoristas
   const handleEditDriver = (driver: IDriver) => {
     setEditingDriver(driver);
@@ -1678,9 +1721,10 @@ const AdminPage: React.FC = () => {
       cacambas={cacambas}
       onImageClick={setModalImage}
       showTitle={false}
+      onEdit={(cacamba) => setEditingCacamba({ cacamba, orderType: order.type })}
+      editLabel="Editar caçamba"
       adminMetaActions={order.type === 'retirada'}
       canEditPrice={order.type === 'retirada' && order.status === 'concluido'}
-      onEditContentType={(cacamba) => setCacambaMetaModal({ mode: 'contentType', cacamba })}
       onEditPrice={(cacamba) => setCacambaMetaModal({ mode: 'price', cacamba })}
     />
   );
@@ -1741,9 +1785,10 @@ const AdminPage: React.FC = () => {
                 <CacambaList
                   cacambas={order.cacambas || []}
                   onImageClick={setModalImage}
+                  onEdit={(cacamba) => setEditingCacamba({ cacamba, orderType: order.type })}
+                  editLabel="Editar caçamba"
                   adminMetaActions={order.type === 'retirada'}
                   canEditPrice={false}
-                  onEditContentType={(cacamba) => setCacambaMetaModal({ mode: 'contentType', cacamba })}
                 />
               )}
             </CacambaSection>
@@ -1788,7 +1833,7 @@ const AdminPage: React.FC = () => {
                 Corrigir Cliente
               </ActionButton>
               <DeleteOrderButton onClick={() => handleDeleteOrder(order._id)}>Excluir</DeleteOrderButton>
-              {order.status === 'concluido' && (
+              {SHOW_ORDER_DOWNLOAD_BUTTON && order.status === 'concluido' && (
                 <DownloadOrderButton
                   type="button"
                   onClick={async () => {
@@ -1821,6 +1866,16 @@ const AdminPage: React.FC = () => {
             onClose={() => setCacambaMetaModal(null)}
             onSave={async (updates) => {
               await handleUpdateCacambaMeta(cacambaMetaModal.cacamba._id, updates);
+            }}
+          />
+        )}
+        {editingCacamba && (
+          <EditCacambaModal
+            cacamba={editingCacamba.cacamba}
+            orderType={editingCacamba.orderType}
+            onClose={() => setEditingCacamba(null)}
+            onUpdate={async (updates) => {
+              await handleUpdateCacambaFull(editingCacamba.cacamba._id, updates);
             }}
           />
         )}
@@ -2059,6 +2114,13 @@ const AdminPage: React.FC = () => {
                               </InfoTile>
                             </InfoGrid>
                             <AcompanhamentoActions>
+                              <ActionButton
+                                type="button"
+                                data-testid={`acompanhamento-edit-${cacamba._id}`}
+                                onClick={() => setEditingCacamba({ cacamba, orderType: order.type })}
+                              >
+                                Editar caçamba
+                              </ActionButton>
                               <DeleteOrderButton
                                 type="button"
                                 data-testid={`acompanhamento-delete-${cacamba._id}`}

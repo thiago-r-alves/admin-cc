@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import CacambaList from './CacambaList';
 import type { ICacamba } from '../interfaces';
 
@@ -24,5 +24,21 @@ describe('CacambaList', () => {
     render(<CacambaList cacambas={[baseCacamba]} showTitle={false} />);
 
     expect(screen.getByText('Entrega')).toBeInTheDocument();
+  });
+
+  it('usa label customizado na acao de edicao', () => {
+    const onEdit = vi.fn();
+    render(
+      <CacambaList
+        cacambas={[baseCacamba]}
+        showTitle={false}
+        onEdit={onEdit}
+        editLabel="Editar caçamba"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar caçamba' }));
+
+    expect(onEdit).toHaveBeenCalledWith(baseCacamba);
   });
 });
