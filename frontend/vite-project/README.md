@@ -1,69 +1,53 @@
-# React + TypeScript + Vite
+# Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This app is the React + Vite frontend for Central Cacambas.
 
-Currently, two official plugins are available:
+## Requirements
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Node.js and npm
+- The backend running locally on `http://localhost:3001`
 
-## Expanding the ESLint configuration
+## Environment Setup
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Copy the example file before starting the app:
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```powershell
+Copy-Item .env.example .env
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Default local env:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```env
+VITE_API_URL=http://localhost:3001
+VITE_VAPID_PUBLIC_KEY=replace_with_the_matching_backend_vapid_public_key
 ```
+
+`VITE_VAPID_PUBLIC_KEY` must match the public VAPID key configured in the backend env file.
+
+## Run Locally
+
+Install dependencies:
+
+```powershell
+npm install
+```
+
+Start the dev server:
+
+```powershell
+npm run dev
+```
+
+The default Vite dev URL is `http://localhost:5173`.
+
+## Scripts
+
+- `npm run dev`: start the Vite dev server
+- `npm run build`: build the production bundle
+- `npm run lint`: run ESLint
+- `npm run test:unit`: run Vitest unit tests
+- `npm run test:e2e`: run Playwright end-to-end tests
+
+## Related Setup
+
+For the full local development flow, including Dockerized MongoDB and backend setup, use the root [README](../../README.md).
