@@ -821,6 +821,112 @@ describe('Admin APIs', () => {
     expect(modalEntregaOnly.status).toBe(200);
     expect(modalEntregaOnly.body).toHaveLength(0);
   });
+  it('inclui metadados de entrega e retirada nos dados de fechamento', async () => {
+    const app = await loadApp();
+    const { admin, driver } = await ensureUsers();
+    const token = signToken(String(admin._id), 'admin');
+    const client = await ClientModel.create({
+      clientName: 'Cliente Metadata PDF',
+      contactName: 'Contato',
+      contactNumber: '999',
+      neighborhood: 'N',
+      address: 'Rua',
+      addressNumber: '1',
+    });
+    const deliveryOrder = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: client._id,
+      clientName: client.clientName,
+      contactName: client.contactName,
+      contactNumber: client.contactNumber,
+      neighborhood: client.neighborhood,
+      address: client.address,
+      addressNumber: client.addressNumber,
+      type: 'entrega',
+      status: 'concluido',
+      motorista: driver._id,
+      placa: 'ENT1A23',
+      updatedAt: new Date('2026-05-10T10:00:00.000Z'),
+    });
+    const deliveryCacamba = await CacambaModel.create({
+      numero: '801',
+      tipo: 'entrega',
+      imageUrl: '/files/507f1f77bcf86cd799439081',
+      orderId: deliveryOrder._id,
+      local: 'via_publica',
+      createdAt: new Date('2026-05-10T10:00:00.000Z'),
+      horaServicoDigitos: '801',
+    });
+    await OrderModel.findByIdAndUpdate(deliveryOrder._id, { $push: { cacambas: deliveryCacamba._id } });
+
+    const withdrawalOrder = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: client._id,
+      clientName: client.clientName,
+      contactName: client.contactName,
+      contactNumber: client.contactNumber,
+      neighborhood: client.neighborhood,
+      address: client.address,
+      addressNumber: client.addressNumber,
+      type: 'retirada',
+      status: 'concluido',
+      motorista: driver._id,
+      placa: 'RET1A23',
+      updatedAt: new Date('2026-05-15T10:00:00.000Z'),
+    });
+    const withdrawalCacamba = await CacambaModel.create({
+      numero: '801',
+      tipo: 'retirada',
+      contentType: 'Entulho limpo',
+      paymentStatus: 'pendente',
+      price: 120,
+      imageUrl: '/files/507f1f77bcf86cd799439082',
+      orderId: withdrawalOrder._id,
+      local: 'via_publica',
+      createdAt: new Date('2026-05-15T10:00:00.000Z'),
+      horaServicoDigitos: '802',
+    });
+    await OrderModel.findByIdAndUpdate(withdrawalOrder._id, { $push: { cacambas: withdrawalCacamba._id } });
+
+    const modal = await request(app)
+      .get(`/clients/${client._id}/orders?closure=true&startDate=2026-05-15&endDate=2026-05-19`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(modal.status).toBe(200);
+    expect(modal.body[0]?.cacambas[0]?.closureDelivery).toMatchObject({
+      driverName: driver.username,
+      placa: 'ENT1A23',
+      orderNumber: deliveryOrder.orderNumber,
+    });
+    expect(modal.body[0]?.cacambas[0]?.closureWithdrawal).toMatchObject({
+      driverName: driver.username,
+      placa: 'RET1A23',
+      orderNumber: withdrawalOrder.orderNumber,
+    });
+
+    const close = await request(app)
+      .post('/closures/download')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        clientId: String(client._id),
+        startDate: '2026-05-15',
+        endDate: '2026-05-19',
+        selectedCacambaIds: [String(withdrawalCacamba._id)],
+      });
+    expect(close.status).toBe(200);
+
+    const groups = await request(app)
+      .get(`/clients/${client._id}/closure-groups?status=all`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(groups.status).toBe(200);
+    expect(groups.body[0]?.cacambaIds[0]?.closureDelivery).toMatchObject({
+      driverName: driver.username,
+      placa: 'ENT1A23',
+    });
+    expect(groups.body[0]?.cacambaIds[0]?.closureWithdrawal).toMatchObject({
+      driverName: driver.username,
+      placa: 'RET1A23',
+    });
+  });
   it('POST /closures/download cria grupo e marca selecionadas como nota_fiscal_pendente; PATCH invoice finaliza como paga', async () => {
     const app = await loadApp();
     const { admin } = await ensureUsers();
@@ -1206,5 +1312,4 @@ describe('Admin APIs', () => {
     expect(annual.body.timeseries.some((bucket: any) => bucket.label === '2026')).toBe(true);
   });
 });
-
 

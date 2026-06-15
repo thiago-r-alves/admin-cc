@@ -12,6 +12,88 @@ import {
   parseClosurePaymentFilter,
 } from '../closures/helpers';
 
+const isObjectIdLike = (value: unknown) => /^[a-f0-9]{24}$/i.test(String(value || ''));
+
+const getDriverName = (motorista: unknown) => {
+  if (!motorista) return '';
+  if (typeof motorista === 'object' && 'username' in motorista) {
+    return String((motorista as { username?: string }).username || '');
+  }
+  const value = String(motorista || '');
+  return isObjectIdLike(value) ? '' : value;
+};
+
+const buildActionMetadata = (order: any, cacamba: any) => ({
+  date: cacamba?.createdAt || '',
+  driverName: getDriverName(order?.motorista),
+  placa: String(order?.placa || '').toUpperCase(),
+  orderNumber: order?.orderNumber ?? null,
+});
+
+const enrichClosureCacambas = async (clientId: string, ordersInput: any[]) => {
+  const orders = ordersInput.map((order) => (typeof order?.toObject === 'function' ? order.toObject() : order));
+  const withdrawalItems: Array<{ order: any; cacamba: any }> = [];
+
+  for (const order of orders) {
+    for (const cacamba of order.cacambas || []) {
+      if (cacamba?.tipo === 'retirada') {
+        withdrawalItems.push({ order, cacamba });
+      }
+    }
+  }
+
+  if (!withdrawalItems.length) return orders;
+
+  const numeros = Array.from(
+    new Set(withdrawalItems.map(({ cacamba }) => String(cacamba.numero || '').trim()).filter(Boolean)),
+  );
+
+  const deliveryOrders = await OrderModel.find({
+    $or: buildClientIdMatch(clientId),
+    status: 'concluido',
+    type: 'entrega',
+  })
+    .populate({
+      path: 'motorista',
+      select: 'username',
+    })
+    .populate({
+      path: 'cacambas',
+      match: { tipo: 'entrega', numero: { $in: numeros } },
+      select: 'numero tipo paymentStatus contentType price imageUrl createdAt local horaServicoDigitos',
+    })
+    .lean();
+
+  const deliveriesByNumero = new Map<string, Array<{ order: any; cacamba: any; createdAtMs: number }>>();
+  for (const order of deliveryOrders as any[]) {
+    for (const cacamba of order.cacambas || []) {
+      const numero = String(cacamba?.numero || '').trim();
+      if (!numero) continue;
+      const createdAtMs = new Date(cacamba.createdAt || 0).getTime();
+      const item = { order, cacamba, createdAtMs: Number.isFinite(createdAtMs) ? createdAtMs : 0 };
+      deliveriesByNumero.set(numero, [...(deliveriesByNumero.get(numero) || []), item]);
+    }
+  }
+
+  for (const deliveries of deliveriesByNumero.values()) {
+    deliveries.sort((a, b) => b.createdAtMs - a.createdAtMs);
+  }
+
+  for (const { order, cacamba } of withdrawalItems) {
+    const numero = String(cacamba.numero || '').trim();
+    const withdrawalAtMs = new Date(cacamba.createdAt || 0).getTime();
+    const safeWithdrawalAtMs = Number.isFinite(withdrawalAtMs) ? withdrawalAtMs : Number.MAX_SAFE_INTEGER;
+    const delivery = (deliveriesByNumero.get(numero) || []).find(
+      (item) => item.createdAtMs <= safeWithdrawalAtMs,
+    );
+
+    cacamba.closureWithdrawal = buildActionMetadata(order, cacamba);
+    cacamba.closureDelivery = delivery ? buildActionMetadata(delivery.order, delivery.cacamba) : null;
+  }
+
+  return orders;
+};
+
 export const listClients = async (query: Record<string, unknown>) => {
   const { startDate, endDate, type, closure, paymentStatus } = query;
   const isClosureMode = String(closure || '').toLowerCase() === 'true';
@@ -531,13 +613,14 @@ export const listClientOrders = async (clientId: string, query: Record<string, u
     orderQuery.cacambas = { $in: cacambaIds };
   }
 
-  let orders = await OrderModel.find(orderQuery)
+  const foundOrders = await OrderModel.find(orderQuery)
     .populate('cacambas')
     .populate({
       path: 'motorista',
       select: 'username',
     })
     .sort(isClosureMode ? { updatedAt: -1 } : { createdAt: -1 });
+  let orders = isClosureMode ? await enrichClosureCacambas(clientId, foundOrders as any[]) : foundOrders;
 
   if (isClosureMode) {
     orders = orders
@@ -601,5 +684,38 @@ export const listClosureGroups = async (
     .sort({ createdAt: -1 })
     .lean();
 
-  return { status: 200, body: groups };
+  const withdrawalIds = groups.flatMap((group: any) =>
+    (group.cacambaIds || []).map((cacamba: any) => String(cacamba?._id || '')).filter(Boolean),
+  );
+  const withdrawalOrders = withdrawalIds.length
+    ? await OrderModel.find({
+      $or: buildClientIdMatch(clientId),
+      type: 'retirada',
+      cacambas: { $in: withdrawalIds },
+    })
+      .populate({
+        path: 'motorista',
+        select: 'username',
+      })
+      .populate('cacambas')
+      .lean()
+    : [];
+  const enrichedOrders = await enrichClosureCacambas(clientId, withdrawalOrders as any[]);
+  const enrichedCacambaById = new Map<string, any>();
+  for (const order of enrichedOrders as any[]) {
+    for (const cacamba of order.cacambas || []) {
+      enrichedCacambaById.set(String(cacamba._id), cacamba);
+    }
+  }
+
+  return {
+    status: 200,
+    body: groups.map((group: any) => ({
+      ...group,
+      cacambaIds: (group.cacambaIds || []).map((cacamba: any) => ({
+        ...cacamba,
+        ...(enrichedCacambaById.get(String(cacamba._id)) || {}),
+      })),
+    })),
+  };
 };

@@ -51,6 +51,13 @@ export const CACAMBA_CONTENT_TYPES = [
 
 export type CacambaContentType = typeof CACAMBA_CONTENT_TYPES[number];
 
+export interface IClosureActionMetadata {
+  date?: string;
+  driverName?: string;
+  placa?: string;
+  orderNumber?: number | null;
+}
+
 export interface ICacamba {
   _id: string;
   numero: string;
@@ -64,6 +71,8 @@ export interface ICacamba {
   imageUrl?: string;
   createdAt: string; // Remover o '?' para tornar obrigatório
   horaServicoDigitos?: string;
+  closureDelivery?: IClosureActionMetadata | null;
+  closureWithdrawal?: IClosureActionMetadata | null;
 }
 
 export interface IClosureGroup {
