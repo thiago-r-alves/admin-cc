@@ -244,6 +244,8 @@ const ClientPage: React.FC = () => {
       const fields = [
         c.clientName,
         c.cnpjCpf,
+        c.email,
+        c.rgInscricaoEstadual,
         c.address,
         c.addressNumber,
         c.neighborhood,
@@ -283,7 +285,7 @@ const ClientPage: React.FC = () => {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar cliente por nome, CNPJ/CPF, endereço, bairro, cidade, CEP..."
+              placeholder="Buscar cliente por nome, CNPJ/CPF, e-mail, RG/IE, endereço, bairro, cidade, CEP..."
             />
           </SearchWrap>
 

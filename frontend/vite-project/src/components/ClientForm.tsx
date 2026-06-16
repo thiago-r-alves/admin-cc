@@ -271,6 +271,8 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
   const [formData, setFormData] = useState({
     clientName: '',
     cnpjCpf: '',
+    email: '',
+    rgInscricaoEstadual: '',
     city: '',
     cep: '',
     contactName: '',
@@ -359,6 +361,8 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
       ...prev,
       clientName: initialData.clientName || '',
       cnpjCpf: initialData.cnpjCpf || '',
+      email: initialData.email || '',
+      rgInscricaoEstadual: initialData.rgInscricaoEstadual || '',
       city: initialData.city || '',
       cep: initialData.cep || '',
       contactName: initialData.contactName || '',
@@ -499,6 +503,32 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
                       value={formData.cnpjCpf}
                       onChange={handleChange}
                       placeholder="00.000.000/0000-00 ou 000.000.000-00"
+                    />
+                  </UIField>
+                </GridField>
+
+                <GridField>
+                  <UIField label="E-mail" htmlFor="email">
+                    <TextInput
+                      id="email"
+                      name="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      placeholder="cliente@email.com"
+                    />
+                  </UIField>
+                </GridField>
+
+                <GridField>
+                  <UIField label="RG/Inscricao Estadual" htmlFor="rgInscricaoEstadual">
+                    <TextInput
+                      id="rgInscricaoEstadual"
+                      name="rgInscricaoEstadual"
+                      type="text"
+                      value={formData.rgInscricaoEstadual}
+                      onChange={handleChange}
+                      placeholder="RG ou Inscricao Estadual"
                     />
                   </UIField>
                 </GridField>

@@ -220,6 +220,9 @@ const ClientList: React.FC<ClientListProps> = ({ clients, onEdit, onDelete, onVi
             <DocumentLine>
               <strong>CNPJ:</strong> {client.cnpjCpf || '-'}
             </DocumentLine>
+            <DocumentLine>
+              <strong>RG/IE:</strong> {client.rgInscricaoEstadual || '-'}
+            </DocumentLine>
 
             <MetaRow>
               <MetaItem>
@@ -229,6 +232,10 @@ const ClientList: React.FC<ClientListProps> = ({ clients, onEdit, onDelete, onVi
               <MetaItem>
                 <PhoneIcon />
                 {client.contactNumber || '-'}
+              </MetaItem>
+              <MetaItem>
+                <MailIcon />
+                {client.email || '-'}
               </MetaItem>
             </MetaRow>
 

@@ -241,9 +241,9 @@ const OrdersGrid = styled.div`
 const OrderCard = styled.div<{ status: IOrder['status'] }>`
   background-color: #ffffff;
   border: 1px solid ${({ status }) => 
-    status === 'pendente' ? '#fecaca' :
+    status === 'pendente' ? '#bbf7d0' :
     status === 'em_andamento' ? '#bfdbfe' :
-    status === 'concluido' ? '#bbf7d0' :
+    status === 'concluido' ? '#fecaca' :
     '#fecaca'
   };
   border-radius: 8px;
@@ -767,9 +767,9 @@ const StatusPanelsStack = styled.div`
 
 const OrdersStatusPanel = styled.section<{ $variant: 'pending' | 'completed' }>`
   border-radius: 12px;
-  border: 1px solid ${({ $variant }) => ($variant === 'pending' ? '#fca5a5' : '#86efac')};
+  border: 1px solid ${({ $variant }) => ($variant === 'pending' ? '#86efac' : '#fca5a5')};
   border-top-width: 4px;
-  border-top-color: ${({ $variant }) => ($variant === 'pending' ? '#e30613' : '#16a34a')};
+  border-top-color: ${({ $variant }) => ($variant === 'pending' ? '#16a34a' : '#e30613')};
   background: #ffffff;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
   padding: 1rem 1rem 1.1rem;
@@ -785,7 +785,7 @@ const OrdersPanelHeader = styled.div<{ $variant: 'pending' | 'completed' }>`
   justify-content: space-between;
   gap: 0.8rem;
   padding-bottom: 0.9rem;
-  border-bottom: 1px solid ${({ $variant }) => ($variant === 'pending' ? '#fecaca' : '#bbf7d0')};
+  border-bottom: 1px solid ${({ $variant }) => ($variant === 'pending' ? '#bbf7d0' : '#fecaca')};
   margin-bottom: 1rem;
 
   .title-copy {
@@ -813,9 +813,9 @@ const OrdersPanelBadge = styled.span<{ $variant: 'pending' | 'completed' }>`
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  color: ${({ $variant }) => ($variant === 'pending' ? '#991b1b' : '#166534')};
-  border: 1px solid ${({ $variant }) => ($variant === 'pending' ? '#fda4af' : '#86efac')};
-  background: ${({ $variant }) => ($variant === 'pending' ? '#ffe4e6' : '#dcfce7')};
+  color: ${({ $variant }) => ($variant === 'pending' ? '#166534' : '#991b1b')};
+  border: 1px solid ${({ $variant }) => ($variant === 'pending' ? '#86efac' : '#fda4af')};
+  background: ${({ $variant }) => ($variant === 'pending' ? '#dcfce7' : '#ffe4e6')};
 `;
 
 const DeleteOrderButton = styled(Button)`

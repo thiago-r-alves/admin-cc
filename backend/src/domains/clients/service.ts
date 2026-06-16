@@ -524,6 +524,8 @@ export const createClient = async (payload: Record<string, unknown>) =>
     address: payload.address,
     addressNumber: payload.addressNumber,
     cnpjCpf: payload.cnpjCpf || '',
+    email: payload.email || '',
+    rgInscricaoEstadual: payload.rgInscricaoEstadual || '',
     city: payload.city || '',
     cep: payload.cep || '',
   });
@@ -538,6 +540,8 @@ export const updateClient = async (id: string, payload: Record<string, unknown>)
     'address',
     'addressNumber',
     'cnpjCpf',
+    'email',
+    'rgInscricaoEstadual',
     'city',
     'cep',
   ];

@@ -9,6 +9,8 @@ export interface IClient extends Document {
   address: string;
   addressNumber: string;
   cnpjCpf?: string;
+  email?: string;
+  rgInscricaoEstadual?: string;
   city?: string;
   cep?: string; // ADICIONADO
   createdAt?: Date; // ADICIONADO
@@ -22,6 +24,8 @@ const ClientSchema: Schema = new Schema<IClient>({
   address: { type: String, required: true },
   addressNumber: { type: String, required: true },
   cnpjCpf: { type: String, trim: true, default: '' },
+  email: { type: String, trim: true, default: '' },
+  rgInscricaoEstadual: { type: String, trim: true, default: '' },
   city: { type: String, trim: true, default: '' },
   cep: { type: String, trim: true, default: '' }, // ADICIONADO
   createdAt: {

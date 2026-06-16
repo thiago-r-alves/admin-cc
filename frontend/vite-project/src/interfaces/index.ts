@@ -4,6 +4,8 @@ export interface IClient {
   _id: string;
   clientName: string;
   cnpjCpf?: string;
+  email?: string;
+  rgInscricaoEstadual?: string;
   contactName?: string;
   contactNumber?: string;
   neighborhood?: string;

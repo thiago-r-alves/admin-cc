@@ -375,10 +375,27 @@ describe('Admin APIs', () => {
     expect(closureClients.body.some((client: any) => String(client._id) === String(sourceClient._id))).toBe(false);
   });
 
-  it('Clientes: filtros, ordenação por período, patch e delete com bloqueio', async () => {
+  it('Clientes: filtros, ordenação por período, campos opcionais, patch e delete com bloqueio', async () => {
     const app = await loadApp();
     const { admin } = await ensureUsers();
     const token = signToken(String(admin._id), 'admin');
+
+    const createClient = await request(app)
+      .post('/clients')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        clientName: 'Cliente Documentos',
+        contactName: 'Contato Docs',
+        contactNumber: '999',
+        neighborhood: 'Centro',
+        address: 'Rua Docs',
+        addressNumber: '9',
+        email: 'cliente@example.com',
+        rgInscricaoEstadual: '12.345.678-9',
+      });
+    expect(createClient.status).toBe(201);
+    expect(createClient.body.email).toBe('cliente@example.com');
+    expect(createClient.body.rgInscricaoEstadual).toBe('12.345.678-9');
 
     const c1 = await ClientModel.create({
       clientName: 'Alpha',
@@ -450,9 +467,11 @@ describe('Admin APIs', () => {
     const patch = await request(app)
       .patch(`/clients/${c1._id}`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ city: 'São Paulo' });
+      .send({ city: 'São Paulo', email: 'alpha@example.com', rgInscricaoEstadual: 'IE-ALPHA' });
     expect(patch.status).toBe(200);
     expect(patch.body.city).toBe('São Paulo');
+    expect(patch.body.email).toBe('alpha@example.com');
+    expect(patch.body.rgInscricaoEstadual).toBe('IE-ALPHA');
 
     const blockedDelete = await request(app)
       .delete(`/clients/${c1._id}`)
@@ -1312,4 +1331,3 @@ describe('Admin APIs', () => {
     expect(annual.body.timeseries.some((bucket: any) => bucket.label === '2026')).toBe(true);
   });
 });
-
