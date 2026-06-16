@@ -10,6 +10,7 @@ import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import LoadingScreen from '../components/LoadingScreen';
 import ImageModal from '../components/ImageModal';
 import ChangeOrderClientModal from '../components/ChangeOrderClientModal';
+import CorrectOrderModal from '../components/CorrectOrderModal';
 import ClientPage from './ClientPage';
 import FechamentoPage from './FechamentoPage';
 import FaturamentoPage from './FaturamentoPage';
@@ -531,10 +532,6 @@ const OrderFooter = styled.div`
   padding-top: 0.2rem;
 `;
 
-const FooterField = styled.div`
-  min-width: min(100%, 220px);
-`;
-
 const OrderActions = styled.div`
   display: flex;
   gap: 0.65rem;
@@ -834,16 +831,6 @@ const DeleteOrderButton = styled(Button)`
   }
 `;
 
-const SelectInput = styled.select`
-  width: 100%;
-  padding: 0.75rem 0.8rem;
-  border-radius: 4px;
-  border: 1px solid #fecaca;
-  background: #fff;
-  color: #374151;
-  font-weight: 700;
-`;
-
 const ActionButton = styled.button`
   background-color: #ffffff;
   color: #374151;
@@ -860,6 +847,17 @@ const ActionButton = styled.button`
     background-color: #fff1f2;
     border-color: #e30613;
     color: #e30613;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  &:hover:disabled {
+    background-color: #ffffff;
+    border-color: #d1d5db;
+    color: #374151;
   }
 
   @media (max-width: 768px) {
@@ -1197,6 +1195,7 @@ const AdminPage: React.FC = () => {
   const [isDriverModalOpen, setIsDriverModalOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<IDriver | null>(null);
   const [changingClientOrder, setChangingClientOrder] = useState<IOrder | null>(null);
+  const [correctingOrder, setCorrectingOrder] = useState<IOrder | null>(null);
   const [modalImage, setModalImage] = useState<string | null>(null);
   const [cacambaMetaModal, setCacambaMetaModal] = useState<{
     mode: 'contentType' | 'price';
@@ -1505,25 +1504,6 @@ const AdminPage: React.FC = () => {
   }, []);
 
   // Funções de Gerenciamento de Pedidos
-  const handleUpdateOrder = async (orderId: string, updates: Partial<IOrder>) => {
-    try {
-      const response = await authenticatedFetch(`${apiUrl}/orders/${orderId}`, {
-        method: 'PATCH',
-        body: JSON.stringify(updates),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setFeedback({ tone: 'success', message: 'Pedido atualizado.' });
-        fetchData();
-      } else {
-        setFeedback({ tone: 'error', message: data.message || 'Erro ao atualizar pedido.' });
-      }
-    } catch (err) {
-      console.error(err);
-      setFeedback({ tone: 'error', message: 'Erro ao atualizar pedido.' });
-    }
-  };
-
   const handleDeleteOrder = async (orderId: string) => {
     openConfirm({
       title: 'Excluir pedido',
@@ -1565,6 +1545,12 @@ const AdminPage: React.FC = () => {
           : 'Cliente corrigido com sucesso.',
     });
     setChangingClientOrder(null);
+    await fetchData();
+  };
+
+  const handleOrderCorrected = async () => {
+    setFeedback({ tone: 'success', message: 'Pedido corrigido com sucesso.' });
+    setCorrectingOrder(null);
     await fetchData();
   };
 
@@ -1735,13 +1721,14 @@ const AdminPage: React.FC = () => {
   );
 
   const renderOrderCard = (order: IOrder) => {
-    const canReassign = order.status !== 'concluido';
+    const hasCacambas = (order.cacambas?.length ?? 0) > 0;
+    const canCorrectOrder = order.status === 'pendente' && !hasCacambas;
     const contactText = [order.contactName, order.contactNumber ? `(${order.contactNumber})` : '']
       .filter(Boolean)
       .join(' ') || '-';
 
     return (
-      <OrderCard key={order._id} status={order.status}>
+      <OrderCard key={order._id} status={order.status} data-testid={`order-card-${order._id}`}>
         <OrderCardHeader>
           <OrderHeaderMeta>
             <OrderNumber>#{order.orderNumber ?? '-'}</OrderNumber>
@@ -1818,22 +1805,17 @@ const AdminPage: React.FC = () => {
           <OrderDetailsDivider />
 
           <OrderFooter>
-            {canReassign && (
-              <FooterField>
-                <InfoLabel>Reatribuir motorista</InfoLabel>
-                <SelectInput
-                  required
-                  value={order.motorista?._id || selectedDriverId}
-                  onChange={(e) => handleUpdateOrder(order._id, { motorista: e.target.value as any })}
-                >
-                  {drivers.map(d => (
-                    <option key={d._id} value={d._id}>{d.username}</option>
-                  ))}
-                </SelectInput>
-              </FooterField>
-            )}
-
             <OrderActions>
+              {order.status === 'pendente' && (
+                <ActionButton
+                  type="button"
+                  disabled={!canCorrectOrder}
+                  title={hasCacambas ? 'Pedidos com caçambas cadastradas não podem ser corrigidos.' : undefined}
+                  onClick={() => setCorrectingOrder(order)}
+                >
+                  Corrigir Pedido
+                </ActionButton>
+              )}
               <ActionButton type="button" onClick={() => setChangingClientOrder(order)}>
                 Corrigir Cliente
               </ActionButton>
@@ -2329,6 +2311,15 @@ const AdminPage: React.FC = () => {
             order={changingClientOrder}
             onClose={() => setChangingClientOrder(null)}
             onChanged={handleOrderClientChanged}
+          />
+        )}
+        {correctingOrder && (
+          <CorrectOrderModal
+            apiUrl={apiUrl}
+            order={correctingOrder}
+            drivers={drivers}
+            onClose={() => setCorrectingOrder(null)}
+            onChanged={handleOrderCorrected}
           />
         )}
         {confirmState && (

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticateToken, isAdmin } from '../../shared/auth';
 import {
   changeOrderClient,
+  correctPendingOrder,
   createOrder,
   deleteOrder,
   listOrders,
@@ -37,6 +38,16 @@ ordersRouter.patch('/orders/:id/change-client', authenticateToken, isAdmin, asyn
   } catch (error) {
     console.error('Erro ao corrigir cliente do pedido:', error);
     return res.status(500).json({ message: 'Erro ao corrigir cliente do pedido.' });
+  }
+});
+
+ordersRouter.patch('/orders/:id/correction', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const result = await correctPendingOrder(req.params.id, req.body);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error('Erro ao corrigir pedido:', error);
+    return res.status(500).json({ message: 'Erro ao corrigir pedido.' });
   }
 });
 

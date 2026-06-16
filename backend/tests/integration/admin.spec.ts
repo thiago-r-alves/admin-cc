@@ -87,6 +87,109 @@ describe('Admin APIs', () => {
     expect(del404.status).toBe(404);
   });
 
+  it('PATCH /orders/:id/correction corrige somente pedidos pendentes sem caçambas', async () => {
+    const app = await loadApp();
+    const { admin, driver } = await ensureUsers();
+    const adminToken = signToken(String(admin._id), 'admin');
+    const otherDriver = await UserModel.create({
+      username: `driver-correction-${Date.now()}`,
+      password: '123',
+      role: 'motorista',
+    });
+    const client = await ClientModel.create({
+      clientName: 'Cliente Correcao',
+      contactName: 'Contato',
+      contactNumber: '123',
+      neighborhood: 'Centro',
+      address: 'Rua 1',
+      addressNumber: '10',
+    });
+
+    const order = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: client._id,
+      clientName: client.clientName,
+      contactName: client.contactName,
+      contactNumber: client.contactNumber,
+      neighborhood: client.neighborhood,
+      address: client.address,
+      addressNumber: client.addressNumber,
+      type: 'entrega',
+      status: 'pendente',
+      motorista: driver._id,
+    });
+
+    const corrected = await request(app)
+      .patch(`/orders/${order._id}/correction`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ type: 'retirada', motorista: String(otherDriver._id) });
+
+    expect(corrected.status).toBe(200);
+    expect(corrected.body.type).toBe('retirada');
+    expect(String(corrected.body.motorista._id)).toBe(String(otherDriver._id));
+
+    const badType = await request(app)
+      .patch(`/orders/${order._id}/correction`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ type: 'troca', motorista: String(otherDriver._id) });
+    expect(badType.status).toBe(400);
+
+    const completedOrder = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: client._id,
+      clientName: client.clientName,
+      contactName: client.contactName,
+      contactNumber: client.contactNumber,
+      neighborhood: client.neighborhood,
+      address: client.address,
+      addressNumber: client.addressNumber,
+      type: 'entrega',
+      status: 'concluido',
+      motorista: driver._id,
+    });
+
+    const completedCorrection = await request(app)
+      .patch(`/orders/${completedOrder._id}/correction`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ type: 'retirada', motorista: String(otherDriver._id) });
+    expect(completedCorrection.status).toBe(409);
+
+    const orderWithCacamba = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: client._id,
+      clientName: client.clientName,
+      contactName: client.contactName,
+      contactNumber: client.contactNumber,
+      neighborhood: client.neighborhood,
+      address: client.address,
+      addressNumber: client.addressNumber,
+      type: 'entrega',
+      status: 'pendente',
+      motorista: driver._id,
+    });
+    const cacamba = await CacambaModel.create({
+      numero: '777',
+      tipo: 'entrega',
+      orderId: orderWithCacamba._id,
+      local: 'canteiro_obra',
+      horaServicoDigitos: '777',
+      imageUrl: '/files/507f1f77bcf86cd799439077',
+    });
+    await OrderModel.findByIdAndUpdate(orderWithCacamba._id, { $push: { cacambas: cacamba._id } });
+
+    const withCacambaCorrection = await request(app)
+      .patch(`/orders/${orderWithCacamba._id}/correction`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ type: 'retirada', motorista: String(otherDriver._id) });
+    expect(withCacambaCorrection.status).toBe(409);
+
+    const invalidDriver = await request(app)
+      .patch(`/orders/${orderWithCacamba._id}/correction`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ type: 'retirada', motorista: String(new UserModel()._id) });
+    expect(invalidDriver.status).toBe(404);
+  });
+
   it('PATCH /orders/:id/change-client transfere pedido, fechamento e faturamento para o novo cliente', async () => {
     const app = await loadApp();
     const { admin } = await ensureUsers();

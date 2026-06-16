@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 import type { IClient, IOrder } from '../interfaces';
-import type { SingleValue } from 'react-select';
+import type { Props as ReactSelectProps, SingleValue, StylesConfig } from 'react-select';
 
 const Overlay = styled.div`
   position: fixed;
@@ -34,6 +34,7 @@ const Modal = styled.div`
 `;
 
 const Header = styled.div`
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -66,9 +67,18 @@ const CloseButton = styled.button`
   }
 `;
 
+const Form = styled.form`
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+`;
+
 const Body = styled.div`
+  min-height: 0;
   flex: 1 1 auto;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 1.25rem;
 `;
 
@@ -159,6 +169,7 @@ const SummaryLine = styled.div`
 `;
 
 const Footer = styled.div`
+  flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
@@ -212,6 +223,7 @@ const ErrorMessage = styled.p`
 `;
 
 type ClientOption = { value: string; label: string; clientName: string };
+type ClientSelectComponent = React.ComponentType<ReactSelectProps<ClientOption, false>>;
 
 interface ChangeOrderClientModalProps {
   apiUrl: string;
@@ -234,7 +246,7 @@ const ChangeOrderClientModal: React.FC<ChangeOrderClientModalProps> = ({
   onClose,
   onChanged,
 }) => {
-  const [SelectComponent, setSelectComponent] = useState<any>(null);
+  const [SelectComponent, setSelectComponent] = useState<ClientSelectComponent | null>(null);
   const [clients, setClients] = useState<IClient[]>([]);
   const [selectedClientId, setSelectedClientId] = useState('');
   const [error, setError] = useState('');
@@ -242,6 +254,9 @@ const ChangeOrderClientModal: React.FC<ChangeOrderClientModalProps> = ({
   const fallbackClientSelectRef = useRef<HTMLSelectElement>(null);
 
   useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
     let mounted = true;
     import('react-select')
       .then((mod) => {
@@ -250,6 +265,7 @@ const ChangeOrderClientModal: React.FC<ChangeOrderClientModalProps> = ({
       .catch(() => {});
     return () => {
       mounted = false;
+      document.body.style.overflow = previousOverflow;
     };
   }, []);
 
@@ -298,6 +314,22 @@ const ChangeOrderClientModal: React.FC<ChangeOrderClientModalProps> = ({
   const selectedOption = useMemo(
     () => clientOptions.find((option) => option.value === selectedClientId) || null,
     [clientOptions, selectedClientId],
+  );
+
+  const selectStyles = useMemo<StylesConfig<ClientOption, false>>(
+    () => ({
+      control: (base, state) => ({
+        ...base,
+        minHeight: 40,
+        borderColor: state.isFocused ? '#e30613' : '#d8b4b4',
+        boxShadow: state.isFocused ? '0 0 0 3px rgba(227, 6, 19, 0.12)' : 'none',
+        borderRadius: 4,
+        fontSize: '0.9rem',
+        '&:hover': { borderColor: '#e30613' },
+      }),
+      menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+    }),
+    [],
   );
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -349,7 +381,7 @@ const ChangeOrderClientModal: React.FC<ChangeOrderClientModalProps> = ({
           </CloseButton>
         </Header>
 
-        <form onSubmit={handleSubmit}>
+        <Form onSubmit={handleSubmit}>
           <Body>
             <Intro>
               Escolha o cliente correto. Essa ação transfere o pedido e também move os dados de fechamento e faturamento vinculados a ele.
@@ -373,18 +405,7 @@ const ChangeOrderClientModal: React.FC<ChangeOrderClientModalProps> = ({
                     isClearable
                     autoFocus
                     menuPortalTarget={document.body}
-                    styles={{
-                      control: (base: any, state: any) => ({
-                        ...base,
-                        minHeight: 40,
-                        borderColor: state.isFocused ? '#e30613' : '#d8b4b4',
-                        boxShadow: state.isFocused ? '0 0 0 3px rgba(227, 6, 19, 0.12)' : 'none',
-                        borderRadius: 4,
-                        fontSize: '0.9rem',
-                        '&:hover': { borderColor: '#e30613' },
-                      }),
-                      menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
-                    }}
+                    styles={selectStyles}
                   />
                 ) : (
                   <NativeSelect
@@ -435,7 +456,7 @@ const ChangeOrderClientModal: React.FC<ChangeOrderClientModalProps> = ({
               {saving ? 'Salvando...' : 'Confirmar correção'}
             </SubmitButton>
           </Footer>
-        </form>
+        </Form>
       </Modal>
     </Overlay>
   );

@@ -22,6 +22,32 @@ test.describe('Admin', () => {
     await expect(page.getByText('Buscar Cliente (Autocomplete)')).toBeVisible();
   });
 
+  test('corrige tipo e motorista de pedido pendente sem cacambas', async ({ page }) => {
+    await expect(page.getByText('Reatribuir motorista')).toHaveCount(0);
+
+    const blockedCard = page.getByTestId('order-card-ord-1');
+    await expect(blockedCard.getByRole('button', { name: 'Corrigir Pedido' })).toBeDisabled();
+
+    const editableCard = page.getByTestId('order-card-ord-3');
+    await editableCard.getByRole('button', { name: 'Corrigir Pedido' }).click();
+
+    await expect(page.getByTestId('correct-order-modal')).toBeVisible();
+    await page.locator('#correct-order-type').selectOption('retirada');
+    await page.locator('#correct-order-driver').selectOption('drv-2');
+
+    const correctionPatch = page.waitForResponse(
+      (response) => response.url().includes('/orders/ord-3/correction') && response.request().method() === 'PATCH',
+      { timeout: 15_000 },
+    );
+    await Promise.all([
+      correctionPatch,
+      page.getByRole('button', { name: 'Salvar correção' }).click(),
+    ]);
+
+    await expect(page.getByTestId('correct-order-modal')).toHaveCount(0);
+    await expect(page.getByText('Pedido corrigido com sucesso.')).toBeVisible();
+  });
+
   test('cria pedido com submit completo', async ({ page }) => {
     await page.getByRole('button', { name: /\+ Adicionar Pedido/i }).click();
 

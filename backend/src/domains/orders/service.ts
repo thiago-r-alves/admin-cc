@@ -3,6 +3,7 @@ import { ClientModel } from '../../models/Client';
 import { ClosureGroupModel } from '../../models/ClosureGroup';
 import { CacambaModel } from '../../models/Cacamba';
 import { OrderModel } from '../../models/Order';
+import { UserModel } from '../../models/User';
 import { mapPriority } from '../../utils/order';
 import { emitOrderCompleted, emitOrdersUpdated, notifyDrivers } from '../../shared/realtime';
 import { buildOrderClientSnapshot, isOrderType, ORDER_CLIENT_SNAPSHOT_FIELDS } from './helpers';
@@ -207,6 +208,53 @@ export const changeOrderClient = async (id: string, targetClientId: string) => {
       },
     },
   };
+};
+
+export const correctPendingOrder = async (id: string, payload: Record<string, unknown>) => {
+  const { type, motorista } = payload;
+  const normalizedMotorista = String(motorista || '').trim();
+
+  if (!isOrderType(type)) {
+    return { status: 400, body: { message: 'type deve ser entrega ou retirada' } };
+  }
+
+  if (!normalizedMotorista) {
+    return { status: 400, body: { message: 'motorista é obrigatório' } };
+  }
+
+  const driver = await UserModel.findOne({ _id: normalizedMotorista, role: 'motorista' }).select('_id');
+  if (!driver) {
+    return { status: 404, body: { message: 'Motorista não encontrado.' } };
+  }
+
+  const order = await OrderModel.findById(id).select('status cacambas');
+  if (!order) {
+    return { status: 404, body: { message: 'Pedido não encontrado' } };
+  }
+
+  if (order.status !== 'pendente') {
+    return { status: 409, body: { message: 'Apenas pedidos pendentes podem ser corrigidos.' } };
+  }
+
+  if ((order.cacambas || []).length > 0) {
+    return {
+      status: 409,
+      body: { message: 'Não é possível corrigir um pedido que já possui caçambas cadastradas.' },
+    };
+  }
+
+  const updated = await OrderModel.findByIdAndUpdate(
+    id,
+    { type, motorista: normalizedMotorista, updatedAt: Date.now() },
+    { new: true },
+  )
+    .populate('motorista')
+    .populate('cacambas')
+    .lean();
+
+  emitOrdersUpdated();
+
+  return { status: 200, body: updated };
 };
 
 export const updateOrder = async (id: string, payload: Record<string, unknown>) => {

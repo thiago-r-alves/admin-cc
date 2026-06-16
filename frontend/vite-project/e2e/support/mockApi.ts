@@ -461,6 +461,29 @@ export const setupMockApi = async (page: Page) => {
       orders[idx] = next;
       return json(route, next);
     }
+    if (/^\/orders\/[^/]+\/correction$/.test(pathname) && method === 'PATCH') {
+      const id = pathname.split('/')[2];
+      const body = req.postDataJSON() as Partial<Order>;
+      const idx = orders.findIndex((o) => o._id === id);
+      if (idx === -1) return json(route, { message: 'Pedido não encontrado' }, 404);
+      if (orders[idx].status !== 'pendente') {
+        return json(route, { message: 'Apenas pedidos pendentes podem ser corrigidos.' }, 409);
+      }
+      if (orders[idx].cacambas.length > 0) {
+        return json(route, { message: 'Não é possível corrigir um pedido que já possui caçambas cadastradas.' }, 409);
+      }
+      const driver = drivers.find((d) => d._id === body.motorista);
+      if (!driver) return json(route, { message: 'Motorista não encontrado.' }, 404);
+
+      const next = {
+        ...orders[idx],
+        type: (body.type as 'entrega' | 'retirada') ?? orders[idx].type,
+        motorista: { _id: driver._id, username: driver.username },
+        updatedAt: nowIso,
+      };
+      orders[idx] = next;
+      return json(route, next);
+    }
     if (/^\/orders\/[^/]+\/change-client$/.test(pathname) && method === 'PATCH') {
       const orderId = pathname.split('/')[2];
       const body = req.postDataJSON() as { clientId?: string };
