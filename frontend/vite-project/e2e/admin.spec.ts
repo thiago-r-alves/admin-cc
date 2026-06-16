@@ -33,6 +33,7 @@ test.describe('Admin', () => {
 
     await expect(page.getByTestId('correct-order-modal')).toBeVisible();
     await page.locator('#correct-order-type').selectOption('retirada');
+    await page.locator('#correct-order-cacamba-price').fill('180');
     await page.locator('#correct-order-driver').selectOption('drv-2');
 
     const correctionPatch = page.waitForResponse(
@@ -64,6 +65,14 @@ test.describe('Admin', () => {
       .locator('label', { hasText: 'Placa' })
       .locator('xpath=following::select[1]')
       .selectOption('fto2e29');
+    await page
+      .locator('label', { hasText: 'Tipo de Serviço' })
+      .locator('xpath=following::select[1]')
+      .selectOption('retirada');
+    await page
+      .locator('label', { hasText: 'Valor da Caçamba (R$)' })
+      .locator('xpath=following::input[1]')
+      .fill('180');
     await page
       .locator('label', { hasText: 'Atribuir Motorista' })
       .locator('xpath=following::select[1]')

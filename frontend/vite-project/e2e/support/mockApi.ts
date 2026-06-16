@@ -43,7 +43,7 @@ type Order = {
   imageUrls: string[];
   createdAt: string;
   updatedAt: string;
-  price?: number;
+  cacambaPrice?: number;
 };
 
 type BillingBucket = {
@@ -122,7 +122,7 @@ const initialOrders: Order[] = [
     imageUrls: [],
     createdAt: nowIso,
     updatedAt: nowIso,
-    price: 150.5,
+    cacambaPrice: 150.5,
   },
   {
     _id: 'ord-2',
@@ -157,7 +157,6 @@ const initialOrders: Order[] = [
     imageUrls: [],
     createdAt: nowIso,
     updatedAt: nowIso,
-    price: 220.0,
   },
   {
     _id: 'ord-3',
@@ -218,7 +217,7 @@ const initialOrders: Order[] = [
     imageUrls: [],
     createdAt: '2026-05-15T09:00:00.000Z',
     updatedAt: '2026-05-15T12:00:00.000Z',
-    price: 320.0,
+    cacambaPrice: 320.0,
   },
   {
     _id: 'ord-5',
@@ -257,7 +256,7 @@ const initialOrders: Order[] = [
     imageUrls: [],
     createdAt: '2026-05-14T09:00:00.000Z',
     updatedAt: '2026-05-14T12:00:00.000Z',
-    price: 280.0,
+    cacambaPrice: 280.0,
   },
 ];
 
@@ -443,7 +442,7 @@ export const setupMockApi = async (page: Page) => {
         imageUrls: [],
         createdAt: nowIso,
         updatedAt: nowIso,
-        price: typeof body.price === 'number' ? body.price : undefined,
+        cacambaPrice: typeof body.cacambaPrice === 'number' ? body.cacambaPrice : undefined,
       };
       orders.unshift(created);
       return json(route, created, 201);
@@ -479,6 +478,7 @@ export const setupMockApi = async (page: Page) => {
         ...orders[idx],
         type: (body.type as 'entrega' | 'retirada') ?? orders[idx].type,
         motorista: { _id: driver._id, username: driver.username },
+        cacambaPrice: typeof body.cacambaPrice === 'number' ? body.cacambaPrice : undefined,
         updatedAt: nowIso,
       };
       orders[idx] = next;
@@ -1036,7 +1036,7 @@ export const setupMockApi = async (page: Page) => {
     if (pathname === '/driver/orders' && method === 'GET') {
       const driverOrders = orders
         .filter((o) => getOrderMotoristaId(o) === 'drv-1' && o.status !== 'concluido')
-        .map(({ price, ...rest }) => rest);
+        .map(({ cacambaPrice, ...rest }) => rest);
       return json(route, driverOrders);
     }
     if (/^\/driver\/orders\/[^/]+\/complete$/.test(pathname) && method === 'PATCH') {
@@ -1055,6 +1055,7 @@ export const setupMockApi = async (page: Page) => {
         _id: `cac-${Math.floor(Math.random() * 10000)}`,
         numero: '999',
         tipo: order.type,
+        ...(order.type === 'retirada' ? { price: order.cacambaPrice, contentType: 'Entulho limpo' } : {}),
         local: 'via_publica',
         orderId,
         createdAt: nowIso,

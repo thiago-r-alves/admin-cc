@@ -109,6 +109,24 @@ const Select = styled.select`
   }
 `;
 
+const Input = styled.input`
+  width: 100%;
+  min-height: 42px;
+  box-sizing: border-box;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #d8b4b4;
+  border-radius: 4px;
+  background: #fff;
+  color: #374151;
+  font-size: 0.9rem;
+
+  &:focus {
+    outline: none;
+    border-color: #e30613;
+    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
+  }
+`;
+
 const Summary = styled.div`
   border: 1px solid #fee2e2;
   border-radius: 8px;
@@ -201,6 +219,9 @@ const CorrectOrderModal: React.FC<CorrectOrderModalProps> = ({
 }) => {
   const [type, setType] = useState<OrderType>(order.type);
   const [driverId, setDriverId] = useState(getDriverId(order));
+  const [cacambaPrice, setCacambaPrice] = useState(
+    typeof order.cacambaPrice === 'number' && Number.isFinite(order.cacambaPrice) ? String(order.cacambaPrice) : ''
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -215,6 +236,11 @@ const CorrectOrderModal: React.FC<CorrectOrderModalProps> = ({
       setError('Selecione um motorista para continuar.');
       return;
     }
+    const parsedCacambaPrice = Number(cacambaPrice.replace(',', '.'));
+    if (type === 'retirada' && (!Number.isFinite(parsedCacambaPrice) || parsedCacambaPrice <= 0)) {
+      setError('Informe o valor da caçamba para pedidos de retirada.');
+      return;
+    }
 
     try {
       setSaving(true);
@@ -226,7 +252,11 @@ const CorrectOrderModal: React.FC<CorrectOrderModalProps> = ({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ type, motorista: driverId }),
+        body: JSON.stringify({
+          type,
+          motorista: driverId,
+          ...(type === 'retirada' ? { cacambaPrice: parsedCacambaPrice } : {}),
+        }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -271,6 +301,7 @@ const CorrectOrderModal: React.FC<CorrectOrderModalProps> = ({
                   value={type}
                   onChange={(event) => {
                     setType(event.target.value as OrderType);
+                    if (event.target.value === 'entrega') setCacambaPrice('');
                     setError('');
                   }}
                 >
@@ -278,6 +309,24 @@ const CorrectOrderModal: React.FC<CorrectOrderModalProps> = ({
                   <option value="retirada">Retirada</option>
                 </Select>
               </div>
+
+              {type === 'retirada' && (
+                <div>
+                  <Label htmlFor="correct-order-cacamba-price">Valor da caçamba (R$)</Label>
+                  <Input
+                    id="correct-order-cacamba-price"
+                    type="text"
+                    value={cacambaPrice}
+                    onChange={(event) => {
+                      setCacambaPrice(event.target.value);
+                      setError('');
+                    }}
+                    placeholder="Ex: 180,00"
+                    inputMode="decimal"
+                    required
+                  />
+                </div>
+              )}
 
               <div>
                 <Label htmlFor="correct-order-driver">Motorista</Label>

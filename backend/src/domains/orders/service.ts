@@ -12,6 +12,33 @@ import {
   getNextClosureGroupSequence,
 } from '../closures/helpers';
 
+const parseCacambaPrice = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const validateCacambaPriceForType = (type: unknown, value: unknown) => {
+  if (type === 'retirada') {
+    const parsed = parseCacambaPrice(value);
+    if (parsed === null || parsed <= 0) {
+      return {
+        ok: false as const,
+        body: { message: 'Valor da caçamba é obrigatório para pedidos de retirada.' },
+      };
+    }
+    return { ok: true as const, value: parsed };
+  }
+
+  if (value !== undefined && value !== null && String(value).trim() !== '') {
+    return {
+      ok: false as const,
+      body: { message: 'Valor da caçamba é permitido apenas para pedidos de retirada.' },
+    };
+  }
+
+  return { ok: true as const, value: undefined };
+};
+
 export const createOrder = async (payload: Record<string, unknown>) => {
   const {
     clientId,
@@ -28,11 +55,14 @@ export const createOrder = async (payload: Record<string, unknown>) => {
     priority,
     motorista,
     placa,
+    cacambaPrice,
   } = payload;
 
   if (!clientId) return { status: 400, body: { message: 'clientId é obrigatório' } };
   if (!type) return { status: 400, body: { message: 'type é obrigatório' } };
   if (!isOrderType(type)) return { status: 400, body: { message: 'type deve ser entrega ou retirada' } };
+  const priceValidation = validateCacambaPriceForType(type, cacambaPrice);
+  if (!priceValidation.ok) return { status: 400, body: priceValidation.body };
 
   const last = await OrderModel.findOne({ orderNumber: { $ne: null } })
     .sort({ orderNumber: -1 })
@@ -56,9 +86,11 @@ export const createOrder = async (payload: Record<string, unknown>) => {
     motorista: motorista || null,
     orderNumber: nextOrderNumber,
     placa: placa || '',
+    ...(type === 'retirada' ? { cacambaPrice: priceValidation.value } : {}),
   });
 
   const populated = await OrderModel.findById(order._id)
+    .select('+cacambaPrice')
     .populate('motorista')
     .populate('cacambas')
     .lean();
@@ -70,6 +102,7 @@ export const createOrder = async (payload: Record<string, unknown>) => {
 
 export const listOrders = () =>
   OrderModel.find()
+    .select('+cacambaPrice')
     .populate([
       {
         path: 'motorista',
@@ -211,12 +244,14 @@ export const changeOrderClient = async (id: string, targetClientId: string) => {
 };
 
 export const correctPendingOrder = async (id: string, payload: Record<string, unknown>) => {
-  const { type, motorista } = payload;
+  const { type, motorista, cacambaPrice } = payload;
   const normalizedMotorista = String(motorista || '').trim();
 
   if (!isOrderType(type)) {
     return { status: 400, body: { message: 'type deve ser entrega ou retirada' } };
   }
+  const priceValidation = validateCacambaPriceForType(type, cacambaPrice);
+  if (!priceValidation.ok) return { status: 400, body: priceValidation.body };
 
   if (!normalizedMotorista) {
     return { status: 400, body: { message: 'motorista é obrigatório' } };
@@ -245,9 +280,15 @@ export const correctPendingOrder = async (id: string, payload: Record<string, un
 
   const updated = await OrderModel.findByIdAndUpdate(
     id,
-    { type, motorista: normalizedMotorista, updatedAt: Date.now() },
+    {
+      type,
+      motorista: normalizedMotorista,
+      updatedAt: Date.now(),
+      ...(type === 'retirada' ? { cacambaPrice: priceValidation.value } : { $unset: { cacambaPrice: '' } }),
+    },
     { new: true },
   )
+    .select('+cacambaPrice')
     .populate('motorista')
     .populate('cacambas')
     .lean();
@@ -264,13 +305,28 @@ export const updateOrder = async (id: string, payload: Record<string, unknown>) 
     return { status: 400, body: { message: 'type deve ser entrega ou retirada' } };
   }
 
+  const needsPriceValidation = payload.type !== undefined || payload.cacambaPrice !== undefined;
+  if (needsPriceValidation) {
+    const existingOrder = await OrderModel.findById(id).select('+cacambaPrice type').lean();
+    if (!existingOrder) return { status: 404, body: { message: 'Pedido não encontrado' } };
+    const typeForValidation = payload.type !== undefined ? payload.type : existingOrder.type;
+    const priceForValidation =
+      payload.cacambaPrice !== undefined ? payload.cacambaPrice : existingOrder.cacambaPrice;
+    const priceValidation = validateCacambaPriceForType(typeForValidation, priceForValidation);
+    if (!priceValidation.ok) return { status: 400, body: priceValidation.body };
+    if (typeForValidation === 'retirada') updates.cacambaPrice = priceValidation.value;
+  }
+
   const fields = [...ORDER_CLIENT_SNAPSHOT_FIELDS, 'type', 'status', 'motorista'];
   for (const field of fields) {
     if (payload[field] !== undefined) updates[field] = payload[field];
   }
+  if (payload.type === 'entrega') {
+    updates.$unset = { cacambaPrice: '' };
+  }
   if (payload.priority !== undefined) updates.priority = mapPriority(payload.priority);
 
-  const updated = await OrderModel.findByIdAndUpdate(id, updates, { new: true });
+  const updated = await OrderModel.findByIdAndUpdate(id, updates, { new: true }).select('+cacambaPrice');
   if (!updated) return { status: 404, body: { message: 'Pedido não encontrado' } };
 
   if (updated.status === 'concluido') {

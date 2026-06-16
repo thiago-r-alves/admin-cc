@@ -115,6 +115,7 @@ export interface IOrder {
   createdAt?: string;
   updatedAt?: string; // adicionado para evitar erro no orderPdf e modais
   placa?: string; // Adicione este campo
+  cacambaPrice?: number;
 }
 
 export interface IBillingSummaryResponse {

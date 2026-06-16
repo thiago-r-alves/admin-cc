@@ -6,6 +6,12 @@ import { emitOrdersUpdated } from '../../shared/realtime';
 import { compressImage, extractGridFsIdFromUrl } from '../../utils/image';
 import { isValidCacambaContentType, isValidCacambaLocal } from './helpers';
 
+const hideDriverCacambaPrice = (cacamba: any) => {
+  const plain = typeof cacamba?.toObject === 'function' ? cacamba.toObject() : { ...(cacamba || {}) };
+  delete plain.price;
+  return plain;
+};
+
 export const updateCacamba = async (
   id: string,
   userData: { userId: string; role: 'admin' | 'motorista' } | undefined,
@@ -135,7 +141,10 @@ export const updateCacamba = async (
   if (!cacamba) return { status: 404, body: { message: 'Caçamba não encontrada' } };
 
   emitOrdersUpdated();
-  return { status: 200, body: { cacamba } };
+  return {
+    status: 200,
+    body: { cacamba: isAdminUser ? cacamba : hideDriverCacambaPrice(cacamba) },
+  };
 };
 
 export const deleteCacamba = async (id: string) => {

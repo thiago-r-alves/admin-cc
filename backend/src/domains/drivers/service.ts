@@ -6,6 +6,12 @@ import { compressImage } from '../../utils/image';
 import { emitOrdersUpdated } from '../../shared/realtime';
 import { isValidCacambaContentType } from '../cacambas/helpers';
 
+const hideDriverCacambaPrice = (cacamba: any) => {
+  const plain = typeof cacamba?.toObject === 'function' ? cacamba.toObject() : { ...(cacamba || {}) };
+  delete plain.price;
+  return plain;
+};
+
 export const createDriver = async (payload: { username?: string; password?: string }) => {
   const existingUser = await UserModel.findOne({ username: payload.username });
   if (existingUser) {
@@ -72,7 +78,7 @@ export const createDriverOrderCacamba = async (
   file?: Express.Multer.File,
 ) => {
   const { numero, local, horaServicoDigitos, contentType } = body;
-  const order = await OrderModel.findOne({ _id: orderId, motorista: driverId });
+  const order = await OrderModel.findOne({ _id: orderId, motorista: driverId }).select('+cacambaPrice');
   if (!order) {
     return { status: 404, body: { message: 'Pedido não encontrado ou não pertence a este motorista.' } };
   }
@@ -114,6 +120,7 @@ export const createDriverOrderCacamba = async (
     numero: String(numero).trim(),
     tipo: finalTipo,
     ...(finalTipo === 'retirada' ? { contentType: normalizedContentType } : {}),
+    ...(finalTipo === 'retirada' && typeof order.cacambaPrice === 'number' ? { price: order.cacambaPrice } : {}),
     local,
     horaServicoDigitos,
     orderId: order._id,
@@ -127,7 +134,7 @@ export const createDriverOrderCacamba = async (
 
   return {
     status: 201,
-    body: { message: 'Caçamba registrada com sucesso!', cacamba },
+    body: { message: 'Caçamba registrada com sucesso!', cacamba: hideDriverCacambaPrice(cacamba) },
   };
 };
 
@@ -137,7 +144,7 @@ export const getDriverOrderCacambas = async (orderId: string, driverId: string) 
     return { status: 404, body: { message: 'Pedido não encontrado ou não pertence a este motorista.' } };
   }
 
-  const cacambas = await CacambaModel.find({ orderId }).sort({ createdAt: 1 });
+  const cacambas = await CacambaModel.find({ orderId }).select('-price').sort({ createdAt: 1 });
   return { status: 200, body: cacambas };
 };
 

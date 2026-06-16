@@ -341,6 +341,7 @@ const emptyForm = {
   type: 'entrega' as OrderType,
   motorista: '',
   placa: '',
+  cacambaPrice: '',
 };
 
 const DocumentIcon = () => (
@@ -472,6 +473,11 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
       setError('Por favor, selecione um cliente.');
       return;
     }
+    const parsedCacambaPrice = Number(form.cacambaPrice.replace(',', '.'));
+    if (form.type === 'retirada' && (!Number.isFinite(parsedCacambaPrice) || parsedCacambaPrice <= 0)) {
+      setError('Informe o valor da caçamba para pedidos de retirada.');
+      return;
+    }
 
     const token = localStorage.getItem('token');
     const response = await fetch(`${apiUrl}/orders`, {
@@ -495,6 +501,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
         priority: 0,
         placa: form.placa,
         motorista: form.motorista || undefined,
+        ...(form.type === 'retirada' ? { cacambaPrice: parsedCacambaPrice } : {}),
       }),
     });
 
@@ -676,12 +683,30 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                       <Label>Tipo de Serviço</Label>
                       <Select
                         value={form.type}
-                        onChange={e => setForm(prev => ({ ...prev, type: e.target.value as OrderType }))}
+                        onChange={e => setForm(prev => ({
+                          ...prev,
+                          type: e.target.value as OrderType,
+                          cacambaPrice: e.target.value === 'retirada' ? prev.cacambaPrice : '',
+                        }))}
                       >
                         <option value="entrega">Entrega</option>
                         <option value="retirada">Retirada</option>
                       </Select>
                     </Field>
+
+                    {form.type === 'retirada' && (
+                      <Field>
+                        <Label>Valor da Caçamba (R$)</Label>
+                        <Input
+                          type="text"
+                          value={form.cacambaPrice}
+                          onChange={e => setForm(f => ({ ...f, cacambaPrice: e.target.value }))}
+                          placeholder="Ex: 180,00"
+                          inputMode="decimal"
+                          required
+                        />
+                      </Field>
+                    )}
 
                     <Field>
                       <Label>Placa</Label>

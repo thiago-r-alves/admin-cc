@@ -34,6 +34,18 @@ describe('Admin APIs', () => {
       .send({ clientId: String(client._id), type: 'troca' });
     expect(badType.status).toBe(400);
 
+    const withdrawalWithoutPrice = await request(app)
+      .post('/orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ clientId: String(client._id), type: 'retirada' });
+    expect(withdrawalWithoutPrice.status).toBe(400);
+
+    const deliveryWithPrice = await request(app)
+      .post('/orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ clientId: String(client._id), type: 'entrega', cacambaPrice: 100 });
+    expect(deliveryWithPrice.status).toBe(400);
+
     const create = await request(app)
       .post('/orders')
       .set('Authorization', `Bearer ${adminToken}`)
@@ -48,9 +60,11 @@ describe('Admin APIs', () => {
         type: 'retirada',
         motorista: String(driver._id),
         priority: 2,
+        cacambaPrice: 180,
       });
     expect(create.status).toBe(201);
     expect(create.body.orderNumber).toBe(1);
+    expect(create.body.cacambaPrice).toBe(180);
 
     const list = await request(app).get('/orders').set('Authorization', `Bearer ${adminToken}`);
     expect(list.status).toBe(200);
@@ -122,11 +136,18 @@ describe('Admin APIs', () => {
     const corrected = await request(app)
       .patch(`/orders/${order._id}/correction`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ type: 'retirada', motorista: String(otherDriver._id) });
+      .send({ type: 'retirada', motorista: String(otherDriver._id), cacambaPrice: 190 });
 
     expect(corrected.status).toBe(200);
     expect(corrected.body.type).toBe('retirada');
+    expect(corrected.body.cacambaPrice).toBe(190);
     expect(String(corrected.body.motorista._id)).toBe(String(otherDriver._id));
+
+    const correctionWithoutPrice = await request(app)
+      .patch(`/orders/${order._id}/correction`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ type: 'retirada', motorista: String(otherDriver._id) });
+    expect(correctionWithoutPrice.status).toBe(400);
 
     const badType = await request(app)
       .patch(`/orders/${order._id}/correction`)
@@ -151,7 +172,7 @@ describe('Admin APIs', () => {
     const completedCorrection = await request(app)
       .patch(`/orders/${completedOrder._id}/correction`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ type: 'retirada', motorista: String(otherDriver._id) });
+      .send({ type: 'retirada', motorista: String(otherDriver._id), cacambaPrice: 190 });
     expect(completedCorrection.status).toBe(409);
 
     const orderWithCacamba = await OrderModel.create({
@@ -180,13 +201,13 @@ describe('Admin APIs', () => {
     const withCacambaCorrection = await request(app)
       .patch(`/orders/${orderWithCacamba._id}/correction`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ type: 'retirada', motorista: String(otherDriver._id) });
+      .send({ type: 'retirada', motorista: String(otherDriver._id), cacambaPrice: 190 });
     expect(withCacambaCorrection.status).toBe(409);
 
     const invalidDriver = await request(app)
       .patch(`/orders/${orderWithCacamba._id}/correction`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ type: 'retirada', motorista: String(new UserModel()._id) });
+      .send({ type: 'retirada', motorista: String(new UserModel()._id), cacambaPrice: 190 });
     expect(invalidDriver.status).toBe(404);
   });
 

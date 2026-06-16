@@ -33,6 +33,7 @@ describe('Driver APIs', () => {
       type,
       status: 'pendente',
       motorista: driverId,
+      ...(type === 'retirada' ? { cacambaPrice: 180 } : {}),
     });
   };
 
@@ -112,6 +113,22 @@ describe('Driver APIs', () => {
       .field('contentType', 'Entulho limpo')
       .attach('image', tinyPng, 'img.png');
     expect(success.status).toBe(201);
+    expect(success.body.cacamba.price).toBeUndefined();
+    const createdCacamba = await CacambaModel.findById(success.body.cacamba._id).lean();
+    expect(createdCacamba?.price).toBe(180);
+
+    const second = await request(app)
+      .post(`/driver/orders/${order._id}/cacambas`)
+      .set('Authorization', `Bearer ${token}`)
+      .field('numero', '002')
+      .field('horaServicoDigitos', '124')
+      .field('local', 'via_publica')
+      .field('contentType', 'Entulho limpo')
+      .attach('image', tinyPng, 'img.png');
+    expect(second.status).toBe(201);
+    expect(second.body.cacamba.price).toBeUndefined();
+    const secondCacamba = await CacambaModel.findById(second.body.cacamba._id).lean();
+    expect(secondCacamba?.price).toBe(180);
 
     const duplicate = await request(app)
       .post(`/driver/orders/${order._id}/cacambas`)
@@ -179,6 +196,7 @@ describe('Driver APIs', () => {
       numero: '321',
       tipo: 'retirada',
       contentType: 'Entulho limpo',
+      price: 180,
       imageUrl: '/files/507f1f77bcf86cd799439011',
       orderId: order._id,
       local: 'via_publica',
@@ -196,6 +214,13 @@ describe('Driver APIs', () => {
       .set('Authorization', `Bearer ${driverToken}`)
       .field('contentType', 'Inexistente');
     expect(badContent.status).toBe(400);
+
+    const driverContentOk = await request(app)
+      .patch(`/cacambas/${cacamba._id}`)
+      .set('Authorization', `Bearer ${driverToken}`)
+      .field('contentType', 'Entulho misto');
+    expect(driverContentOk.status).toBe(200);
+    expect(driverContentOk.body.cacamba.price).toBeUndefined();
 
     const driverPriceForbidden = await request(app)
       .patch(`/cacambas/${cacamba._id}`)
