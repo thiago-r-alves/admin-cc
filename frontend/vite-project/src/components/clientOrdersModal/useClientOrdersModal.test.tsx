@@ -432,4 +432,97 @@ describe('useClientOrdersModal', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(result.current.orders).toEqual([]);
   });
+
+  it('volta caçamba de grupo para pendente e remove do grupo local', async () => {
+    const onClosureStateChanged = vi.fn();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            _id: 'grp-1',
+            clientId: 'cli-1',
+            clientSequenceNumber: 1,
+            status: 'paga',
+            invoiceNumber: 'NF-1',
+            startDate: '2026-05-01T00:00:00.000Z',
+            endDate: '2026-05-31T23:59:59.999Z',
+            cacambaIds: [
+              {
+                _id: 'cac-1',
+                numero: '101',
+                tipo: 'retirada',
+                paymentStatus: 'paga',
+                price: 120,
+                orderId: 'ord-1',
+                createdAt: '2026-05-10T10:00:00.000Z',
+              },
+              {
+                _id: 'cac-2',
+                numero: '102',
+                tipo: 'retirada',
+                paymentStatus: 'paga',
+                price: 80,
+                orderId: 'ord-1',
+                createdAt: '2026-05-10T10:00:00.000Z',
+              },
+            ],
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          cacamba: {
+            _id: 'cac-1',
+            numero: '101',
+            tipo: 'retirada',
+            paymentStatus: 'pendente',
+            price: 120,
+            orderId: 'ord-1',
+            createdAt: '2026-05-10T10:00:00.000Z',
+          },
+          deletedGroup: false,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() =>
+      useClientOrdersModal({
+        client,
+        closureMode: true,
+        onClosureStateChanged,
+      }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await result.current.fetchExistingClosureGroups('all');
+    });
+
+    expect(result.current.closureGroups[0]?.cacambaIds).toHaveLength(2);
+
+    await act(async () => {
+      await result.current.returnCacambaToPending('grp-1', 'cac-1');
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/closure-groups/grp-1/cacambas/cac-1/reopen'),
+      expect.objectContaining({ method: 'PATCH' }),
+    );
+    expect(onClosureStateChanged).toHaveBeenCalledTimes(1);
+    expect(result.current.closureGroups[0]?.cacambaIds.map((cacamba) => cacamba._id)).toEqual([
+      'cac-2',
+    ]);
+  });
 });

@@ -1209,6 +1209,100 @@ describe('Admin APIs', () => {
     expect(groupsWithoutDate.body[0]?.clientSequenceNumber).toBeDefined();
   });
 
+  it('PATCH /closure-groups/:groupId/cacambas/:cacambaId/reopen volta caçamba para pendente e remove grupo vazio', async () => {
+    const app = await loadApp();
+    const { admin } = await ensureUsers();
+    const token = signToken(String(admin._id), 'admin');
+    const client = await ClientModel.create({
+      clientName: 'Cliente Reabrir',
+      contactName: 'Contato',
+      contactNumber: '999',
+      neighborhood: 'N',
+      address: 'Rua',
+      addressNumber: '1',
+    });
+    const order = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: client._id,
+      clientName: client.clientName,
+      contactName: client.contactName,
+      contactNumber: client.contactNumber,
+      neighborhood: client.neighborhood,
+      address: client.address,
+      addressNumber: client.addressNumber,
+      type: 'retirada',
+      status: 'concluido',
+      updatedAt: new Date('2026-05-18T10:00:00.000Z'),
+      createdAt: new Date('2026-05-18T08:00:00.000Z'),
+    });
+    const c1 = await CacambaModel.create({
+      numero: '920',
+      tipo: 'retirada',
+      paymentStatus: 'paga',
+      closureGroupId: undefined,
+      contentType: 'Entulho limpo',
+      price: 120,
+      imageUrl: '/files/507f1f77bcf86cd799439041',
+      orderId: order._id,
+      local: 'via_publica',
+      horaServicoDigitos: '920',
+    });
+    const c2 = await CacambaModel.create({
+      numero: '921',
+      tipo: 'retirada',
+      paymentStatus: 'paga',
+      closureGroupId: undefined,
+      contentType: 'Entulho limpo',
+      price: 80,
+      imageUrl: '/files/507f1f77bcf86cd799439042',
+      orderId: order._id,
+      local: 'via_publica',
+      horaServicoDigitos: '921',
+    });
+    await OrderModel.findByIdAndUpdate(order._id, { $push: { cacambas: { $each: [c1._id, c2._id] } } });
+
+    const group = await ClosureGroupModel.create({
+      clientId: client._id,
+      clientSequenceNumber: 1,
+      startDate: new Date('2026-05-15T00:00:00.000Z'),
+      endDate: new Date('2026-05-19T23:59:59.999Z'),
+      cacambaIds: [c1._id, c2._id],
+      status: 'paga',
+      invoiceNumber: 'NF-REABRIR',
+      createdBy: admin._id,
+    });
+    await CacambaModel.updateMany({ _id: { $in: [c1._id, c2._id] } }, { $set: { closureGroupId: group._id } });
+
+    const removeOne = await request(app)
+      .patch(`/closure-groups/${group._id}/cacambas/${c1._id}/reopen`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(removeOne.status).toBe(200);
+    expect(removeOne.body.deletedGroup).toBe(false);
+
+    const c1After = await CacambaModel.findById(c1._id).lean();
+    const groupAfterOne = await ClosureGroupModel.findById(group._id).lean();
+    expect(c1After?.paymentStatus).toBe('pendente');
+    expect(c1After?.closureGroupId).toBeUndefined();
+    expect(groupAfterOne?.cacambaIds.map(String)).toEqual([String(c2._id)]);
+
+    const invalid = await request(app)
+      .patch(`/closure-groups/${group._id}/cacambas/${c1._id}/reopen`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(invalid.status).toBe(400);
+
+    const removeLast = await request(app)
+      .patch(`/closure-groups/${group._id}/cacambas/${c2._id}/reopen`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(removeLast.status).toBe(200);
+    expect(removeLast.body.deletedGroup).toBe(true);
+
+    const c2After = await CacambaModel.findById(c2._id).lean();
+    const groupAfterLast = await ClosureGroupModel.findById(group._id).lean();
+    expect(c2After?.paymentStatus).toBe('pendente');
+    expect(c2After?.closureGroupId).toBeUndefined();
+    expect(groupAfterLast).toBeNull();
+  });
+
   it('Cities: create, reject duplicates, enforce admin-only create, and list', async () => {
     const app = await loadApp();
     const { admin, driver } = await ensureUsers();

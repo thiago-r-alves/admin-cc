@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import ClientOrdersModal from '../ClientOrdersModal';
 
@@ -37,6 +37,7 @@ const handleDownloadMock = vi.fn(async () => ({
 
 const downloadExistingClosureGroupMock = vi.fn(async () => undefined);
 const saveInvoiceForGroupMock = vi.fn(async () => undefined);
+const returnCacambaToPendingMock = vi.fn(async () => undefined);
 const setInvoiceNumberMock = vi.fn();
 const setIsEditingInvoiceMock = vi.fn();
 
@@ -173,6 +174,7 @@ vi.mock('./useClientOrdersModal', () => ({
     handleDownload: handleDownloadMock,
     downloadExistingClosureGroup: downloadExistingClosureGroupMock,
     saveInvoiceForGroup: saveInvoiceForGroupMock,
+    returnCacambaToPending: returnCacambaToPendingMock,
   }),
 }));
 
@@ -205,6 +207,26 @@ describe('ClientOrdersModal (closure flow)', () => {
     fireEvent.click(screen.getByTestId('closure-group-edit-invoice'));
     expect(setInvoiceNumberMock).toHaveBeenCalledWith('NF-0001');
     expect(setIsEditingInvoiceMock).toHaveBeenCalledWith(true);
+  });
+
+  it('confirma volta da caçamba do grupo para pendente', async () => {
+    render(
+      <ClientOrdersModal
+        client={{ _id: 'client-1', clientName: 'Cliente Teste' }}
+        onClose={vi.fn()}
+        closureMode
+        paymentStatus="paid"
+      />,
+    );
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Voltar para pendente' })[0]);
+    expect(screen.getByText('Voltar caçamba para pendente')).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Voltar para pendente' })[1]);
+
+    await waitFor(() =>
+      expect(returnCacambaToPendingMock).toHaveBeenCalledWith('grp-1', 'cac-1'),
+    );
   });
 
   it('avança para a etapa de NF no mesmo modal após gerar o fechamento', async () => {

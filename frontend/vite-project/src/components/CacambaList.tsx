@@ -206,6 +206,7 @@ interface CacambaListProps {
   selectable?: boolean;
   selectedCacambaIds?: string[];
   onToggleSelect?: (cacamba: ICacamba, checked: boolean) => void;
+  onReturnToPending?: (cacamba: ICacamba) => void;
 }
 
 const CacambaList: React.FC<CacambaListProps> = ({
@@ -223,6 +224,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
   selectable = false,
   selectedCacambaIds = [],
   onToggleSelect,
+  onReturnToPending,
 }) => {
   if (cacambas.length === 0) {
     return <EmptyState>Nenhuma caçamba registrada ainda</EmptyState>;
@@ -367,6 +369,14 @@ const CacambaList: React.FC<CacambaListProps> = ({
               {!selectable && onDelete && (
                 <ActionButton $variant="danger" onClick={() => onDelete(cacamba._id)}>
                   Excluir
+                </ActionButton>
+              )}
+              {!selectable && onReturnToPending && (
+                <ActionButton
+                  $variant="secondary"
+                  onClick={() => onReturnToPending(cacamba)}
+                >
+                  Voltar para pendente
                 </ActionButton>
               )}
               {selectable && isRetirada && !isPaid && missingContentType && onEditContentType && (

@@ -377,6 +377,55 @@ export const useClientOrdersModal = ({
     await fetchEligibleOrders();
   };
 
+  const returnCacambaToPending = async (groupId: string, cacambaId: string) => {
+    const response = await fetch(`${apiUrl}/closure-groups/${groupId}/cacambas/${cacambaId}/reopen`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    const data = await response.json().catch(() => ({} as Record<string, unknown>));
+    if (!response.ok) {
+      throw new Error((data as { message?: string }).message || 'Erro ao voltar caçamba para pendente.');
+    }
+
+    const deletedGroup = Boolean((data as { deletedGroup?: boolean }).deletedGroup);
+
+    setCurrentClosureGroup((prev) => {
+      if (!prev || prev._id !== groupId) return prev;
+      if (deletedGroup) return null;
+      return {
+        ...prev,
+        cacambaIds: (prev.cacambaIds || []).filter((cacamba) => cacamba._id !== cacambaId),
+      };
+    });
+
+    setExistingClosureGroups((prev) => {
+      const nextGroups = deletedGroup
+        ? prev.filter((group) => group._id !== groupId)
+        : prev.map((group) =>
+            group._id === groupId
+              ? {
+                  ...group,
+                  cacambaIds: (group.cacambaIds || []).filter((cacamba) => cacamba._id !== cacambaId),
+                }
+              : group,
+          );
+
+      setSelectedGroupId((currentId) => {
+        if (currentId !== groupId || !deletedGroup) return currentId;
+        return nextGroups[0]?._id || null;
+      });
+
+      return nextGroups;
+    });
+
+    setSelectedCacambaIds((prev) => prev.filter((id) => id !== cacambaId));
+    await onClosureStateChanged?.();
+    await fetchEligibleOrders();
+  };
+
   return {
     orders: eligibleOrders,
     eligibleOrders,
@@ -411,5 +460,6 @@ export const useClientOrdersModal = ({
     handleDownload,
     downloadExistingClosureGroup,
     saveInvoiceForGroup,
+    returnCacambaToPending,
   };
 };

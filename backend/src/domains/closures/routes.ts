@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticateToken, AuthenticatedRequest, isAdmin } from '../../shared/auth';
-import { createClosureDownload, saveClosureGroupInvoice } from './service';
+import { createClosureDownload, reopenClosureGroupCacamba, saveClosureGroupInvoice } from './service';
 
 export const closuresRouter = Router();
 
@@ -21,5 +21,15 @@ closuresRouter.patch('/closure-groups/:id/invoice', authenticateToken, isAdmin, 
   } catch (error) {
     console.error('Erro ao salvar NF do grupo:', error);
     return res.status(500).json({ message: 'Erro ao salvar nota fiscal do grupo.' });
+  }
+});
+
+closuresRouter.patch('/closure-groups/:groupId/cacambas/:cacambaId/reopen', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const result = await reopenClosureGroupCacamba(req.params.groupId, req.params.cacambaId);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error('Erro ao voltar caçamba para pendente:', error);
+    return res.status(500).json({ message: 'Erro ao voltar caçamba para pendente.' });
   }
 });

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 import ImageModal from './ImageModal';
 import CacambaMetaModal from './CacambaMetaModal';
+import ActionConfirmModal from './ActionConfirmModal';
 import ClientOrdersFooter from './clientOrdersModal/ClientOrdersFooter';
 import ClientOrdersList from './clientOrdersModal/ClientOrdersList';
 import ClientOrdersModalHeader from './clientOrdersModal/ClientOrdersModalHeader';
@@ -9,7 +10,7 @@ import ClientOrdersSummary from './clientOrdersModal/ClientOrdersSummary';
 import { useClientOrdersModal } from './clientOrdersModal/useClientOrdersModal';
 import type { ClientOrdersModalProps } from './clientOrdersModal/types';
 import CacambaList from './CacambaList';
-import type { IClosureGroup } from '../interfaces';
+import type { ICacamba, IClosureGroup } from '../interfaces';
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -295,6 +296,11 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     tone: 'success' | 'error';
     message: string;
   } | null>(null);
+  const [pendingReturn, setPendingReturn] = useState<{
+    group: IClosureGroup;
+    cacamba: ICacamba;
+  } | null>(null);
+  const [isReturningCacamba, setIsReturningCacamba] = useState(false);
   const shouldCloseOnMouseUpRef = useRef(false);
 
   const {
@@ -322,6 +328,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     handleDownload,
     downloadExistingClosureGroup,
     saveInvoiceForGroup,
+    returnCacambaToPending,
   } = useClientOrdersModal({
     client,
     startDate,
@@ -429,6 +436,29 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     }
   };
 
+  const handleConfirmReturnToPending = async () => {
+    if (!pendingReturn) return;
+
+    try {
+      setIsReturningCacamba(true);
+      setInvoiceFeedback(null);
+      await returnCacambaToPending(pendingReturn.group._id, pendingReturn.cacamba._id);
+      setInvoiceFeedback({
+        tone: 'success',
+        message: `Caçamba #${pendingReturn.cacamba.numero} voltou para pendente.`,
+      });
+      setPendingReturn(null);
+    } catch (error) {
+      setInvoiceFeedback({
+        tone: 'error',
+        message:
+          error instanceof Error ? error.message : 'Não foi possível voltar a caçamba para pendente.',
+      });
+    } finally {
+      setIsReturningCacamba(false);
+    }
+  };
+
   const renderGroupDetails = (group: IClosureGroup | null) => {
     if (!group) {
       return (
@@ -506,6 +536,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
           cacambas={group.cacambaIds || []}
           onImageClick={setModalImage}
           showTitle={false}
+          onReturnToPending={(cacamba) => setPendingReturn({ group, cacamba })}
         />
       </>
     );
@@ -664,6 +695,23 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
             }}
           />
         )}
+
+        <ActionConfirmModal
+          open={Boolean(pendingReturn)}
+          title="Voltar caçamba para pendente"
+          description={
+            pendingReturn
+              ? `A caçamba #${pendingReturn.cacamba.numero} será removida deste grupo e voltará para pendente.`
+              : ''
+          }
+          confirmLabel="Voltar para pendente"
+          variant="warning"
+          loading={isReturningCacamba}
+          onConfirm={handleConfirmReturnToPending}
+          onClose={() => {
+            if (!isReturningCacamba) setPendingReturn(null);
+          }}
+        />
       </ModalContent>
     </ModalOverlay>
   );

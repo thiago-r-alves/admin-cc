@@ -41,4 +41,25 @@ describe('CacambaList', () => {
 
     expect(onEdit).toHaveBeenCalledWith(baseCacamba);
   });
+
+  it('exibe acao para voltar caçamba para pendente quando callback é informado', () => {
+    const onReturnToPending = vi.fn();
+    const paidCacamba: ICacamba = {
+      ...baseCacamba,
+      tipo: 'retirada',
+      paymentStatus: 'paga',
+    };
+
+    render(
+      <CacambaList
+        cacambas={[paidCacamba]}
+        showTitle={false}
+        onReturnToPending={onReturnToPending}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar para pendente' }));
+
+    expect(onReturnToPending).toHaveBeenCalledWith(paidCacamba);
+  });
 });

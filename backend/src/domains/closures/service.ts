@@ -151,3 +151,57 @@ export const saveClosureGroupInvoice = async (id: string, invoiceNumber?: string
     },
   };
 };
+
+export const reopenClosureGroupCacamba = async (groupId: string, cacambaId: string) => {
+  const group = await ClosureGroupModel.findById(groupId);
+  if (!group) {
+    return { status: 404, body: { message: 'Grupo de fechamento não encontrado.' } };
+  }
+
+  const groupCacambaIds = (group.cacambaIds || []).map((id) => String(id));
+  if (!groupCacambaIds.includes(String(cacambaId))) {
+    return { status: 400, body: { message: 'Caçamba não pertence a este grupo de fechamento.' } };
+  }
+
+  const cacamba = await CacambaModel.findById(cacambaId);
+  if (!cacamba) {
+    return { status: 404, body: { message: 'Caçamba não encontrada.' } };
+  }
+
+  const remainingIds = groupCacambaIds.filter((id) => id !== String(cacambaId));
+  let deletedGroup = false;
+
+  if (remainingIds.length === 0) {
+    await ClosureGroupModel.deleteOne({ _id: group._id });
+    deletedGroup = true;
+  } else {
+    group.cacambaIds = remainingIds.map((id) => new ObjectId(id)) as any;
+    await group.save();
+  }
+
+  cacamba.paymentStatus = 'pendente';
+  cacamba.closureGroupId = undefined;
+  await cacamba.save();
+
+  return {
+    status: 200,
+    body: {
+      cacamba,
+      closureGroup: deletedGroup
+        ? null
+        : {
+            _id: group._id,
+            clientSequenceNumber: group.clientSequenceNumber,
+            clientId: group.clientId,
+            status: group.status,
+            invoiceNumber: group.invoiceNumber || '',
+            startDate: group.startDate,
+            endDate: group.endDate,
+            cacambaIds: remainingIds,
+            createdAt: group.createdAt,
+            updatedAt: group.updatedAt,
+          },
+      deletedGroup,
+    },
+  };
+};
