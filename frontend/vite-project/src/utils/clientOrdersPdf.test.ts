@@ -101,12 +101,12 @@ describe('buildClientOrdersPdf', () => {
     ).toBe(277);
     expect(allPdfText).not.toContain('Tipo aplicado');
     expect(allPdfText).not.toContain('(Retiradas)');
+    expect(allPdfText).not.toContain('Conteudo');
     expect(details.body[0][0]).toBe('101');
     expect(details.head[0]).toEqual([
       'Cacamba',
       'Local',
       'OS',
-      'Conteudo',
       'Valor',
       'Data entrega',
       'Motorista entrega',
@@ -117,12 +117,13 @@ describe('buildClientOrdersPdf', () => {
       'Placa retirada',
       'Pedido retirada',
     ]);
-    expect(details.body[0][6]).toBe('Entregador');
-    expect(details.body[0][7]).toBe('ENT1A23');
-    expect(details.body[0][8]).toBe('10');
-    expect(details.body[0][10]).toBe('Retirador');
-    expect(details.body[0][11]).toBe('RET1A23');
-    expect(details.body[0][12]).toBe('20');
+    expect(details.body[0]).toHaveLength(12);
+    expect(details.body[0][5]).toBe('Entregador');
+    expect(details.body[0][6]).toBe('ENT1A23');
+    expect(details.body[0][7]).toBe('10');
+    expect(details.body[0][9]).toBe('Retirador');
+    expect(details.body[0][10]).toBe('RET1A23');
+    expect(details.body[0][11]).toBe('20');
   });
 
   it('omite a linha de periodo quando o periodo nao foi definido', async () => {
