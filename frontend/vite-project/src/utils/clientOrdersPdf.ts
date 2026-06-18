@@ -22,6 +22,25 @@ const formatCurrency = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 const projectRed: [number, number, number] = [227, 6, 19];
+const companyLogoUrl = '/logo-central-cacambas-pdf.png';
+const companyLogoWidth = 49;
+const companyLogoAspectRatio = 300 / 110;
+const pdfHeaderTop = 8;
+const pdfHeaderBottom = 38;
+const bankDetails = [
+  'Dados Bancarios',
+  'Banco: Sicredi',
+  'Ag.: 0710  C/C: 58930-2',
+  'PIX CNPJ: 14.071.560/0001-41',
+];
+
+const loadCompanyLogo = async () => {
+  const response = await fetch(companyLogoUrl);
+  if (!response.ok) {
+    throw new Error('Nao foi possivel carregar a logo da empresa.');
+  }
+  return new Uint8Array(await response.arrayBuffer());
+};
 
 const formatFilterDate = (value?: string) => {
   if (!value) return '';
@@ -95,6 +114,37 @@ export async function buildClientOrdersPdf(
   const horizontalMargin = 10;
   const pageWidth = doc.internal.pageSize.getWidth();
   const availableTableWidth = pageWidth - horizontalMargin * 2;
+  const companyLogo = await loadCompanyLogo();
+  const renderedHeaderPages = new Set<number>();
+
+  const drawPageHeader = () => {
+    const pageNumber = doc.getCurrentPageInfo().pageNumber;
+    if (renderedHeaderPages.has(pageNumber)) return;
+    renderedHeaderPages.add(pageNumber);
+
+    doc.addImage(
+      companyLogo,
+      'PNG',
+      horizontalMargin,
+      pdfHeaderTop,
+      companyLogoWidth,
+      companyLogoWidth / companyLogoAspectRatio,
+    );
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(31, 41, 55);
+    doc.setFontSize(10);
+    doc.text(bankDetails[0], pageWidth - horizontalMargin, pdfHeaderTop + 2, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    bankDetails.slice(1).forEach((line, index) => {
+      doc.text(line, pageWidth - horizontalMargin, pdfHeaderTop + 7 + index * 4.5, {
+        align: 'right',
+      });
+    });
+    doc.setDrawColor(...projectRed);
+    doc.setLineWidth(0.4);
+    doc.line(horizontalMargin, pdfHeaderBottom - 4, pageWidth - horizontalMargin, pdfHeaderBottom - 4);
+  };
 
   const startLabel = formatFilterDate(startDate);
   const endLabel = formatFilterDate(endDate);
@@ -113,7 +163,8 @@ export async function buildClientOrdersPdf(
     body: summaryBody,
     styles: { fontSize: 9, cellPadding: 2 },
     headStyles: { fillColor: projectRed },
-    margin: { top: 12, right: horizontalMargin, left: horizontalMargin },
+    margin: { top: pdfHeaderBottom, right: horizontalMargin, left: horizontalMargin },
+    willDrawPage: drawPageHeader,
   });
 
   const flattenedCacambas = orders.flatMap((order) =>
@@ -176,7 +227,8 @@ export async function buildClientOrdersPdf(
       10: { cellWidth: 18 },
       11: { cellWidth: 24 },
     },
-    margin: { right: horizontalMargin, left: horizontalMargin },
+    margin: { top: pdfHeaderBottom, right: horizontalMargin, left: horizontalMargin },
+    willDrawPage: drawPageHeader,
   });
 
   const safeName = (client.clientName || 'cliente').replace(/[^\w\-]+/g, '_');

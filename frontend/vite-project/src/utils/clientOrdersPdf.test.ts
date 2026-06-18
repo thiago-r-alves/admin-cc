@@ -2,8 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildClientOrdersPdf } from './clientOrdersPdf';
 
 const autoTableMock = vi.fn((doc: any, _options: any) => {
+  _options.willDrawPage?.({ pageNumber: 1 });
   doc.lastAutoTable = { finalY: 30 };
 });
+
+const addImageMock = vi.fn();
+const textMock = vi.fn();
 
 vi.mock('jspdf', () => ({
   jsPDF: vi.fn(() => ({
@@ -13,6 +17,15 @@ vi.mock('jspdf', () => ({
         getWidth: vi.fn(() => 297),
       },
     },
+    getCurrentPageInfo: vi.fn(() => ({ pageNumber: 1 })),
+    addImage: addImageMock,
+    setFont: vi.fn(),
+    setTextColor: vi.fn(),
+    setFontSize: vi.fn(),
+    text: textMock,
+    setDrawColor: vi.fn(),
+    setLineWidth: vi.fn(),
+    line: vi.fn(),
     output: vi.fn(() => new Blob(['pdf'], { type: 'application/pdf' })),
   })),
 }));
@@ -24,6 +37,15 @@ vi.mock('jspdf-autotable', () => ({
 describe('buildClientOrdersPdf', () => {
   beforeEach(() => {
     autoTableMock.mockClear();
+    addImageMock.mockClear();
+    textMock.mockClear();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+      })),
+    );
   });
 
   const baseOrder = {
@@ -124,6 +146,24 @@ describe('buildClientOrdersPdf', () => {
     expect(details.body[0][9]).toBe('Retirador');
     expect(details.body[0][10]).toBe('RET1A23');
     expect(details.body[0][11]).toBe('20');
+    expect(addImageMock).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      'PNG',
+      10,
+      8,
+      49,
+      49 / (300 / 110),
+    );
+    expect(textMock.mock.calls.map(([text]) => text)).toEqual(
+      expect.arrayContaining([
+        'Dados Bancarios',
+        'Banco: Sicredi',
+        'Ag.: 0710  C/C: 58930-2',
+        'PIX CNPJ: 14.071.560/0001-41',
+      ]),
+    );
+    expect(summary.margin.top).toBe(38);
+    expect(details.margin.top).toBe(38);
   });
 
   it('omite a linha de periodo quando o periodo nao foi definido', async () => {
@@ -139,5 +179,51 @@ describe('buildClientOrdersPdf', () => {
 
     const summary = autoTableMock.mock.calls[0]?.[1]!;
     expect(summary.body.some((row: string[]) => row[0] === 'Periodo')).toBe(false);
+  });
+
+  it('desenha o cabecalho uma unica vez em cada pagina do PDF', async () => {
+    let currentPage = 1;
+    const pageInfoMock = vi.fn(() => ({ pageNumber: currentPage }));
+    const { jsPDF } = await import('jspdf');
+    vi.mocked(jsPDF).mockImplementationOnce(
+      () =>
+        ({
+          lastAutoTable: { finalY: 20 },
+          internal: {
+            pageSize: { getWidth: vi.fn(() => 297) },
+          },
+          getCurrentPageInfo: pageInfoMock,
+          addImage: addImageMock,
+          setFont: vi.fn(),
+          setTextColor: vi.fn(),
+          setFontSize: vi.fn(),
+          text: textMock,
+          setDrawColor: vi.fn(),
+          setLineWidth: vi.fn(),
+          line: vi.fn(),
+          output: vi.fn(() => new Blob(['pdf'], { type: 'application/pdf' })),
+        }) as any,
+    );
+    autoTableMock
+      .mockImplementationOnce((doc: any, options: any) => {
+        options.willDrawPage?.({ pageNumber: 1 });
+        doc.lastAutoTable = { finalY: 30 };
+      })
+      .mockImplementationOnce((_doc: any, options: any) => {
+        options.willDrawPage?.({ pageNumber: 1 });
+        currentPage = 2;
+        options.willDrawPage?.({ pageNumber: 2 });
+      });
+
+    await buildClientOrdersPdf(
+      {
+        client: { _id: 'cli-1', clientName: 'Cliente Teste' },
+        clientTotal: 120,
+        orders: [baseOrder],
+      },
+      { output: 'blob' },
+    );
+
+    expect(addImageMock).toHaveBeenCalledTimes(2);
   });
 });

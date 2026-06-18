@@ -16,6 +16,7 @@ frontend/node_modules/
 tmp/
 dist
 dist-ssr
+stats.html
 *.local
 .env
 
