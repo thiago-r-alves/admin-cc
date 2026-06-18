@@ -1047,6 +1047,15 @@ export const setupMockApi = async (page: Page) => {
       }
       return json(route, { ok: true });
     }
+    if (/^\/driver\/orders\/[^/]+\/available-cacambas$/.test(pathname) && method === 'GET') {
+      return json(route, {
+        cacambas: [
+          { numero: '435', deliveryOrderNumber: 2200 },
+          { numero: '556', deliveryOrderNumber: 2201 },
+          { numero: '777', deliveryOrderNumber: 2202 },
+        ],
+      });
+    }
     if (/^\/driver\/orders\/[^/]+\/cacambas$/.test(pathname) && method === 'POST') {
       const orderId = pathname.split('/')[3];
       const order = orders.find((o) => o._id === orderId);

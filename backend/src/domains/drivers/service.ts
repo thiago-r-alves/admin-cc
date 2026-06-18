@@ -5,6 +5,7 @@ import { uploadBufferToGridFS } from '../../gridfs';
 import { compressImage } from '../../utils/image';
 import { emitOrdersUpdated } from '../../shared/realtime';
 import { isValidCacambaContentType } from '../cacambas/helpers';
+import { listAvailableCacambasForClient, validateCacambaAvailability } from '../cacambas/availability';
 
 const hideDriverCacambaPrice = (cacamba: any) => {
   const plain = typeof cacamba?.toObject === 'function' ? cacamba.toObject() : { ...(cacamba || {}) };
@@ -83,11 +84,16 @@ export const createDriverOrderCacamba = async (
     return { status: 404, body: { message: 'Pedido não encontrado ou não pertence a este motorista.' } };
   }
 
+  const normalizedNumero = String(numero || '').trim();
+  if (!normalizedNumero) {
+    return { status: 400, body: { message: 'Número da caçamba é obrigatório.' } };
+  }
+
   if (!horaServicoDigitos || !/^\d{3}$/.test(String(horaServicoDigitos))) {
     return { status: 400, body: { message: 'Ordem de serviço deve conter exatamente 3 dígitos.' } };
   }
 
-  const exists = await CacambaModel.findOne({ orderId: order._id, numero: String(numero).trim() });
+  const exists = await CacambaModel.findOne({ orderId: order._id, numero: normalizedNumero });
   if (exists) {
     return { status: 400, body: { message: 'Número de caçamba já registrado neste pedido.' } };
   }
@@ -104,6 +110,16 @@ export const createDriverOrderCacamba = async (
     }
   }
 
+  const availability = await validateCacambaAvailability(normalizedNumero, {
+    type: finalTipo,
+    clientId: order.clientId,
+    clientName: order.clientName,
+    orderNumber: order.orderNumber,
+  });
+  if (!availability.valid) {
+    return { status: 400, body: { message: availability.message } };
+  }
+
   if (!file) {
     return { status: 400, body: { message: 'Imagem é obrigatória.' } };
   }
@@ -117,7 +133,7 @@ export const createDriverOrderCacamba = async (
   const imageUrl = `/files/${fileId.toString()}`;
 
   const cacamba = await CacambaModel.create({
-    numero: String(numero).trim(),
+    numero: normalizedNumero,
     tipo: finalTipo,
     ...(finalTipo === 'retirada' ? { contentType: normalizedContentType } : {}),
     ...(finalTipo === 'retirada' && typeof order.cacambaPrice === 'number' ? { price: order.cacambaPrice } : {}),
@@ -146,6 +162,19 @@ export const getDriverOrderCacambas = async (orderId: string, driverId: string) 
 
   const cacambas = await CacambaModel.find({ orderId }).select('-price').sort({ createdAt: 1 });
   return { status: 200, body: cacambas };
+};
+
+export const getAvailableCacambasForWithdrawal = async (orderId: string, driverId: string) => {
+  const order = await OrderModel.findOne({ _id: orderId, motorista: driverId }).select('type clientId');
+  if (!order) {
+    return { status: 404, body: { message: 'Pedido não encontrado ou não pertence a este motorista.' } };
+  }
+  if (order.type !== 'retirada') {
+    return { status: 400, body: { message: 'A lista de caçambas disponíveis só existe para pedidos de retirada.' } };
+  }
+
+  const cacambas = await listAvailableCacambasForClient(order.clientId);
+  return { status: 200, body: { cacambas } };
 };
 
 export const completeDriverOrder = async (orderId: string, driverId: string) => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { CACAMBA_CONTENT_TYPES, type CacambaContentType, type ICacamba, type OrderType } from '../interfaces';
 import { Button as UIButton, Field as UIField, SelectInput, TextInput } from '../components/ui';
@@ -19,7 +19,8 @@ const GridField = styled.div<{ $span?: 1 | 2 }>`min-width:0; grid-column:span ${
 const TypeBadge = styled.div`min-height:43px; display:inline-flex; align-items:center; width:100%; box-sizing:border-box; padding:.65rem .8rem; border:1px solid #fecaca; border-radius:2px; background:#fff5f5; color:#e30613; font-size:.82rem; font-weight:900; letter-spacing:.04em; text-transform:uppercase;`;
 const FileInputWrap = styled.div`display:grid; gap:.55rem;`;
 const FileHint = styled.small`color:#6b7280; font-size:.78rem;`;
-const ErrorMessage = styled.div`color:#dc2626; font-size:.875rem; background:#fef2f2; padding:.75rem; border-radius:4px; border:1px solid #fecaca;`;
+const EmptyHint = styled.small`display:block; margin-top:.45rem; color:#991b1b; font-size:.8rem; font-weight:700;`;
+const ErrorMessage = styled.div`position:sticky; top:0; z-index:2; margin-bottom:1rem; color:#991b1b; font-size:.9rem; font-weight:700; line-height:1.45; background:#fef2f2; padding:.85rem; border-radius:4px; border:1px solid #fca5a5; box-shadow:0 4px 12px rgba(153,27,27,.08);`;
 const ModalFooter = styled.div`display:flex; justify-content:flex-end; gap:.75rem; flex:0 0 auto; padding:1rem 1.25rem; border-top:1px solid #fee2e2; @media (max-width:560px){flex-direction:column-reverse;}`;
 const FooterButton = styled(UIButton)`min-width:150px; @media (max-width:560px){width:100%;}`;
 
@@ -32,7 +33,51 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
   const [contentType, setContentType] = useState<CacambaContentType | ''>('');
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingAvailable, setLoadingAvailable] = useState(orderType === 'retirada');
+  const [availableCacambas, setAvailableCacambas] = useState<Array<{ numero: string; deliveryOrderNumber?: number | null }>>([]);
   const [error, setError] = useState('');
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!error) return;
+    errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    errorRef.current?.focus({ preventScroll: true });
+  }, [error]);
+
+  useEffect(() => {
+    if (orderType !== 'retirada') return;
+
+    let active = true;
+    const loadAvailableCacambas = async () => {
+      setLoadingAvailable(true);
+      setError('');
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL;
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${apiUrl}/driver/orders/${orderId}/available-cacambas`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const responseText = await response.text();
+        const data = responseText ? JSON.parse(responseText) : {};
+        if (!response.ok) {
+          throw new Error(data.message || 'Não foi possível carregar as caçambas disponíveis.');
+        }
+        if (active) setAvailableCacambas(Array.isArray(data.cacambas) ? data.cacambas : []);
+      } catch (err) {
+        if (active) {
+          setAvailableCacambas([]);
+          setError(err instanceof Error ? err.message : 'Não foi possível carregar as caçambas disponíveis.');
+        }
+      } finally {
+        if (active) setLoadingAvailable(false);
+      }
+    };
+
+    loadAvailableCacambas();
+    return () => {
+      active = false;
+    };
+  }, [orderId, orderType]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setError('');
@@ -67,8 +112,14 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
       const token = localStorage.getItem('token');
       const response = await fetch(`${apiUrl}/driver/orders/${orderId}/cacambas`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData });
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Erro ao registrar caçamba');
+        const responseText = await response.text();
+        let message = '';
+        try {
+          message = String(JSON.parse(responseText)?.message || '').trim();
+        } catch {
+          message = responseText.trim();
+        }
+        throw new Error(message || 'Não foi possível registrar a caçamba. Verifique os dados e tente novamente.');
       }
       const data = await response.json();
       onCacambaAdded(data.cacamba);
@@ -89,10 +140,44 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
         </ModalHeader>
         <Form onSubmit={handleSubmit}>
           <ModalBody>
+            {error && (
+              <ErrorMessage ref={errorRef} role="alert" aria-live="assertive" tabIndex={-1}>
+                {error}
+              </ErrorMessage>
+            )}
             <Section>
               <SectionTitle>Dados da Caçamba</SectionTitle>
               <FieldGrid>
-                <GridField><UIField label="Número da Caçamba" htmlFor="cacamba-numero"><TextInput id="cacamba-numero" type="text" value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="Ex: 501" required /></UIField></GridField>
+                <GridField>
+                  <UIField label="Número da Caçamba" htmlFor="cacamba-numero">
+                    {orderType === 'retirada' ? (
+                      <>
+                        <SelectInput
+                          id="cacamba-numero"
+                          value={numero}
+                          onChange={(e) => setNumero(e.target.value)}
+                          disabled={loadingAvailable || availableCacambas.length === 0}
+                          required
+                        >
+                          <option value="">
+                            {loadingAvailable ? 'Carregando caçambas...' : 'Selecione a caçamba'}
+                          </option>
+                          {availableCacambas.map((cacamba) => (
+                            <option key={cacamba.numero} value={cacamba.numero}>
+                              {cacamba.numero}
+                              {cacamba.deliveryOrderNumber ? ` - entregue no pedido #${cacamba.deliveryOrderNumber}` : ''}
+                            </option>
+                          ))}
+                        </SelectInput>
+                        {!loadingAvailable && availableCacambas.length === 0 && (
+                          <EmptyHint>Nenhuma caçamba está disponível para retirada deste cliente.</EmptyHint>
+                        )}
+                      </>
+                    ) : (
+                      <TextInput id="cacamba-numero" type="text" value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="Ex: 501" required />
+                    )}
+                  </UIField>
+                </GridField>
                 <GridField><UIField label="3 Últimos Dígitos da OS" htmlFor="cacamba-os"><TextInput id="cacamba-os" type="text" value={horaServicoDigitos} onChange={(e) => setHoraServicoDigitos(e.target.value)} placeholder="Ex: 123" maxLength={3} inputMode="numeric" pattern="[0-9]{3}" required /></UIField></GridField>
                 <GridField><UIField label="Tipo"><TypeBadge>{orderType === 'entrega' ? 'Entrega' : 'Retirada'}</TypeBadge></UIField></GridField>
                 <GridField><UIField label="Local" htmlFor="cacamba-local"><SelectInput id="cacamba-local" value={local} onChange={e => setLocal(e.target.value as 'via_publica' | 'canteiro_obra')} required><option value="via_publica">Via pública</option><option value="canteiro_obra">Canteiro de obra</option></SelectInput></UIField></GridField>
@@ -106,11 +191,17 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
                 <FileHint>{files.length > 0 ? `${files.length} arquivo${files.length > 1 ? 's' : ''} selecionado${files.length > 1 ? 's' : ''}.` : 'Selecione uma ou mais imagens para registrar a caçamba.'}</FileHint>
               </FileInputWrap>
             </Section>
-            {error && <ErrorMessage>{error}</ErrorMessage>}
           </ModalBody>
           <ModalFooter>
             <FooterButton type="button" variant="secondary" onClick={onClose}>Cancelar</FooterButton>
-            <FooterButton type="submit" variant="primary" loading={loading}>{loading ? 'Registrando...' : 'Registrar'}</FooterButton>
+            <FooterButton
+              type="submit"
+              variant="primary"
+              loading={loading}
+              disabled={orderType === 'retirada' && (loadingAvailable || availableCacambas.length === 0)}
+            >
+              {loading ? 'Registrando...' : 'Registrar'}
+            </FooterButton>
           </ModalFooter>
         </Form>
       </ModalContent>

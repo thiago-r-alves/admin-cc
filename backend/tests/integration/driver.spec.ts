@@ -12,15 +12,22 @@ const tinyPng = Buffer.from(
 
 describe('Driver APIs', () => {
   let nextOrderNumber = 2000;
-  const createOrderForDriver = async (driverId: string, type: 'entrega' | 'retirada' = 'retirada') => {
-    const client = await ClientModel.create({
-      clientName: 'Cliente D',
+  const createClient = (clientName = 'Cliente D') =>
+    ClientModel.create({
+      clientName,
       contactName: 'Contato D',
       contactNumber: '123',
       neighborhood: 'Centro',
       address: 'Rua D',
       addressNumber: '10',
     });
+
+  const createOrderForDriver = async (
+    driverId: string,
+    type: 'entrega' | 'retirada' = 'retirada',
+    clientInput?: Awaited<ReturnType<typeof createClient>>,
+  ) => {
+    const client = clientInput || (await createClient());
     return OrderModel.create({
       orderNumber: nextOrderNumber++,
       clientId: client._id,
@@ -35,6 +42,26 @@ describe('Driver APIs', () => {
       motorista: driverId,
       ...(type === 'retirada' ? { cacambaPrice: 180 } : {}),
     });
+  };
+
+  const createCacambaMovement = async (
+    order: any,
+    numero: string,
+    tipo: 'entrega' | 'retirada',
+    createdAt = new Date(),
+  ) => {
+    const cacamba = await CacambaModel.create({
+      numero,
+      tipo,
+      ...(tipo === 'retirada' ? { contentType: 'Entulho limpo', price: 180 } : {}),
+      imageUrl: '/files/507f1f77bcf86cd799439011',
+      orderId: order._id,
+      local: 'via_publica',
+      horaServicoDigitos: '123',
+      createdAt,
+    });
+    await OrderModel.findByIdAndUpdate(order._id, { $push: { cacambas: cacamba._id } });
+    return cacamba;
   };
 
   it('GET /driver/orders retorna apenas pedidos do motorista e sem price', async () => {
@@ -65,6 +92,9 @@ describe('Driver APIs', () => {
     const { driver } = await ensureUsers();
     const token = signToken(String(driver._id), 'motorista');
     const order = await createOrderForDriver(String(driver._id), 'retirada');
+    const deliveryOrder = await createOrderForDriver(String(driver._id), 'entrega', await ClientModel.findById(order.clientId) as any);
+    await createCacambaMovement(deliveryOrder, '001', 'entrega', new Date('2026-01-01T10:00:00.000Z'));
+    await createCacambaMovement(deliveryOrder, '002', 'entrega', new Date('2026-01-01T10:01:00.000Z'));
 
     const missingImage = await request(app)
       .post(`/driver/orders/${order._id}/cacambas`)
@@ -139,6 +169,121 @@ describe('Driver APIs', () => {
       .field('contentType', 'Entulho limpo')
       .attach('image', tinyPng, 'img.png');
     expect(duplicate.status).toBe(400);
+  });
+
+  it('POST /driver/orders/:id/cacambas valida disponibilidade da caçamba por cliente', async () => {
+    const app = await loadApp();
+    const { driver } = await ensureUsers();
+    const token = signToken(String(driver._id), 'motorista');
+    const clienteA = await createClient('Cliente A');
+    const clienteB = await createClient('Cliente B');
+
+    const entregaLivre = await createOrderForDriver(String(driver._id), 'entrega', clienteA);
+    const entregaOcupadaMesmoCliente = await createOrderForDriver(String(driver._id), 'entrega', clienteA);
+    const entregaOcupadaOutroCliente = await createOrderForDriver(String(driver._id), 'entrega', clienteB);
+    await createCacambaMovement(entregaOcupadaMesmoCliente, '010', 'entrega');
+    await createCacambaMovement(entregaOcupadaOutroCliente, '011', 'entrega');
+
+    const entregaOk = await request(app)
+      .post(`/driver/orders/${entregaLivre._id}/cacambas`)
+      .set('Authorization', `Bearer ${token}`)
+      .field('numero', '012')
+      .field('horaServicoDigitos', '123')
+      .field('local', 'via_publica')
+      .attach('image', tinyPng, 'img.png');
+    expect(entregaOk.status).toBe(201);
+
+    const entregaMesmoClienteBloqueada = await request(app)
+      .post(`/driver/orders/${entregaLivre._id}/cacambas`)
+      .set('Authorization', `Bearer ${token}`)
+      .field('numero', '010')
+      .field('horaServicoDigitos', '123')
+      .field('local', 'via_publica')
+      .attach('image', tinyPng, 'img.png');
+    expect(entregaMesmoClienteBloqueada.status).toBe(400);
+    expect(entregaMesmoClienteBloqueada.body.message).toMatch(/já está entregue para Cliente A/i);
+
+    const entregaOutroClienteBloqueada = await request(app)
+      .post(`/driver/orders/${entregaLivre._id}/cacambas`)
+      .set('Authorization', `Bearer ${token}`)
+      .field('numero', '011')
+      .field('horaServicoDigitos', '123')
+      .field('local', 'via_publica')
+      .attach('image', tinyPng, 'img.png');
+    expect(entregaOutroClienteBloqueada.status).toBe(400);
+    expect(entregaOutroClienteBloqueada.body.message).toMatch(/já está entregue para Cliente B/i);
+
+    const retiradaSemEntrega = await createOrderForDriver(String(driver._id), 'retirada', clienteA);
+    const retiradaSemEntregaRes = await request(app)
+      .post(`/driver/orders/${retiradaSemEntrega._id}/cacambas`)
+      .set('Authorization', `Bearer ${token}`)
+      .field('numero', '013')
+      .field('horaServicoDigitos', '123')
+      .field('local', 'via_publica')
+      .field('contentType', 'Entulho limpo')
+      .attach('image', tinyPng, 'img.png');
+    expect(retiradaSemEntregaRes.status).toBe(400);
+    expect(retiradaSemEntregaRes.body.message).toMatch(/não possui entrega registrada/i);
+
+    const retiradaOutroCliente = await createOrderForDriver(String(driver._id), 'retirada', clienteA);
+    const retiradaOutroClienteRes = await request(app)
+      .post(`/driver/orders/${retiradaOutroCliente._id}/cacambas`)
+      .set('Authorization', `Bearer ${token}`)
+      .field('numero', '011')
+      .field('horaServicoDigitos', '123')
+      .field('local', 'via_publica')
+      .field('contentType', 'Entulho limpo')
+      .attach('image', tinyPng, 'img.png');
+    expect(retiradaOutroClienteRes.status).toBe(400);
+    expect(retiradaOutroClienteRes.body.message).toMatch(/está entregue para Cliente B/i);
+
+    const retiradaMesmoCliente = await createOrderForDriver(String(driver._id), 'retirada', clienteA);
+    const retiradaMesmoClienteRes = await request(app)
+      .post(`/driver/orders/${retiradaMesmoCliente._id}/cacambas`)
+      .set('Authorization', `Bearer ${token}`)
+      .field('numero', '010')
+      .field('horaServicoDigitos', '123')
+      .field('local', 'via_publica')
+      .field('contentType', 'Entulho limpo')
+      .attach('image', tinyPng, 'img.png');
+    expect(retiradaMesmoClienteRes.status).toBe(201);
+
+    const retiradaJaRetirada = await createOrderForDriver(String(driver._id), 'retirada', clienteA);
+    const retiradaJaRetiradaRes = await request(app)
+      .post(`/driver/orders/${retiradaJaRetirada._id}/cacambas`)
+      .set('Authorization', `Bearer ${token}`)
+      .field('numero', '010')
+      .field('horaServicoDigitos', '123')
+      .field('local', 'via_publica')
+      .field('contentType', 'Entulho limpo')
+      .attach('image', tinyPng, 'img.png');
+    expect(retiradaJaRetiradaRes.status).toBe(400);
+    expect(retiradaJaRetiradaRes.body.message).toMatch(/já consta como retirada/i);
+  });
+
+  it('GET /driver/orders/:id/available-cacambas retorna somente entregas ativas do cliente', async () => {
+    const app = await loadApp();
+    const { driver } = await ensureUsers();
+    const token = signToken(String(driver._id), 'motorista');
+    const clienteA = await createClient('Cliente A');
+    const clienteB = await createClient('Cliente B');
+    const retirada = await createOrderForDriver(String(driver._id), 'retirada', clienteA);
+    const entregaA = await createOrderForDriver(String(driver._id), 'entrega', clienteA);
+    const entregaB = await createOrderForDriver(String(driver._id), 'entrega', clienteB);
+
+    await createCacambaMovement(entregaA, '101', 'entrega', new Date('2026-01-01T10:00:00.000Z'));
+    await createCacambaMovement(entregaA, '102', 'entrega', new Date('2026-01-01T10:01:00.000Z'));
+    await createCacambaMovement(retirada, '102', 'retirada', new Date('2026-01-01T10:02:00.000Z'));
+    await createCacambaMovement(entregaB, '103', 'entrega', new Date('2026-01-01T10:03:00.000Z'));
+
+    const res = await request(app)
+      .get(`/driver/orders/${retirada._id}/available-cacambas`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.cacambas).toEqual([
+      expect.objectContaining({ numero: '101', deliveryOrderNumber: entregaA.orderNumber }),
+    ]);
   });
 
   it('GET /driver/orders/:id/cacambas e PATCH /driver/orders/:id/complete', async () => {
@@ -272,6 +417,16 @@ describe('Driver APIs', () => {
       horaServicoDigitos: '671',
     });
     await OrderModel.findByIdAndUpdate(order._id, { $push: { cacambas: { $each: [cacamba._id, duplicate._id] } } });
+    const otherClient = await createClient('Cliente Ocupado');
+    const otherOrder = await createOrderForDriver(String(driver._id), 'entrega', otherClient);
+    await createCacambaMovement(otherOrder, '888', 'entrega');
+
+    const occupiedNumero = await request(app)
+      .patch(`/cacambas/${cacamba._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .field('numero', '888');
+    expect(occupiedNumero.status).toBe(400);
+    expect(occupiedNumero.body.message).toMatch(/já está entregue para Cliente Ocupado/i);
 
     const ok = await request(app)
       .patch(`/cacambas/${cacamba._id}`)

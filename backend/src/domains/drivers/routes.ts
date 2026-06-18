@@ -6,6 +6,7 @@ import {
   createDriver,
   createDriverOrderCacamba,
   deleteDriver,
+  getAvailableCacambasForWithdrawal,
   getDriverOrderCacambas,
   listDriverOrders,
   listDrivers,
@@ -97,6 +98,24 @@ driversRouter.get('/driver/orders/:id/cacambas', authenticateToken, isDriver, as
     return res.status(500).json({ message: 'Erro interno do servidor.' });
   }
 });
+
+driversRouter.get(
+  '/driver/orders/:id/available-cacambas',
+  authenticateToken,
+  isDriver,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const result = await getAvailableCacambasForWithdrawal(
+        req.params.id,
+        String(req.userData?.userId || ''),
+      );
+      return res.status(result.status).json(result.body);
+    } catch (error) {
+      console.error('Erro ao buscar caçambas disponíveis para retirada:', error);
+      return res.status(500).json({ message: 'Erro ao buscar caçambas disponíveis para retirada.' });
+    }
+  },
+);
 
 driversRouter.patch('/driver/orders/:id/complete', authenticateToken, isDriver, async (req: AuthenticatedRequest, res) => {
   try {

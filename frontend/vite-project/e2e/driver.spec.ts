@@ -20,6 +20,8 @@ test.describe('Motorista', () => {
     await expect(page.getByText(/Registrar Ca.*amba/i)).toBeVisible();
     await expect(page.getByText(/Dados da Ca.*amba/i)).toBeVisible();
     await expect(page.locator('form').getByText(/Retirada|Entrega/).last()).toBeVisible();
+    await expect(page.locator('#cacamba-numero')).toHaveValue('');
+    await expect(page.locator('#cacamba-numero').locator('option')).toHaveCount(4);
   });
 
   test('exibe acao de concluir pedido quando ha pelo menos uma cacamba', async ({ page }) => {
@@ -85,6 +87,40 @@ test.describe('Motorista', () => {
     await expect(page.getByText(/Imagem.*obrigat.ria/i)).toBeVisible();
   });
 
+  test('exibe o motivo retornado pela API quando a cacamba nao pode ser registrada', async ({ page }) => {
+    await page.route('**/driver/orders/*/cacambas', async (route) => {
+      if (route.request().method() !== 'POST') {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          message: 'A caçamba 777 já está entregue para Cliente B no pedido #2040. Faça a retirada dessa caçamba antes de lançar uma nova entrega.',
+        }),
+      });
+    });
+
+    const card = page.locator('article', { hasText: '#2232' }).first();
+    await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
+    await page.locator('#cacamba-numero').fill('777');
+    await page.locator('#cacamba-os').fill('777');
+    await page.locator('#cacamba-imagem').setInputFiles({
+      name: 'cacamba.png',
+      mimeType: 'image/png',
+      buffer: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wn8x9QAAAAASUVORK5CYII=',
+        'base64',
+      ),
+    });
+    await page.getByRole('button', { name: 'Registrar' }).click();
+
+    await expect(page.getByRole('alert')).toContainText('já está entregue para Cliente B');
+    await expect(page.getByText(/Registrar Ca.*amba/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Registrar' })).toBeEnabled();
+  });
+
   test('retirada exige tipo de conteudo no cadastro de cacamba', async ({ page }) => {
     const card = page.locator('article', { hasText: '#2231' }).first();
     await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
@@ -97,7 +133,7 @@ test.describe('Motorista', () => {
       await route.fallback();
     });
 
-    await page.locator('#cacamba-numero').fill('556');
+    await page.locator('#cacamba-numero').selectOption('556');
     await page.locator('#cacamba-os').fill('556');
     await page.locator('#cacamba-imagem').setInputFiles({
       name: 'cacamba.png',
@@ -215,4 +251,3 @@ test.describe('Motorista', () => {
     expect(opened[0]).toContain('Rua%20Januaria');
   });
 });
-

@@ -5,6 +5,7 @@ import { getBucket, uploadBufferToGridFS } from '../../gridfs';
 import { emitOrdersUpdated } from '../../shared/realtime';
 import { compressImage, extractGridFsIdFromUrl } from '../../utils/image';
 import { isValidCacambaContentType, isValidCacambaLocal } from './helpers';
+import { validateCacambaAvailability } from './availability';
 
 const hideDriverCacambaPrice = (cacamba: any) => {
   const plain = typeof cacamba?.toObject === 'function' ? cacamba.toObject() : { ...(cacamba || {}) };
@@ -25,7 +26,7 @@ export const updateCacamba = async (
   const existing = await CacambaModel.findById(id);
   if (!existing) return { status: 404, body: { message: 'Caçamba não encontrada' } };
 
-  const order = await OrderModel.findById(existing.orderId).select('motorista type status');
+  const order = await OrderModel.findById(existing.orderId).select('motorista type status clientId clientName orderNumber');
   if (!order) return { status: 404, body: { message: 'Pedido da caçamba não encontrado.' } };
 
   const isAdminUser = userData.role === 'admin';
@@ -53,6 +54,22 @@ export const updateCacamba = async (
     });
     if (duplicate) {
       return { status: 400, body: { message: 'Número de caçamba já registrado neste pedido.' } };
+    }
+
+    if (normalizedNumero !== existing.numero) {
+      const availability = await validateCacambaAvailability(
+        normalizedNumero,
+        {
+          type: orderType,
+          clientId: order.clientId,
+          clientName: order.clientName,
+          orderNumber: order.orderNumber,
+        },
+        { ignoreCacambaId: existing._id },
+      );
+      if (!availability.valid) {
+        return { status: 400, body: { message: availability.message } };
+      }
     }
 
     updates.numero = normalizedNumero;
