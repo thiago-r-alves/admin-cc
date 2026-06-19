@@ -5,6 +5,7 @@ import { uploadBufferToGridFS } from '../../gridfs';
 import { compressImage } from '../../utils/image';
 import { emitOrdersUpdated } from '../../shared/realtime';
 import { isValidCacambaContentType } from '../cacambas/helpers';
+import { enrichOrdersWithLinkedDeliveryMetadata } from '../cacambas/enrichOrdersWithLinkedDeliveryMetadata';
 import { listAvailableCacambasForClient, validateCacambaAvailability } from '../cacambas/availability';
 
 const hideDriverCacambaPrice = (cacamba: any) => {
@@ -64,13 +65,15 @@ export const deleteDriver = async (id: string) => {
   return { status: 200, body: { message: 'Motorista excluído com sucesso!' } };
 };
 
-export const listDriverOrders = (driverId: string) =>
-  OrderModel.find({ motorista: driverId })
+export const listDriverOrders = async (driverId: string) => {
+  const orders = await OrderModel.find({ motorista: driverId })
     .populate({
       path: 'cacambas',
       select: 'numero tipo paymentStatus contentType imageUrl createdAt local horaServicoDigitos',
     })
     .sort({ priority: -1, createdAt: 1 });
+  return enrichOrdersWithLinkedDeliveryMetadata(orders as any[]);
+};
 
 export const createDriverOrderCacamba = async (
   orderId: string,

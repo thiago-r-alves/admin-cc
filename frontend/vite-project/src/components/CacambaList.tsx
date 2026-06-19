@@ -209,6 +209,12 @@ interface CacambaListProps {
   onReturnToPending?: (cacamba: ICacamba) => void;
 }
 
+const formatDateTime = (value?: string | null) => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleString('pt-BR');
+};
+
 const CacambaList: React.FC<CacambaListProps> = ({
   cacambas,
   onImageClick,
@@ -255,6 +261,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
         const hasValidPrice = typeof cacamba.price === 'number' && Number.isFinite(cacamba.price);
         const hasValidContentType =
           typeof cacamba.contentType === 'string' && cacamba.contentType.trim().length > 0;
+        const linkedDeliveryDate = isRetirada ? formatDateTime(cacamba.closureDelivery?.date) : '';
 
         const missingValue = isRetirada && !hasValidPrice;
         const missingContentType = isRetirada && !hasValidContentType;
@@ -300,6 +307,12 @@ const CacambaList: React.FC<CacambaListProps> = ({
                       : cacamba.local === 'canteiro_obra'
                         ? 'Canteiro de obra'
                         : cacamba.local}
+                  </LocalInfo>
+                )}
+
+                {linkedDeliveryDate && (
+                  <LocalInfo>
+                    <strong>Data da entrega:</strong> {linkedDeliveryDate}
                   </LocalInfo>
                 )}
 
