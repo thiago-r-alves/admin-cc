@@ -76,6 +76,30 @@ test.describe('Motorista', () => {
     await expect(card.getByText('#999')).toBeVisible();
   });
 
+  test('numero da cacamba aceita somente tres digitos', async ({ page }) => {
+    const card = page.locator('article', { hasText: '#2232' }).first();
+    await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
+
+    const numeroInput = page.locator('#cacamba-numero');
+    await numeroInput.fill('12a');
+    await expect(numeroInput).toHaveValue('12');
+    await numeroInput.fill('1234');
+    await expect(numeroInput).toHaveValue('123');
+
+    let postCount = 0;
+    await page.route('**/driver/orders/*/cacambas', async (route) => {
+      if (route.request().method() === 'POST') postCount += 1;
+      await route.fallback();
+    });
+
+    await numeroInput.fill('12');
+    await page.locator('#cacamba-os').fill('123');
+    await page.getByRole('button', { name: 'Registrar' }).click();
+
+    await expect(page.getByRole('alert')).toHaveText('Número da caçamba deve conter exatamente 3 dígitos.');
+    expect(postCount).toBe(0);
+  });
+
   test('valida erro ao registrar cacamba sem imagem', async ({ page }) => {
     const card = page.locator('article', { hasText: '#2232' }).first();
     await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();

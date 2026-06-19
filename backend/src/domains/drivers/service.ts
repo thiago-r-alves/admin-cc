@@ -84,9 +84,9 @@ export const createDriverOrderCacamba = async (
     return { status: 404, body: { message: 'Pedido não encontrado ou não pertence a este motorista.' } };
   }
 
-  const normalizedNumero = String(numero || '').trim();
-  if (!normalizedNumero) {
-    return { status: 400, body: { message: 'Número da caçamba é obrigatório.' } };
+  const normalizedNumero = String(numero ?? '');
+  if (!/^\d{3}$/.test(normalizedNumero)) {
+    return { status: 400, body: { message: 'Número da caçamba deve conter exatamente 3 dígitos.' } };
   }
 
   if (!horaServicoDigitos || !/^\d{3}$/.test(String(horaServicoDigitos))) {

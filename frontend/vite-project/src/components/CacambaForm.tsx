@@ -94,7 +94,9 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!numero.trim()) return setError('Número da caçamba é obrigatório');
+    if (!/^\d{3}$/.test(numero)) {
+      return setError('Número da caçamba deve conter exatamente 3 dígitos.');
+    }
     if (files.length === 0) return setError('Imagem é obrigatória');
     if (orderType === 'retirada' && !contentType) return setError('Tipo de conteúdo é obrigatório para retirada.');
 
@@ -174,7 +176,15 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
                         )}
                       </>
                     ) : (
-                      <TextInput id="cacamba-numero" type="text" value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="Ex: 501" required />
+                      <TextInput
+                        id="cacamba-numero"
+                        type="text"
+                        value={numero}
+                        onChange={(e) => setNumero(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                        placeholder="Ex: 501"
+                        maxLength={3}
+                        inputMode="numeric"
+                      />
                     )}
                   </UIField>
                 </GridField>
