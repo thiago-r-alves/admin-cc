@@ -11,6 +11,7 @@ import {
   buildClosureGroupClientMatch,
   getNextClosureGroupSequence,
 } from '../closures/helpers';
+import { enrichOrdersWithLinkedDeliveryMetadata } from '../cacambas/enrichOrdersWithLinkedDeliveryMetadata';
 
 const parseCacambaPrice = (value: unknown) => {
   const parsed = Number(value);
@@ -100,8 +101,8 @@ export const createOrder = async (payload: Record<string, unknown>) => {
   return { status: 201, body: populated };
 };
 
-export const listOrders = () =>
-  OrderModel.find()
+export const listOrders = async () => {
+  const orders = await OrderModel.find()
     .select('+cacambaPrice')
     .populate([
       {
@@ -114,6 +115,9 @@ export const listOrders = () =>
       },
     ])
     .sort({ priority: -1, createdAt: 1 });
+
+  return enrichOrdersWithLinkedDeliveryMetadata(orders as any[]);
+};
 
 export const changeOrderClient = async (id: string, targetClientId: string) => {
   const normalizedClientId = String(targetClientId || '').trim();

@@ -62,4 +62,29 @@ describe('CacambaList', () => {
 
     expect(onReturnToPending).toHaveBeenCalledWith(paidCacamba);
   });
+
+  it('exibe a data da entrega vinculada para caçambas de retirada', () => {
+    const deliveryDate = new Date('2026-05-10T09:30:00.000Z').toLocaleString('pt-BR');
+
+    render(
+      <CacambaList
+        cacambas={[
+          {
+            ...baseCacamba,
+            tipo: 'retirada',
+            closureDelivery: {
+              date: '2026-05-10T09:30:00.000Z',
+              driverName: 'Motorista entrega',
+              placa: 'ABC1D23',
+              orderNumber: 42,
+            },
+          },
+        ]}
+        showTitle={false}
+      />,
+    );
+
+    expect(screen.getByText('Data da entrega:')).toBeInTheDocument();
+    expect(screen.getByText(deliveryDate)).toBeInTheDocument();
+  });
 });
