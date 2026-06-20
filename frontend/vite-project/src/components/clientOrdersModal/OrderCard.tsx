@@ -28,6 +28,11 @@ const OrderCardBody = styled.div`
   padding: 1rem;
 `;
 
+const OrderIdentifier = styled.strong`
+  color: #e30613;
+  font-weight: 900;
+`;
+
 interface OrderCardProps {
   order: IOrder;
   closureMode: boolean;
@@ -49,7 +54,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
 }) => (
   <StyledOrderCard>
     <OrderCardHeader>
-      <strong>Pedido #{order.orderNumber ?? '-'}</strong>
+      <OrderIdentifier>Pedido #{order.orderNumber ?? '-'}</OrderIdentifier>
       <span>{new Date(order.createdAt || '').toLocaleDateString('pt-BR')}</span>
     </OrderCardHeader>
 

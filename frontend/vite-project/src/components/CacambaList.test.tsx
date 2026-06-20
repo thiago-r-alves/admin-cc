@@ -50,6 +50,12 @@ describe('CacambaList', () => {
     expect(screen.getByText('#415')).toBeInTheDocument();
   });
 
+  it('destaca o numero da caçamba em vermelho', () => {
+    render(<CacambaList cacambas={[baseCacamba]} showTitle={false} />);
+
+    expect(getComputedStyle(screen.getByText('#415')).color).toBe('rgb(227, 6, 19)');
+  });
+
   it('mantem a badge de tipo visivel por padrao', () => {
     render(<CacambaList cacambas={[baseCacamba]} showTitle={false} />);
 

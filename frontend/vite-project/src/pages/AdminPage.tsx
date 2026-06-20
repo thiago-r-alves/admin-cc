@@ -1525,7 +1525,7 @@ const AdminPage: React.FC = () => {
             <InfoTile>
               <div>
                 <InfoLabel>Placa veículo</InfoLabel>
-                <InfoValue style={{ textTransform: 'uppercase', color: '#e30613', fontWeight: 800 }}>
+                <InfoValue style={{ textTransform: 'uppercase' }}>
                   {order.placa || '-'}
                 </InfoValue>
               </div>
@@ -1829,7 +1829,7 @@ const AdminPage: React.FC = () => {
                               </InfoTile>
                               <InfoTile>
                                 <InfoLabel>Placa do caminhão</InfoLabel>
-                                <InfoValue style={{ textTransform: 'uppercase', color: '#e30613', fontWeight: 800 }}>
+                                <InfoValue style={{ textTransform: 'uppercase' }}>
                                   {order.placa || '-'}
                                 </InfoValue>
                               </InfoTile>

@@ -10,6 +10,33 @@ type OrderWithLegacyFields = IOrder & {
     clientName?: string;
   };
 };
+type AutoTableCellHookData = {
+  section?: string;
+  column?: { index?: number };
+  row?: { index?: number; raw?: unknown };
+  cell?: { styles?: { textColor?: number[] } };
+};
+
+const projectRed: [number, number, number] = [227, 6, 19];
+
+const colorOrderNumberValue = (data: AutoTableCellHookData) => {
+  if (data.section !== 'body' || data.row?.index !== 0 || data.column?.index !== 1 || !data.cell) return;
+
+  data.cell.styles = {
+    ...(data.cell.styles || {}),
+    textColor: projectRed,
+  };
+};
+
+const colorCacambaNumberValues = (data: AutoTableCellHookData) => {
+  const raw = Array.isArray(data.row?.raw) ? data.row.raw : [];
+  if (data.section !== 'body' || data.column?.index !== 1 || raw[0] !== 'Número' || !data.cell) return;
+
+  data.cell.styles = {
+    ...(data.cell.styles || {}),
+    textColor: projectRed,
+  };
+};
 
 export async function downloadOrderPdf(order: IOrder) {
   const { jsPDF } = await import('jspdf');
@@ -45,7 +72,8 @@ export async function downloadOrderPdf(order: IOrder) {
     ],
     styles: { fontSize: 9, cellPadding: 2 },
     headStyles: { fillColor: [37, 99, 235] },
-    margin: { top: 12, right: 10, left: 10 }
+    margin: { top: 12, right: 10, left: 10 },
+    didParseCell: colorOrderNumberValue,
   });
 
   // Resumo das caçambas na MESMA página (sem addPage)
@@ -82,7 +110,8 @@ export async function downloadOrderPdf(order: IOrder) {
           styles: { fontSize: fontSize - 1 <= 6 ? 6 : fontSize - 1, cellPadding: 1 },
           headStyles: { fillColor: [99, 102, 241] },
           margin: { right: 10, left: 10 },
-          pageBreak: 'avoid'
+          pageBreak: 'avoid',
+          didParseCell: colorCacambaNumberValues,
         });
       } else {
         doc.setFontSize(8);

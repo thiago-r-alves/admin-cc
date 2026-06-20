@@ -70,7 +70,7 @@ const SelectionInput = styled.input.attrs({ type: 'checkbox' })`
 
 const CacambaNumber = styled.span`
   font-weight: 900;
-  color: #111827;
+  color: #e30613;
   font-size: 1.02rem;
 `;
 

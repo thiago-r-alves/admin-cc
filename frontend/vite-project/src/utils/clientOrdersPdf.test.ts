@@ -3,12 +3,19 @@ import { buildClientOrdersPdf } from './clientOrdersPdf';
 
 type AutoTableOptions = {
   willDrawPage?: (input: { pageNumber: number }) => void;
+  didParseCell?: (input: AutoTableCellHookInput) => void;
   head?: string[][];
   body?: string[][];
   headStyles?: { fillColor?: number[] };
   tableWidth?: number;
   columnStyles?: Record<string, { cellWidth?: number }>;
   margin?: { top?: number };
+};
+
+type AutoTableCellHookInput = {
+  section?: string;
+  column?: { index?: number };
+  cell?: { styles: { textColor?: number[] } };
 };
 
 type MockPdfDoc = {
@@ -177,6 +184,18 @@ describe('buildClientOrdersPdf', () => {
     expect(firstDetailsRow[9]).toBe('Retirador');
     expect(firstDetailsRow[10]).toBe('RET1A23');
     expect(firstDetailsRow[11]).toBe('20');
+
+    const getBodyTextColorForColumn = (columnIndex: number) => {
+      const cell: NonNullable<AutoTableCellHookInput['cell']> = { styles: {} };
+      details.didParseCell?.({ section: 'body', column: { index: columnIndex }, cell });
+      return cell.styles.textColor;
+    };
+
+    expect(getBodyTextColorForColumn(0)).toEqual([227, 6, 19]);
+    expect(getBodyTextColorForColumn(7)).toEqual([227, 6, 19]);
+    expect(getBodyTextColorForColumn(11)).toEqual([227, 6, 19]);
+    expect(getBodyTextColorForColumn(6)).toBeUndefined();
+    expect(getBodyTextColorForColumn(10)).toBeUndefined();
     expect(addImageMock).toHaveBeenCalledWith(
       expect.any(Uint8Array),
       'PNG',

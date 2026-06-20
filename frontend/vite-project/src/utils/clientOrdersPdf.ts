@@ -20,6 +20,11 @@ type BuiltPdfBlob = { filename: string; blob: Blob };
 type JsPdfDocument = InstanceType<typeof import('jspdf').jsPDF>;
 type JsPdfWithAutoTable = JsPdfDocument & { lastAutoTable?: { finalY?: number } };
 type AutoTableFn = (doc: JsPdfDocument, options: Record<string, unknown>) => void;
+type AutoTableCellHookData = {
+  section?: string;
+  column?: { index?: number };
+  cell?: { styles?: { textColor?: number[] } };
+};
 
 const formatDateTime = (value?: string) => (value ? new Date(value).toLocaleString('pt-BR') : '-');
 
@@ -27,6 +32,7 @@ const formatCurrency = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 const projectRed: [number, number, number] = [227, 6, 19];
+const detailsIdentifierColumns = new Set([0, 7, 11]);
 const companyLogoUrl = '/logo-central-cacambas-pdf.png';
 const companyLogoWidth = 49;
 const companyLogoAspectRatio = 300 / 110;
@@ -139,6 +145,17 @@ const mapLocalLabel = (local?: string) => {
   if (local === 'via_publica') return 'Via publica';
   if (local === 'canteiro_obra') return 'Canteiro de obra';
   return local || '-';
+};
+
+const colorDetailsIdentifiers = (data: AutoTableCellHookData) => {
+  const columnIndex = data.column?.index;
+  if (data.section !== 'body' || !data.cell || typeof columnIndex !== 'number') return;
+  if (!detailsIdentifierColumns.has(columnIndex)) return;
+
+  data.cell.styles = {
+    ...(data.cell.styles || {}),
+    textColor: projectRed,
+  };
 };
 
 export async function buildClientOrdersPdf(
@@ -286,6 +303,7 @@ export async function buildClientOrdersPdf(
     },
     margin: { top: pdfHeaderBottom, right: horizontalMargin, left: horizontalMargin },
     willDrawPage: drawPageHeader,
+    didParseCell: colorDetailsIdentifiers,
   });
 
   const safeName = (client.clientName || 'cliente').replace(/[^\w-]+/g, '_');
