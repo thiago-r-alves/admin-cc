@@ -1,7 +1,11 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import CacambaList from './CacambaList';
 import type { ICacamba } from '../interfaces';
+
+vi.mock('../utils/image', () => ({
+  resizeImage: vi.fn(async (url: string) => `thumb:${url}`),
+}));
 
 const baseCacamba: ICacamba = {
   _id: 'cac-1',
@@ -13,6 +17,32 @@ const baseCacamba: ICacamba = {
 };
 
 describe('CacambaList', () => {
+  it('renderiza estado vazio sem executar hooks condicionalmente', () => {
+    render(<CacambaList cacambas={[]} />);
+
+    expect(screen.getByText('Nenhuma caçamba registrada ainda')).toBeInTheDocument();
+  });
+
+  it('renderiza imagem com carregamento lazy e abre imagem ampliada', async () => {
+    const onImageClick = vi.fn();
+    render(
+      <CacambaList
+        cacambas={[{ ...baseCacamba, imageUrl: 'https://example.test/cacamba.jpg' }]}
+        showTitle={false}
+        onImageClick={onImageClick}
+      />,
+    );
+
+    const image = screen.getByAltText('Foto da caçamba');
+    expect(image).toHaveAttribute('loading', 'lazy');
+    expect(image).toHaveAttribute('decoding', 'async');
+
+    await waitFor(() => expect(image).toHaveAttribute('src', 'thumb:https://example.test/cacamba.jpg'));
+    fireEvent.click(image);
+
+    await waitFor(() => expect(onImageClick).toHaveBeenCalledWith('thumb:https://example.test/cacamba.jpg'));
+  });
+
   it('oculta a badge de tipo quando showTypeBadge=false', () => {
     render(<CacambaList cacambas={[baseCacamba]} showTitle={false} showTypeBadge={false} />);
 

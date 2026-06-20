@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ICacamba, IClosureGroup, IOrder } from '../../interfaces';
 import { buildClientOrdersPdf, downloadClientOrdersPdf } from '../../utils/clientOrdersPdf';
 import {
@@ -13,18 +13,17 @@ import {
 } from './helpers';
 import type { CacambaMetaState, CacambaMetaUpdates, ClientOrdersModalProps } from './types';
 
-interface UseClientOrdersModalArgs
-  extends Pick<
-    ClientOrdersModalProps,
-    | 'client'
-    | 'startDate'
-    | 'endDate'
-    | 'type'
-    | 'closureMode'
-    | 'viewMode'
-    | 'paymentStatus'
-    | 'onClosureStateChanged'
-  > {}
+type UseClientOrdersModalArgs = Pick<
+  ClientOrdersModalProps,
+  | 'client'
+  | 'startDate'
+  | 'endDate'
+  | 'type'
+  | 'closureMode'
+  | 'viewMode'
+  | 'paymentStatus'
+  | 'onClosureStateChanged'
+>;
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -41,6 +40,7 @@ export const useClientOrdersModal = ({
   const [eligibleOrders, setEligibleOrders] = useState<IOrder[]>([]);
   const [existingClosureGroups, setExistingClosureGroups] = useState<IClosureGroup[]>([]);
   const [currentClosureGroup, setCurrentClosureGroup] = useState<IClosureGroup | null>(null);
+  const currentClosureGroupRef = useRef<IClosureGroup | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'invoice' | 'pix'>('invoice');
@@ -52,15 +52,19 @@ export const useClientOrdersModal = ({
   const [cacambaMetaModal, setCacambaMetaModal] = useState<CacambaMetaState | null>(null);
   const isMetadataPendingMode = closureMode && paymentStatus === 'metadata_pending';
 
-  const filterOrdersForMetadataPending = (orders: IOrder[]) =>
+  useEffect(() => {
+    currentClosureGroupRef.current = currentClosureGroup;
+  }, [currentClosureGroup]);
+
+  const filterOrdersForMetadataPending = useCallback((orders: IOrder[]) =>
     orders
       .map((order) => ({
         ...order,
         cacambas: (order.cacambas || []).filter((cacamba) => hasPendingClosureMetadata(cacamba)),
       }))
-      .filter((order) => (order.cacambas?.length || 0) > 0);
+      .filter((order) => (order.cacambas?.length || 0) > 0), []);
 
-  const fetchEligibleOrders = async () => {
+  const fetchEligibleOrders = useCallback(async () => {
     if (viewMode === 'generated_notes') {
       setEligibleOrders([]);
       setSelectedCacambaIds([]);
@@ -88,9 +92,19 @@ export const useClientOrdersModal = ({
     const data = (await response.json()) as IOrder[];
     setEligibleOrders(isMetadataPendingMode ? filterOrdersForMetadataPending(data) : data);
     setSelectedCacambaIds([]);
-  };
+  }, [
+    client._id,
+    closureMode,
+    endDate,
+    filterOrdersForMetadataPending,
+    isMetadataPendingMode,
+    paymentStatus,
+    startDate,
+    type,
+    viewMode,
+  ]);
 
-  const fetchExistingClosureGroups = async (
+  const fetchExistingClosureGroups = useCallback(async (
     status: 'nota_fiscal_pendente' | 'pix_pendente' | 'paga' | 'all' = 'all',
   ) => {
     setIsLoadingHistory(true);
@@ -111,15 +125,16 @@ export const useClientOrdersModal = ({
       setExistingClosureGroups(data);
       setSelectedGroupId((currentId) => {
         if (currentId && data.some((group) => group._id === currentId)) return currentId;
-        if (currentClosureGroup && data.some((group) => group._id === currentClosureGroup._id)) {
-          return currentClosureGroup._id;
+        const currentGroup = currentClosureGroupRef.current;
+        if (currentGroup && data.some((group) => group._id === currentGroup._id)) {
+          return currentGroup._id;
         }
         return data[0]?._id || null;
       });
     } finally {
       setIsLoadingHistory(false);
     }
-  };
+  }, [client._id, endDate, startDate, viewMode]);
 
   useEffect(() => {
     void fetchEligibleOrders();
@@ -128,7 +143,7 @@ export const useClientOrdersModal = ({
     setSelectedGroupId(null);
     setInvoiceNumber('');
     setIsEditingInvoice(false);
-  }, [client._id, startDate, endDate, type, closureMode, viewMode, isMetadataPendingMode]);
+  }, [fetchEligibleOrders]);
 
   const selectedOrders = useMemo(() => {
     if (!closureMode) return eligibleOrders;

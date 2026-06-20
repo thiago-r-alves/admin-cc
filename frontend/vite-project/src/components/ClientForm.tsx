@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import type { ICity, IClient } from '../interfaces';
 import { Button as UIButton, Field as UIField, SelectInput, TextInput } from '../components/ui';
@@ -291,11 +291,13 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
   const [isDeletingCity, setIsDeletingCity] = useState(false);
   const lastCepRef = useRef<string>('');
 
-  const onlyDigits = (s: string) => s.replace(/\D/g, '');
+  type CityMutationResponse = Partial<ICity> & { message?: string };
+
+  const onlyDigits = useCallback((s: string) => s.replace(/\D/g, ''), []);
   const maskCep = (digits: string) =>
     digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5, 8)}` : digits;
 
-  const fetchCep = async (cepDigits: string) => {
+  const fetchCep = useCallback(async (cepDigits: string) => {
     if (!cepDigits || cepDigits.length !== 8) return;
     if (lastCepRef.current === cepDigits) return;
     lastCepRef.current = cepDigits;
@@ -318,9 +320,9 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
     } finally {
       setIsFetchingCep(false);
     }
-  };
+  }, []);
 
-  const fetchCities = async () => {
+  const fetchCities = useCallback(async () => {
     if (!apiUrl || !token) return;
     try {
       setIsLoadingCities(true);
@@ -341,7 +343,7 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
     } finally {
       setIsLoadingCities(false);
     }
-  };
+  }, [apiUrl, token]);
 
   const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const digits = onlyDigits(e.target.value).slice(0, 8);
@@ -351,8 +353,7 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
 
   useEffect(() => {
     void fetchCities();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchCities]);
 
   useEffect(() => {
     if (!initialData) return;
@@ -374,8 +375,7 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
 
     const digits = onlyDigits(initialData.cep || '');
     if (digits.length === 8) void fetchCep(digits);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialData]);
+  }, [fetchCep, initialData, onlyDigits]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -401,7 +401,7 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
         },
         body: JSON.stringify({ name }),
       });
-      const payload = await response.json().catch(() => ({} as any));
+      const payload = await response.json().catch(() => ({} as CityMutationResponse));
 
       if (response.status === 409) {
         setCityFeedback({ tone: 'error', title: 'Cidade duplicada', message: payload.message || 'Cidade ja cadastrada.' });
@@ -447,7 +447,7 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
           Authorization: `Bearer ${token}`,
         },
       });
-      const payload = await response.json().catch(() => ({} as any));
+      const payload = await response.json().catch(() => ({} as CityMutationResponse));
       if (!response.ok) {
         setCityFeedback({ tone: 'error', title: 'Erro', message: payload.message || 'Erro ao excluir cidade.' });
         return;

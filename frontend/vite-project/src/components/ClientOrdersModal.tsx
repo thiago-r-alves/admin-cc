@@ -382,6 +382,11 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
 
   const isGeneratedNotesView = viewMode === 'generated_notes';
   const isMetadataPendingView = closureMode && paymentStatus === 'metadata_pending';
+  const fetchExistingClosureGroupsRef = useRef(fetchExistingClosureGroups);
+
+  useEffect(() => {
+    fetchExistingClosureGroupsRef.current = fetchExistingClosureGroups;
+  }, [fetchExistingClosureGroups]);
 
   const displayedGroup = useMemo(() => {
     if (showHistory && selectedGroup) return selectedGroup;
@@ -403,7 +408,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
       setStep('paid');
       setShowHistory(true);
       setIsEditingInvoice(false);
-      void fetchExistingClosureGroups('all');
+      void fetchExistingClosureGroupsRef.current('all');
       return;
     }
 
@@ -411,7 +416,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
       setStep('paid');
       setShowHistory(true);
       setIsEditingInvoice(false);
-      void fetchExistingClosureGroups('paga');
+      void fetchExistingClosureGroupsRef.current('paga');
       return;
     }
 
@@ -419,7 +424,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
       setStep('invoice');
       setShowHistory(true);
       setIsEditingInvoice(false);
-      void fetchExistingClosureGroups('nota_fiscal_pendente');
+      void fetchExistingClosureGroupsRef.current('nota_fiscal_pendente');
       return;
     }
 
@@ -427,14 +432,14 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
       setStep('invoice');
       setShowHistory(true);
       setIsEditingInvoice(false);
-      void fetchExistingClosureGroups('pix_pendente');
+      void fetchExistingClosureGroupsRef.current('pix_pendente');
       return;
     }
 
     setStep('select');
     setShowHistory(false);
     setIsEditingInvoice(false);
-  }, [closureMode, paymentStatus, isGeneratedNotesView]);
+  }, [closureMode, isGeneratedNotesView, paymentStatus, setIsEditingInvoice]);
 
   const handleGenerateClosure = async () => {
     try {

@@ -1,6 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { seedSession, setupMockApi } from './support/mockApi';
 
+declare global {
+  interface Window {
+    __openedUrls?: string[];
+  }
+}
+
 test.describe('Motorista', () => {
   test.beforeEach(async ({ page }) => {
     await setupMockApi(page);
@@ -255,15 +261,19 @@ test.describe('Motorista', () => {
 
   test('logout limpa sessao e volta para login', async ({ page }) => {
     await page.getByRole('button', { name: 'Sair' }).click();
-    await page.getByRole('button', { name: 'Sair' }).last().click();
-    await expect(page).toHaveURL(/\/$/, { timeout: 15000 });
+    const confirmDialog = page.getByRole('dialog', { name: 'Sair do sistema' });
+    await expect(confirmDialog).toBeVisible();
+    await Promise.all([
+      page.waitForURL((url) => url.pathname === '/', { timeout: 15000 }),
+      confirmDialog.getByRole('button', { name: 'Sair' }).click(),
+    ]);
   });
 
   test('ver rota abre google maps com endereco do pedido', async ({ page }) => {
     await page.evaluate(() => {
-      (window as any).__openedUrls = [];
+      window.__openedUrls = [];
       window.open = ((url?: string | URL | undefined) => {
-        (window as any).__openedUrls.push(String(url ?? ''));
+        window.__openedUrls?.push(String(url ?? ''));
         return null;
       }) as typeof window.open;
     });
@@ -271,7 +281,7 @@ test.describe('Motorista', () => {
     const card = page.locator('article', { hasText: '#2231' }).first();
     await card.getByRole('button', { name: 'Ver rota' }).click();
 
-    const opened = await page.evaluate(() => (window as any).__openedUrls as string[]);
+    const opened = await page.evaluate(() => window.__openedUrls ?? []);
     expect(opened.length).toBeGreaterThan(0);
     expect(opened[0]).toContain('google.com/maps/dir/?api=1');
     expect(opened[0]).toContain('Rua%20Januaria');

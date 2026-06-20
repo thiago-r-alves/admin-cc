@@ -97,15 +97,24 @@ const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
   onConfirm,
   onClose,
 }) => {
+  const titleId = React.useId();
+  const descriptionId = React.useId();
+
   if (!open) return null;
 
   return (
     <Overlay onClick={onClose}>
-      <Modal onClick={(e) => e.stopPropagation()}>
+      <Modal
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
+        onClick={(e) => e.stopPropagation()}
+      >
         <Header $variant={variant}>
-          <Title>{title}</Title>
+          <Title id={titleId}>{title}</Title>
         </Header>
-        <Body>{description}</Body>
+        <Body id={descriptionId}>{description}</Body>
         <Footer>
           <Button type="button" onClick={onClose} disabled={loading}>
             {cancelLabel}

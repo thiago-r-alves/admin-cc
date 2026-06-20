@@ -1,17 +1,29 @@
 import type { IOrder, ICacamba } from '../interfaces';
 
+type JsPdfDocument = InstanceType<typeof import('jspdf').jsPDF>;
+type JsPdfWithAutoTable = JsPdfDocument & { lastAutoTable?: { finalY?: number } };
+type AutoTableFn = (doc: JsPdfDocument, options: Record<string, unknown>) => void;
+type OrderWithLegacyFields = IOrder & {
+  numeroPedido?: number | string;
+  numero?: number | string;
+  client?: {
+    clientName?: string;
+  };
+};
+
 export async function downloadOrderPdf(order: IOrder) {
   const { jsPDF } = await import('jspdf');
   const autoTableModule = await import('jspdf-autotable');
-  const autoTable = (autoTableModule as any).default || autoTableModule;
-  const doc = new jsPDF();
+  const autoTable = ('default' in autoTableModule ? autoTableModule.default : autoTableModule) as AutoTableFn;
+  const doc = new jsPDF() as JsPdfWithAutoTable;
   const fmt = (d?: string) => (d ? new Date(d).toLocaleString('pt-BR') : '-');
+  const legacyOrder = order as OrderWithLegacyFields;
 
   // Determina número do pedido (fallback)
   const orderNumber =
-    (order as any).numeroPedido ||
-    (order as any).numero ||
-    (order as any).orderNumber ||
+    legacyOrder.numeroPedido ||
+    legacyOrder.numero ||
+    order.orderNumber ||
     order._id;
 
   // Tabela principal (dados do pedido)
@@ -21,15 +33,15 @@ export async function downloadOrderPdf(order: IOrder) {
       ['Número do Pedido', String(orderNumber)],
       ['Tipo', order.type || '-'],
       ['Status', order.status || '-'],
-      ['Cliente', (order as any).client?.clientName || (order as any).clientName || '-'],
-      ['Contato', `${(order as any).contactName || ''} ${(order as any).contactNumber || ''}`.trim()],
+      ['Cliente', legacyOrder.client?.clientName || order.clientName || '-'],
+      ['Contato', `${order.contactName || ''} ${order.contactNumber || ''}`.trim()],
       [
         'Endereço',
-        `${(order as any).address || ''}, ${(order as any).addressNumber || ''} - ${(order as any).neighborhood || ''}`
+        `${order.address || ''}, ${order.addressNumber || ''} - ${order.neighborhood || ''}`
       ],
-      ['Motorista', (order as any).motorista?.username || '-'],
-      ['Criado em', fmt(order.createdAt as any)],
-      ['Finalizado em', fmt(order.updatedAt as any)]
+      ['Motorista', typeof order.motorista === 'string' ? '-' : order.motorista?.username || '-'],
+      ['Criado em', fmt(order.createdAt)],
+      ['Finalizado em', fmt(order.updatedAt)]
     ],
     styles: { fontSize: 9, cellPadding: 2 },
     headStyles: { fillColor: [37, 99, 235] },
@@ -43,7 +55,7 @@ export async function downloadOrderPdf(order: IOrder) {
     const fontSize = total > 12 ? 7 : total > 8 ? 8 : 9;
 
     // Detalhes individuais condensados em uma tabela só (para não gerar múltiplas)
-    const afterSummaryY = (doc as any).lastAutoTable.finalY + 4;
+    const afterSummaryY = (doc.lastAutoTable?.finalY || 20) + 4;
     if (afterSummaryY < 285) {
       // margem extra acima do título (antes era afterSummaryY - 2)
       const detailsTitleY = afterSummaryY + 8; // aumenta o espaço
@@ -54,7 +66,7 @@ export async function downloadOrderPdf(order: IOrder) {
       order.cacambas.forEach((c: ICacamba, i) => {
         detailsBody.push([`Caçamba ${i + 1}`, '']);
         detailsBody.push(['Número', c.numero || '-']);
-        detailsBody.push(['Registrada em', fmt(c.createdAt as any)]);
+        detailsBody.push(['Registrada em', fmt(c.createdAt)]);
         detailsBody.push(['Local', c.local || '-']);
         detailsBody.push(['Tipo', c.tipo || '-']);
         detailsBody.push(['', '']);

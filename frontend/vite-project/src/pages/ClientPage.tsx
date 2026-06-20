@@ -214,7 +214,7 @@ const ClientPage: React.FC = () => {
         fetchClients();
         setConfirmDeleteClientId(null);
       } else {
-        const data = await response.json().catch(() => ({} as any));
+        const data = await response.json().catch(() => ({} as { message?: string }));
         setFeedback({ tone: 'error', message: data.message || 'Erro ao excluir cliente.' });
       }
     } catch (error) {

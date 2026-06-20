@@ -35,6 +35,8 @@ export interface IDriver {
   username: string;
 }
 
+export type DriverRef = string | Pick<IDriver, '_id' | 'username'>;
+
 export const CACAMBA_CONTENT_TYPES = [
   'Entulho limpo',
   'Entulho misto',
@@ -113,7 +115,7 @@ export interface IOrder {
   type: OrderType;
   priority: number;
   status: 'pendente' | 'em_andamento' | 'concluido' | 'cancelado';
-  motorista?: any;
+  motorista?: DriverRef;
   imageUrls?: string[];
   cacambas?: ICacamba[];
   createdAt?: string;

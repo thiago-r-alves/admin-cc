@@ -1,14 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import type { IOrder, ICacamba, OrderType } from '../interfaces';
 import CacambaForm from '../components/CacambaForm';
 import CacambaList from '../components/CacambaList';
-import EditCacambaModal from './EditCacambaModal';
+import EditCacambaModal from '../components/EditCacambaModal';
 import ActionConfirmModal from '../components/ActionConfirmModal';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import LoadingScreen from '../components/LoadingScreen';
 import ImageModal from '../components/ImageModal';
+import { apiUrl, authFetch, clearStoredSession } from '../services/api';
 // socket.io-client will be dynamically imported to avoid parsing on initial load
+
+type OrdersSocket = {
+  on(event: 'orders_updated', listener: () => void): void;
+  off(event: 'orders_updated'): void;
+  close(): void;
+};
 
 const DriverContainer = styled.div`
   min-height: 100vh;
@@ -319,6 +327,7 @@ const typeLabels: Record<OrderType, string> = {
 };
 
 const DriverPage: React.FC = () => {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<IOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCacambaForm, setShowCacambaForm] = useState(false);
@@ -342,37 +351,26 @@ const DriverPage: React.FC = () => {
     onConfirm: () => Promise<void> | void;
   } | null>(null);
   
-  // Defina a apiUrl aqui, lendo do .env
-  const apiUrl = import.meta.env.VITE_API_URL;
-  const socketRef = React.useRef<any>(null);
-  const clearSessionAndRedirect = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    localStorage.removeItem('token_expires_at');
-    window.location.href = '/';
-  };
+  const socketRef = React.useRef<OrdersSocket | null>(null);
+  const clearSessionAndRedirect = useCallback(() => {
+    clearStoredSession();
+    navigate('/', { replace: true });
+  }, [navigate]);
 
-  const authenticatedFetch = async (url: string, options?: RequestInit) => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setFeedback({ tone: 'error', message: 'Sessão expirada. Por favor, faça login novamente.' });
-      clearSessionAndRedirect();
-      throw new Error('Token not found');
-    }
-    const headers = {
-      'Authorization': `Bearer ${token}`,
-      ...options?.headers,
-    };
-    const response = await fetch(url, { ...options, headers });
-    if (response.status === 401 || response.status === 403) {
-      setFeedback({ tone: 'error', message: 'Acesso negado ou sessão inválida. Faça login novamente.' });
-      clearSessionAndRedirect();
-      throw new Error('Authentication failed');
-    }
-    return response;
-  };
+  const authenticatedFetch = useCallback(
+    (url: string, options?: RequestInit) =>
+      authFetch(url, {
+        ...options,
+        unauthorizedStatuses: [401, 403],
+        onUnauthorized: () => {
+          setFeedback({ tone: 'error', message: 'Acesso negado ou sessão inválida. Faça login novamente.' });
+          clearSessionAndRedirect();
+        },
+      }),
+    [clearSessionAndRedirect],
+  );
 
-  const fetchDriverOrders = async () => {
+  const fetchDriverOrders = useCallback(async () => {
     setLoading(true);
     try {
       const response = await authenticatedFetch(`${apiUrl}/driver/orders`); // Use a variável aqui
@@ -383,19 +381,19 @@ const DriverPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authenticatedFetch]);
 
   useEffect(() => {
     let mounted = true;
-    fetchDriverOrders();
+    void fetchDriverOrders();
 
     (async () => {
       try {
-        const mod = await import('socket.io-client');
+        const { io } = await import('socket.io-client');
         if (!mounted) return;
-        socketRef.current = mod.io(apiUrl);
+        socketRef.current = io(apiUrl);
         socketRef.current.on('orders_updated', () => {
-          fetchDriverOrders();
+          void fetchDriverOrders();
         });
       } catch (e) {
         console.error('Falha ao carregar socket.io-client dinamicamente', e);
@@ -407,13 +405,14 @@ const DriverPage: React.FC = () => {
       try {
         if (socketRef.current) {
           socketRef.current.off('orders_updated');
-          socketRef.current.close && socketRef.current.close();
+          socketRef.current.close();
+          socketRef.current = null;
         }
-      } catch (e) {
+      } catch {
         // ignore
       }
     };
-  }, []);
+  }, [fetchDriverOrders]);
 
   const handleUpdateCacamba = async (cacambaId: string, updated: Partial<ICacamba> & { image?: File | null }) => {
     const fd = new FormData();
@@ -447,7 +446,7 @@ const DriverPage: React.FC = () => {
 
   // (Primeiro bloco duplicado de handlers removido)
 
-  async function checkSubscriptionStatus() {
+  const checkSubscriptionStatus = useCallback(async () => {
     try {
       if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
       const reg = await navigator.serviceWorker.getRegistration();
@@ -457,7 +456,7 @@ const DriverPage: React.FC = () => {
     } catch (e) {
       console.warn('Erro ao verificar subscription', e);
     }
-  }
+  }, []);
 
   const registerServiceWorkerAndSubscribe = async (manual = false) => {
     setPushError(null);
@@ -510,9 +509,9 @@ const DriverPage: React.FC = () => {
       } else {
         setIsSubscribed(true);
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('Erro push:', e);
-      setPushError(e?.message || 'Erro inesperado ao ativar push.');
+      setPushError(e instanceof Error ? e.message : 'Erro inesperado ao ativar push.');
     }
   }
 
@@ -527,44 +526,11 @@ const DriverPage: React.FC = () => {
     return output;
   }
 
-  // Chamar após autenticação do motorista
-  useEffect(() => {
-    let mounted = true;
-    fetchDriverOrders();
-
-    (async () => {
-      try {
-        const mod = await import('socket.io-client');
-        if (!mounted) return;
-        const s = mod.io(apiUrl);
-        s.on('orders_updated', () => {
-          fetchDriverOrders();
-        });
-        // store on ref to cleanup later
-        socketRef.current = s;
-      } catch (e) {
-        console.error('Falha ao carregar socket.io-client dinamicamente', e);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-      try {
-        if (socketRef.current) {
-          socketRef.current.off('orders_updated');
-          socketRef.current.close && socketRef.current.close();
-        }
-      } catch (e) {
-        // ignore
-      }
-    };
-  }, []);
-
   useEffect(() => {
     if (role === 'motorista') {
-      checkSubscriptionStatus();
+      void checkSubscriptionStatus();
     }
-  }, [role]);
+  }, [checkSubscriptionStatus, role]);
 
 
   const handleCompleteOrder = async (orderId: string) => {

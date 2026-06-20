@@ -1,21 +1,39 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styled, { createGlobalStyle } from 'styled-components';
 import type { ICacamba, IDriver, IOrder, OrderType } from '../interfaces';
-import CreateOrderModal from '../components/CreateOrderModal';
-import CreateDriverModal from '../components/CreateDriverModal';
 import CacambaList from '../components/CacambaList';
 import CacambaMetaModal from '../components/CacambaMetaModal';
 import ActionConfirmModal from '../components/ActionConfirmModal';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import LoadingScreen from '../components/LoadingScreen';
 import ImageModal from '../components/ImageModal';
-import ChangeOrderClientModal from '../components/ChangeOrderClientModal';
-import CorrectOrderModal from '../components/CorrectOrderModal';
-import ClientPage from './ClientPage';
-import FechamentoPage from './FechamentoPage';
-import FaturamentoPage from './FaturamentoPage';
-import EditCacambaModal from './EditCacambaModal';
+import {
+  filterAcompanhamentoCacambas,
+  formatDaysOnSite,
+  formatOrderAddress,
+  getAcompanhamentoCacambas,
+  getCompletedOrders,
+  getDaysOnSite,
+  getDaysOnSiteTone,
+  getDriverOrders,
+  getPendingCountByDriver,
+  getPendingOrders,
+  type AcompanhamentoFilters,
+  type CacambaAgeTone,
+} from '../features/admin/admin.helpers';
+import { useAdminData } from '../features/admin/useAdminData';
+import { apiUrl, clearStoredSession } from '../services/api';
 // socket.io-client and PDF download will be dynamically imported to avoid parsing on initial load
+
+const CreateOrderModal = React.lazy(() => import('../components/CreateOrderModal'));
+const CreateDriverModal = React.lazy(() => import('../components/CreateDriverModal'));
+const ChangeOrderClientModal = React.lazy(() => import('../components/ChangeOrderClientModal'));
+const CorrectOrderModal = React.lazy(() => import('../components/CorrectOrderModal'));
+const EditCacambaModal = React.lazy(() => import('../components/EditCacambaModal'));
+const ClientPage = React.lazy(() => import('./ClientPage'));
+const FechamentoPage = React.lazy(() => import('./FechamentoPage'));
+const FaturamentoPage = React.lazy(() => import('./FaturamentoPage'));
 
 // ==========================================================
 // ESTILOS
@@ -421,8 +439,6 @@ const OrderTypeBadge = styled.span<{ $type: IOrder['type'] }>`
   font-weight: 900;
   text-transform: uppercase;
 `;
-
-type CacambaAgeTone = 'low' | 'medium' | 'high' | 'unknown';
 
 const OrderHeaderBadges = styled.div`
   display: inline-flex;
@@ -1138,57 +1154,14 @@ const typeLabels: Record<IOrder['type'], string> = {
 
 const SHOW_ORDER_DOWNLOAD_BUTTON = false;
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-const getLocalDayIndex = (date: Date) =>
-  Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / MS_PER_DAY);
-
-const getDaysOnSite = (createdAt?: string | null) => {
-  if (!createdAt) return null;
-
-  const deliveredAt = new Date(createdAt);
-  if (!Number.isFinite(deliveredAt.getTime())) return null;
-
-  const days = getLocalDayIndex(new Date()) - getLocalDayIndex(deliveredAt);
-  return Math.max(0, days);
-};
-
-const formatDaysOnSite = (days: number | null) => {
-  if (days === null) return 'Na obra: sem data';
-  if (days === 0) return 'Na obra: Hoje';
-  if (days === 1) return 'Na obra há 1 dia';
-  return `Na obra há ${days} dias`;
-};
-
-const getDaysOnSiteTone = (days: number | null): CacambaAgeTone => {
-  if (days === null) return 'unknown';
-  if (days >= 7) return 'high';
-  if (days >= 3) return 'medium';
-  return 'low';
-};
-
-const formatOrderAddress = (order: IOrder) => {
-  const street = [order.address, order.addressNumber].filter(Boolean).join(', ');
-  const parts = [
-    street,
-    order.neighborhood,
-    order.city,
-    order.cep ? `CEP ${order.cep}` : '',
-  ].filter(Boolean);
-
-  return parts.join(' - ') || '-';
-};
-
 // ==========================================================
 // COMPONENTE PRINCIPAL
 // ==========================================================
 const AdminPage: React.FC = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<AdminTab>('pedidos');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [orders, setOrders] = useState<IOrder[]>([]);
-  const [drivers, setDrivers] = useState<IDriver[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
 
   // Estados para os modais
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
@@ -1207,7 +1180,6 @@ const AdminPage: React.FC = () => {
   } | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string>(''); // NOVO
   const [completedPage, setCompletedPage] = useState(1);
-  const [feedback, setFeedback] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [confirmState, setConfirmState] = useState<{
     title: string;
@@ -1216,7 +1188,7 @@ const AdminPage: React.FC = () => {
     confirmLabel: string;
     onConfirm: () => Promise<void> | void;
   } | null>(null);
-  const [acompanhamentoFilters, setAcompanhamentoFilters] = useState({
+  const [acompanhamentoFilters, setAcompanhamentoFilters] = useState<AcompanhamentoFilters>({
     numero: '',
     clientName: '',
     cnpjCpf: '',
@@ -1230,278 +1202,55 @@ const AdminPage: React.FC = () => {
     cep: '',
   });
   const PAGE_SIZE = 5;
-  const clearSessionAndRedirect = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    localStorage.removeItem('token_expires_at');
-    window.location.href = '/';
-  };
+  const clearSessionAndRedirect = useCallback(() => {
+    clearStoredSession();
+    navigate('/', { replace: true });
+  }, [navigate]);
+  const handleAuthError = useCallback(() => {
+    setFeedback({ tone: 'error', message: 'Acesso negado ou sessão inválida. Faça login novamente.' });
+    clearSessionAndRedirect();
+  }, [clearSessionAndRedirect]);
+  const { orders, setOrders, drivers, loading, error, authenticatedFetch, fetchData } = useAdminData({
+    onAuthError: handleAuthError,
+  });
 
   const openConfirm = (payload: NonNullable<typeof confirmState>) => {
     setConfirmState(payload);
     setConfirmLoading(false);
   };
 
-  const acompanhamentoCacambas = useMemo(() => {
-    type AcompanhamentoItem = {
-      numero: string;
-      numeroValue: number;
-      createdAtMs: number;
-      order: IOrder;
-      cacamba: ICacamba;
-    };
-
-    const latestByNumero = new Map<string, AcompanhamentoItem>();
-
-    for (const order of orders) {
-      for (const cacamba of order.cacambas ?? []) {
-        const numeroKey = String(cacamba.numero ?? '').trim();
-        if (!numeroKey) continue;
-
-        const createdAtMs = new Date(cacamba.createdAt ?? 0).getTime();
-        const safeCreatedAtMs = Number.isFinite(createdAtMs) ? createdAtMs : 0;
-        const numeroParsed = Number.parseInt(numeroKey, 10);
-        const numeroValue = Number.isFinite(numeroParsed) ? numeroParsed : Number.NEGATIVE_INFINITY;
-
-        const incoming: AcompanhamentoItem = {
-          numero: numeroKey,
-          numeroValue,
-          createdAtMs: safeCreatedAtMs,
-          order,
-          cacamba,
-        };
-
-        const current = latestByNumero.get(numeroKey);
-        if (!current) {
-          latestByNumero.set(numeroKey, incoming);
-          continue;
-        }
-
-        const shouldReplace =
-          safeCreatedAtMs > current.createdAtMs ||
-          (safeCreatedAtMs === current.createdAtMs &&
-            (incoming.cacamba.tipo === 'retirada' && current.cacamba.tipo !== 'retirada'));
-
-        if (shouldReplace) latestByNumero.set(numeroKey, incoming);
-      }
-    }
-
-    return [...latestByNumero.values()]
-      .filter((item) => item.cacamba.tipo === 'entrega')
-      .sort((a, b) => {
-        if (a.createdAtMs !== b.createdAtMs) return b.createdAtMs - a.createdAtMs;
-
-        const aNumeric = Number.isFinite(a.numeroValue);
-        const bNumeric = Number.isFinite(b.numeroValue);
-        if (aNumeric && bNumeric && a.numeroValue !== b.numeroValue) {
-          return b.numeroValue - a.numeroValue;
-        }
-        if (aNumeric !== bNumeric) return aNumeric ? -1 : 1;
-        return b.numero.localeCompare(a.numero, 'pt-BR', { numeric: true, sensitivity: 'base' });
-      });
-  }, [orders]);
-
-  const acompanhamentoCacambasFiltradas = useMemo(() => {
-    const norm = (s: unknown) =>
-      String(s ?? '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase();
-    const digits = (s: unknown) => norm(s).replace(/\D/g, '');
-
-    const filters = {
-      numero: norm(acompanhamentoFilters.numero).trim(),
-      clientName: norm(acompanhamentoFilters.clientName).trim(),
-      cnpjCpf: norm(acompanhamentoFilters.cnpjCpf).trim(),
-      contact: norm(acompanhamentoFilters.contact).trim(),
-      phone: norm(acompanhamentoFilters.phone).trim(),
-      phoneDigits: digits(acompanhamentoFilters.phone),
-      serviceOrder: norm(acompanhamentoFilters.serviceOrder).trim(),
-      serviceOrderDigital: norm(acompanhamentoFilters.serviceOrderDigital).trim(),
-      address: norm(acompanhamentoFilters.address).trim(),
-      neighborhood: norm(acompanhamentoFilters.neighborhood).trim(),
-      city: norm(acompanhamentoFilters.city).trim(),
-      cep: norm(acompanhamentoFilters.cep).trim(),
-    };
-
-    const hasAnyFilter = Object.values(filters).some(Boolean);
-    if (!hasAnyFilter) return acompanhamentoCacambas;
-
-    return acompanhamentoCacambas.filter(({ numero, order, cacamba }) => {
-      const numeroValue = norm(numero);
-      const clientNameValue = norm(order.clientName);
-      const cnpjCpfValue = norm(order.cnpjCpf);
-      const contactValue = norm(order.contactName);
-      const phoneValue = norm(order.contactNumber);
-      const phoneDigitsValue = digits(order.contactNumber);
-      const serviceOrderValue = norm(cacamba.horaServicoDigitos);
-      const serviceOrderDigitalValue = norm(order.orderNumber);
-      const addressValue = norm([order.address, order.addressNumber].filter(Boolean).join(' '));
-      const neighborhoodValue = norm(order.neighborhood);
-      const cityValue = norm(order.city);
-      const cepValue = norm(order.cep);
-
-      return (
-        (!filters.numero || numeroValue.includes(filters.numero)) &&
-        (!filters.clientName || clientNameValue.includes(filters.clientName)) &&
-        (!filters.cnpjCpf || cnpjCpfValue.includes(filters.cnpjCpf)) &&
-        (!filters.contact || contactValue.includes(filters.contact)) &&
-        (!filters.phone ||
-          phoneValue.includes(filters.phone) ||
-          (Boolean(filters.phoneDigits) && phoneDigitsValue.includes(filters.phoneDigits))) &&
-        (!filters.serviceOrder || serviceOrderValue.includes(filters.serviceOrder)) &&
-        (!filters.serviceOrderDigital || serviceOrderDigitalValue.includes(filters.serviceOrderDigital)) &&
-        (!filters.address || addressValue.includes(filters.address)) &&
-        (!filters.neighborhood || neighborhoodValue.includes(filters.neighborhood)) &&
-        (!filters.city || cityValue.includes(filters.city)) &&
-        (!filters.cep || cepValue.includes(filters.cep))
-      );
-    });
-  }, [acompanhamentoCacambas, acompanhamentoFilters]);
+  const acompanhamentoCacambas = useMemo(() => getAcompanhamentoCacambas(orders), [orders]);
+  const acompanhamentoCacambasFiltradas = useMemo(
+    () => filterAcompanhamentoCacambas(acompanhamentoCacambas, acompanhamentoFilters),
+    [acompanhamentoCacambas, acompanhamentoFilters],
+  );
 
   // Pedidos do motorista selecionado (aceita motorista como id ou objeto populado)
   const driverOrders = useMemo(
-    () => orders.filter(o => (o.motorista?._id ?? (o as any).motorista) === selectedDriverId),
+    () => getDriverOrders(orders, selectedDriverId),
     [orders, selectedDriverId]
   );
 
-  const pendingOrders = useMemo(() => {
-    const pending = driverOrders.filter(o => o.status !== 'concluido');
-    return [...pending].sort((a, b) => {
-      const aTime = new Date((a as any).createdAt ?? 0).getTime();
-      const bTime = new Date((b as any).createdAt ?? 0).getTime();
-      if (aTime !== bTime) return bTime - aTime;
-
-      const an = typeof a.orderNumber === 'number' ? a.orderNumber : -Infinity;
-      const bn = typeof b.orderNumber === 'number' ? b.orderNumber : -Infinity;
-      return bn - an;
-    });
-  }, [driverOrders]);
-  const pendingCountByDriver = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const driver of drivers) counts[driver._id] = 0;
-    for (const order of orders) {
-      if (order.status === 'concluido') continue;
-      const driverId = order.motorista?._id ?? (order as any).motorista;
-      if (typeof driverId === 'string' && counts[driverId] !== undefined) {
-        counts[driverId] += 1;
-      }
-    }
-    return counts;
-  }, [drivers, orders]);
+  const pendingOrders = useMemo(() => getPendingOrders(driverOrders), [driverOrders]);
+  const pendingCountByDriver = useMemo(
+    () => getPendingCountByDriver(drivers, orders),
+    [drivers, orders],
+  );
 
   // Ordena concluídos do motorista selecionado (mais recente -> mais antigo)
-  const completedOrders = useMemo(() => {
-    const completed = (driverOrders ?? []).filter(o => o.status === 'concluido');
-    return [...completed].sort((a, b) => {
-      const aTime = new Date((a as any).updatedAt ?? a.createdAt ?? 0).getTime();
-      const bTime = new Date((b as any).updatedAt ?? b.createdAt ?? 0).getTime();
-      if (aTime !== bTime) return bTime - aTime;
-
-      const an = typeof a.orderNumber === 'number' ? a.orderNumber : -Infinity;
-      const bn = typeof b.orderNumber === 'number' ? b.orderNumber : -Infinity;
-      return bn - an;
-    });
-  }, [driverOrders]);
+  const completedOrders = useMemo(() => getCompletedOrders(driverOrders), [driverOrders]);
 
   const totalCompletedPages = Math.max(1, Math.ceil(completedOrders.length / PAGE_SIZE));
 
   // Garante página válida quando o conjunto filtrado muda
   useEffect(() => {
     if (completedPage > totalCompletedPages) setCompletedPage(totalCompletedPages);
-  }, [completedOrders.length, totalCompletedPages]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [completedPage, totalCompletedPages]);
 
   const visibleCompleted = useMemo(() => {
     const start = (completedPage - 1) * PAGE_SIZE;
     return completedOrders.slice(start, start + PAGE_SIZE);
   }, [completedOrders, completedPage, PAGE_SIZE]);
-
-  const apiUrl = import.meta.env.VITE_API_URL;
-
-  // Função auxiliar para fazer requisições autenticadas
-  const authenticatedFetch = async (url: string, options?: RequestInit) => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setFeedback({ tone: 'error', message: 'Sessão expirada. Por favor, faça login novamente.' });
-      clearSessionAndRedirect();
-      throw new Error('Token not found');
-    }
-    const isFormData = options?.body instanceof FormData;
-    const headers = {
-      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-      'Authorization': `Bearer ${token}`,
-      ...options?.headers,
-    };
-    const response = await fetch(url, { ...options, headers });
-    if (response.status === 401) {
-      setFeedback({ tone: 'error', message: 'Acesso negado ou sessão inválida. Faça login novamente.' });
-      clearSessionAndRedirect();
-      throw new Error('Authentication failed');
-    }
-    return response;
-  };
-
-  // Carregar pedidos e motoristas
-  const fetchData = async (options?: { background?: boolean }) => {
-    const isBackgroundRefresh = Boolean(options?.background);
-    if (!isBackgroundRefresh) {
-      setLoading(true);
-    }
-    setError(null);
-    try {
-      const ordersResponse = await authenticatedFetch(`${apiUrl}/orders`);
-      const ordersData = await ordersResponse.json();
-      setOrders(ordersData);
-
-      const driversResponse = await authenticatedFetch(`${apiUrl}/drivers`);
-      const driversData = await driversResponse.json();
-      setDrivers(driversData);
-
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Ocorreu um erro desconhecido ao carregar os dados.");
-      }
-    } finally {
-      if (!isBackgroundRefresh) {
-        setLoading(false);
-      }
-    }
-  };
-
-  const socketRef = React.useRef<any>(null);
-
-  useEffect(() => {
-    let mounted = true;
-    fetchData();
-
-    // dynamically import socket.io-client and connect
-    (async () => {
-      try {
-        const mod = await import('socket.io-client');
-        if (!mounted) return;
-        socketRef.current = mod.io(apiUrl);
-        socketRef.current.on('orders_updated', () => {
-          void fetchData({ background: true });
-        });
-      } catch (e) {
-        console.error('Falha ao carregar socket.io-client dinamicamente', e);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-      try {
-        if (socketRef.current) {
-          socketRef.current.off('orders_updated');
-          socketRef.current.close && socketRef.current.close();
-        }
-      } catch (e) {
-        // ignore cleanup errors
-      }
-    };
-  }, []);
 
   // Funções de Gerenciamento de Pedidos
   const handleDeleteOrder = async (orderId: string) => {
@@ -1859,16 +1608,18 @@ const AdminPage: React.FC = () => {
             }}
           />
         )}
-        {editingCacamba && (
-          <EditCacambaModal
-            cacamba={editingCacamba.cacamba}
-            orderType={editingCacamba.orderType}
-            onClose={() => setEditingCacamba(null)}
-            onUpdate={async (updates) => {
-              await handleUpdateCacambaFull(editingCacamba.cacamba._id, updates);
-            }}
-          />
-        )}
+        <React.Suspense fallback={null}>
+          {editingCacamba && (
+            <EditCacambaModal
+              cacamba={editingCacamba.cacamba}
+              orderType={editingCacamba.orderType}
+              onClose={() => setEditingCacamba(null)}
+              onUpdate={async (updates) => {
+                await handleUpdateCacambaFull(editingCacamba.cacamba._id, updates);
+              }}
+            />
+          )}
+        </React.Suspense>
 
         <AdminShell>
           <Sidebar $open={isSidebarOpen}>
@@ -1922,17 +1673,19 @@ const AdminPage: React.FC = () => {
             tone={feedback?.tone}
             onClose={() => setFeedback(null)}
           />
-          {activeTab === 'clientes' && (
-            <ClientPage />
-          )}
+          <React.Suspense fallback={null}>
+            {activeTab === 'clientes' && (
+              <ClientPage />
+            )}
 
-          {activeTab === 'fechamento' && (
-            <FechamentoPage />
-          )}
+            {activeTab === 'fechamento' && (
+              <FechamentoPage />
+            )}
 
-          {activeTab === 'faturamento' && (
-            <FaturamentoPage />
-          )}
+            {activeTab === 'faturamento' && (
+              <FaturamentoPage />
+            )}
+          </React.Suspense>
 
           {activeTab === 'acompanhamentos' && (
             <OrdersPage>
@@ -2293,38 +2046,40 @@ const AdminPage: React.FC = () => {
         </AdminShell>
 
         {/* Modais */}
-        {isOrderModalOpen && (
-          <CreateOrderModal
-            onClose={() => setIsOrderModalOpen(false)}
-            onOrderCreated={fetchData}
-            drivers={drivers}
-          />
-        )}
+        <React.Suspense fallback={null}>
+          {isOrderModalOpen && (
+            <CreateOrderModal
+              onClose={() => setIsOrderModalOpen(false)}
+              onOrderCreated={fetchData}
+              drivers={drivers}
+            />
+          )}
 
-        {isDriverModalOpen && (
-          <CreateDriverModal
-            onClose={() => { setIsDriverModalOpen(false); setEditingDriver(null); }}
-            onDriverCreated={fetchData}
-            editingDriver={editingDriver}
-          />
-        )}
-        {changingClientOrder && (
-          <ChangeOrderClientModal
-            apiUrl={apiUrl}
-            order={changingClientOrder}
-            onClose={() => setChangingClientOrder(null)}
-            onChanged={handleOrderClientChanged}
-          />
-        )}
-        {correctingOrder && (
-          <CorrectOrderModal
-            apiUrl={apiUrl}
-            order={correctingOrder}
-            drivers={drivers}
-            onClose={() => setCorrectingOrder(null)}
-            onChanged={handleOrderCorrected}
-          />
-        )}
+          {isDriverModalOpen && (
+            <CreateDriverModal
+              onClose={() => { setIsDriverModalOpen(false); setEditingDriver(null); }}
+              onDriverCreated={fetchData}
+              editingDriver={editingDriver}
+            />
+          )}
+          {changingClientOrder && (
+            <ChangeOrderClientModal
+              apiUrl={apiUrl}
+              order={changingClientOrder}
+              onClose={() => setChangingClientOrder(null)}
+              onChanged={handleOrderClientChanged}
+            />
+          )}
+          {correctingOrder && (
+            <CorrectOrderModal
+              apiUrl={apiUrl}
+              order={correctingOrder}
+              drivers={drivers}
+              onClose={() => setCorrectingOrder(null)}
+              onChanged={handleOrderCorrected}
+            />
+          )}
+        </React.Suspense>
         {confirmState && (
           <ActionConfirmModal
             open

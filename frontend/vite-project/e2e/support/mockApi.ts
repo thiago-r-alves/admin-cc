@@ -995,7 +995,13 @@ export const setupMockApi = async (page: Page) => {
     }
 
     if (pathname === '/closures/download' && method === 'POST') {
-      const body = req.postDataJSON() as { selectedCacambaIds?: string[]; paymentMethod?: 'invoice' | 'pix' };
+      const body = req.postDataJSON() as {
+        selectedCacambaIds?: string[];
+        paymentMethod?: 'invoice' | 'pix';
+        clientId?: string;
+        startDate?: string;
+        endDate?: string;
+      };
       const ids = body.selectedCacambaIds || [];
       const pendingStatus: NonNullable<Cacamba['paymentStatus']> =
         body.paymentMethod === 'pix' ? 'pix_pendente' : 'nota_fiscal_pendente';
@@ -1009,7 +1015,7 @@ export const setupMockApi = async (page: Page) => {
         });
       });
       const groupId = `grp-${closureGroups.length + 1}`;
-      const clientId = String((req.postDataJSON() as any).clientId || 'cli-1');
+      const clientId = String(body.clientId || 'cli-1');
       const nextSequence =
         closureGroups.filter((group) => group.clientId === clientId).reduce((max, group) => {
           const value = Number(group.clientSequenceNumber || 0);
@@ -1019,8 +1025,8 @@ export const setupMockApi = async (page: Page) => {
         _id: groupId,
         clientId,
         clientSequenceNumber: nextSequence,
-        startDate: String((req.postDataJSON() as any).startDate || nowIso),
-        endDate: String((req.postDataJSON() as any).endDate || nowIso),
+        startDate: String(body.startDate || nowIso),
+        endDate: String(body.endDate || nowIso),
         status: pendingStatus,
         paymentMethod: body.paymentMethod || 'invoice',
         totalAmount: selectedCacambas.reduce((sum, item) => sum + Number(item.price || 0), 0),
@@ -1087,7 +1093,11 @@ export const setupMockApi = async (page: Page) => {
     if (pathname === '/driver/orders' && method === 'GET') {
       const driverOrders = orders
         .filter((o) => getOrderMotoristaId(o) === 'drv-1' && o.status !== 'concluido')
-        .map(({ cacambaPrice, ...rest }) => rest);
+        .map((order) => {
+          const rest = { ...order };
+          delete rest.cacambaPrice;
+          return rest;
+        });
       return json(route, driverOrders);
     }
     if (/^\/driver\/orders\/[^/]+\/complete$/.test(pathname) && method === 'PATCH') {

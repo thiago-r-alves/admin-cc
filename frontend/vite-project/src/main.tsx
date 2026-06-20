@@ -32,7 +32,7 @@ setTimeout(() => {
     document.documentElement.classList.remove('js-disabled');
     const el = document.getElementById('preload-header');
     if (el) el.remove();
-  } catch (e) {
+  } catch {
     // ignore
   }
 }, 0);

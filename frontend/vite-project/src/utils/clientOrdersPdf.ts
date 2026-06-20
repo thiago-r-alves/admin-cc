@@ -17,6 +17,9 @@ type BuildClientOrdersPdfOptions = {
 
 type BuiltPdfDownload = { filename: string };
 type BuiltPdfBlob = { filename: string; blob: Blob };
+type JsPdfDocument = InstanceType<typeof import('jspdf').jsPDF>;
+type JsPdfWithAutoTable = JsPdfDocument & { lastAutoTable?: { finalY?: number } };
+type AutoTableFn = (doc: JsPdfDocument, options: Record<string, unknown>) => void;
 
 const formatDateTime = (value?: string) => (value ? new Date(value).toLocaleString('pt-BR') : '-');
 
@@ -153,15 +156,13 @@ export async function buildClientOrdersPdf(
   const { client, orders, startDate, endDate, clientTotal } = input;
   const { jsPDF } = await import('jspdf');
   const autoTableModule = await import('jspdf-autotable');
-  const autoTable = (autoTableModule as any).default || autoTableModule;
-  const doc = new jsPDF('l', 'mm', 'a4');
+  const autoTable = ('default' in autoTableModule ? autoTableModule.default : autoTableModule) as AutoTableFn;
+  const doc = new jsPDF('l', 'mm', 'a4') as JsPdfWithAutoTable;
   const horizontalMargin = 10;
   const pageWidth = doc.internal.pageSize.getWidth();
   const availableTableWidth = pageWidth - horizontalMargin * 2;
   const companyLogo = await loadCompanyLogo();
-  const QRCode = await import('qrcode');
-  const toQrDataUrl =
-    QRCode.toDataURL || (QRCode as any).default?.toDataURL || (QRCode as any)['module.exports']?.toDataURL;
+  const { toDataURL: toQrDataUrl } = await import('qrcode');
   const pixQrCode = await toQrDataUrl(buildPixCopyPaste(clientTotal), {
     errorCorrectionLevel: 'M',
     margin: 1,
@@ -250,7 +251,7 @@ export async function buildClientOrdersPdf(
   );
 
   autoTable(doc, {
-    startY: ((doc as any).lastAutoTable?.finalY || 20) + 6,
+    startY: (doc.lastAutoTable?.finalY || 20) + 6,
     head: [[
       'Cacamba',
       'Local',
@@ -287,7 +288,7 @@ export async function buildClientOrdersPdf(
     willDrawPage: drawPageHeader,
   });
 
-  const safeName = (client.clientName || 'cliente').replace(/[^\w\-]+/g, '_');
+  const safeName = (client.clientName || 'cliente').replace(/[^\w-]+/g, '_');
   const startFileLabel = formatFileDate(startDate);
   const endFileLabel = formatFileDate(endDate);
   const periodSuffix =

@@ -1,41 +1,27 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import type { ICacamba } from '../interfaces';
+import { CACAMBA_CONTENT_TYPES, type CacambaContentType, type ICacamba, type OrderType } from '../interfaces';
 
-interface EditCacambaModalProps {
-  cacamba: ICacamba;
-  onClose: () => void;
-  onSave: (updated: Partial<ICacamba> & { image?: File | null }) => void;
-}
-
-// ====== Styled Components (iguais ao CacambaForm) ======
 const ModalOverlay = styled.div`
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  inset: 0;
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 50;
+  background-color: rgba(0, 0, 0, 0.7);
 `;
 
 const ModalContent = styled.div`
+  width: 90%;
+  max-width: 500px;
+  padding: 1.5rem 2rem;
+  border-radius: 8px;
   background-color: white;
-  border-radius: 0.5rem;
-  padding: 1.5rem;
-  width: 100%;
-  max-width: 28rem;
-  margin: 0 1rem;
 `;
 
 const Title = styled.h2`
-  font-size: 1.25rem;
-  font-weight: bold;
-  margin: 0 0 1rem 0;
-  color: #1f2937;
+  margin: 0 0 1.5rem 0;
 `;
 
 const Form = styled.form`
@@ -50,162 +36,241 @@ const FormGroup = styled.div`
 `;
 
 const Label = styled.label`
-  display: block;
+  margin-bottom: 0.25rem;
   font-size: 0.875rem;
   font-weight: 500;
-  color: #374151;
-  margin-bottom: 0.25rem;
 `;
 
 const Input = styled.input`
-  width: 100%;
-  padding: 0.5rem 0.75rem;
+  padding: 0.5rem;
   border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  font-size: 1rem;
-  
-  &:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  }
+  border-radius: 4px;
 `;
 
 const Select = styled.select`
-  width: 100%;
-  padding: 0.5rem 0.75rem;
+  padding: 0.5rem;
   border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  font-size: 1rem;
-  background-color: white;
-  
-  &:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  }
-`;
-
-const FileInfo = styled.p`
-  font-size: 0.875rem;
-  color: #6b7280;
-  margin: 0.25rem 0 0 0;
+  border-radius: 4px;
 `;
 
 const ButtonGroup = styled.div`
   display: flex;
-  gap: 0.75rem;
+  gap: 1rem;
+  margin-top: 1.5rem;
 `;
 
-const SubmitButton = styled.button`
+const Button = styled.button`
   flex: 1;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+`;
+
+const SubmitButton = styled(Button)`
   background-color: #e30613;
   color: white;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 0.375rem;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  
-  &:hover:not(:disabled) {
-    background-color: #c9000b;
-  }
-  
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
 `;
 
-const CancelButton = styled.button`
-  flex: 1;
-  background-color: #d1d5db;
-  color: #374151;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 0.375rem;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  
-  &:hover {
-    background-color: #9ca3af;
-  }
+const CancelButton = styled(Button)`
+  background-color: #e5e7eb;
 `;
-// ====== Fim dos Styled Components ======
 
-const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ cacamba, onClose, onSave }) => {
-  const [numero, setNumero] = useState(cacamba.numero);
-  const [tipo, setTipo] = useState<'entrega' | 'retirada'>(cacamba.tipo);
-  const [local, setLocal] = useState<'via_publica' | 'canteiro_obra'>(
-    (cacamba as any).local || 'via_publica'
+const ErrorText = styled.p`
+  margin: 0.5rem 0 0;
+  color: #ef4444;
+  font-size: 0.875rem;
+`;
+
+type UploadGuardResult = { allowed: File[]; error?: string };
+
+interface EditCacambaModalProps {
+  cacamba: ICacamba;
+  orderType?: OrderType;
+  onClose: () => void;
+  onUpdate: (updated: Partial<ICacamba> & { image?: File | null }) => Promise<void>;
+  beforeUploadFiles?: (files: File[]) => Promise<UploadGuardResult>;
+}
+
+const getForcedTipo = (orderType: OrderType | undefined, cacamba: ICacamba): OrderType => {
+  if (orderType === 'retirada' || orderType === 'entrega') return orderType;
+  return cacamba.tipo === 'retirada' ? 'retirada' : 'entrega';
+};
+
+const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, ...props }) => {
+  const forcedTipo = getForcedTipo(props.orderType, props.cacamba);
+  const [numero, setNumero] = useState(props.cacamba.numero);
+  const [horaServicoDigitos, setHoraServicoDigitos] = useState(props.cacamba.horaServicoDigitos || '');
+  const [tipo, setTipo] = useState<OrderType>(forcedTipo);
+  const [contentType, setContentType] = useState<CacambaContentType | ''>(
+    (props.cacamba.contentType || '') as CacambaContentType | '',
   );
-  const [image, setImage] = useState<File | null>(null);
+  const [local, setLocal] = useState(props.cacamba.local || 'via_publica');
+  const [file, setFile] = useState<File | null>(null);
+  const [imgError, setImgError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave({
-      numero,
-      tipo,
-      local,
-      image,
-    });
+  const showEntrega = !props.orderType || props.orderType === 'entrega';
+  const showRetirada = !props.orderType || props.orderType === 'retirada';
+  const lockSelect = props.orderType === 'entrega' || props.orderType === 'retirada';
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    setImgError(null);
+    const incoming = Array.from(event.target.files || []);
+
+    if (incoming.length === 0) {
+      setFile(null);
+      return;
+    }
+
+    if (!beforeUploadFiles) {
+      setFile(incoming[0] || null);
+      return;
+    }
+
+    const result = await beforeUploadFiles(incoming);
+    setFile(result.allowed[0] || null);
+    setImgError(result.allowed.length > 0 ? null : result.error ?? null);
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (saving) return;
+    setFormError(null);
+
+    const normalizedNumero = numero.trim();
+    if (!normalizedNumero) {
+      setFormError('Número da caçamba é obrigatório.');
+      return;
+    }
+
+    const normalizedHoraServico = horaServicoDigitos.trim();
+    if (!/^\d{3}$/.test(normalizedHoraServico)) {
+      setFormError('Ordem de serviço deve conter exatamente 3 dígitos.');
+      return;
+    }
+
+    if (forcedTipo === 'retirada' && !contentType) {
+      setFormError('Tipo de conteúdo é obrigatório para retirada.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const updates: Partial<ICacamba> & { image?: File | null } = {
+        numero: normalizedNumero,
+        horaServicoDigitos: normalizedHoraServico,
+        tipo,
+        local,
+      };
+      if (forcedTipo === 'retirada') updates.contentType = contentType as CacambaContentType;
+      if (file) updates.image = file;
+
+      await props.onUpdate(updates);
+      props.onClose();
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Erro ao salvar alterações.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <ModalOverlay>
       <ModalContent>
-        <Title>Editar Caçamba</Title>
+        <Title>Editar Caçamba #{props.cacamba.numero}</Title>
         <Form onSubmit={handleSubmit}>
           <FormGroup>
-            <Label>
-              Número da Caçamba
-            </Label>
+            <Label>Número da Caçamba</Label>
             <Input
               type="text"
               value={numero}
-              onChange={e => setNumero(e.target.value)}
+              onChange={(event) => setNumero(event.target.value)}
+              placeholder="Ex: 501"
               required
             />
           </FormGroup>
+
           <FormGroup>
-            <Label>
-              Tipo
-            </Label>
-            <Select value={tipo} onChange={e => setTipo(e.target.value as 'entrega' | 'retirada')}>
-              <option value="entrega">Entrega</option>
-              <option value="retirada">Retirada</option>
-            </Select>
-          </FormGroup>
-          <FormGroup>
-            <Label>
-              Local
-            </Label>
-            <Select
-              value={local}
-              onChange={e => setLocal(e.target.value as 'via_publica' | 'canteiro_obra')}
+            <Label>3 Últimos Dígitos da Ordem de serviço</Label>
+            <Input
+              type="text"
+              value={horaServicoDigitos}
+              onChange={(event) => setHoraServicoDigitos(event.target.value)}
+              placeholder="Ex: 123"
+              maxLength={3}
+              inputMode="numeric"
+              pattern="[0-9]{3}"
               required
+            />
+          </FormGroup>
+
+          <FormGroup>
+            <Label>Tipo</Label>
+            <Select
+              value={tipo}
+              onChange={(event) => setTipo(event.target.value as OrderType)}
+              required
+              disabled={lockSelect}
             >
-              <option value="via_publica">Via pública</option>
-              <option value="canteiro_obra">Canteiro de obra</option>
+              {showEntrega && <option value="entrega">Entrega</option>}
+              {showRetirada && <option value="retirada">Retirada</option>}
             </Select>
           </FormGroup>
+
+          {forcedTipo === 'retirada' && (
+            <FormGroup>
+              <Label>Tipo de conteúdo</Label>
+              <Select
+                value={contentType}
+                onChange={(event) => setContentType(event.target.value as CacambaContentType | '')}
+                required
+              >
+                <option value="">Selecione...</option>
+                {CACAMBA_CONTENT_TYPES.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </Select>
+            </FormGroup>
+          )}
+
           <FormGroup>
-            <Label>
-              Nova Imagem
-            </Label>
-            <Input type="file" accept="image/*" onChange={e => setImage(e.target.files?.[0] || null)} />
-            {image && (
-              <FileInfo>
-                Arquivo selecionado: {image.name}
-              </FileInfo>
-            )}
+            <Label>Local</Label>
+            <Select value={local} onChange={(event) => setLocal(event.target.value)}>
+              <option value="via_publica">Via Pública</option>
+              <option value="canteiro_obra">Canteiro de Obra</option>
+            </Select>
           </FormGroup>
+
+          <FormGroup>
+            <Label>Trocar Imagem (Opcional)</Label>
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              onClick={() => setImgError(null)}
+            />
+            {imgError && <ErrorText>{imgError}</ErrorText>}
+          </FormGroup>
+
           <ButtonGroup>
-            <SubmitButton type="submit">Salvar</SubmitButton>
-            <CancelButton type="button" onClick={onClose}>Cancelar</CancelButton>
+            <SubmitButton type="submit" disabled={saving}>
+              {saving ? 'Salvando...' : 'Salvar Alterações'}
+            </SubmitButton>
+            <CancelButton type="button" onClick={props.onClose} disabled={saving}>
+              Cancelar
+            </CancelButton>
           </ButtonGroup>
+          {formError && <ErrorText>{formError}</ErrorText>}
         </Form>
       </ModalContent>
     </ModalOverlay>

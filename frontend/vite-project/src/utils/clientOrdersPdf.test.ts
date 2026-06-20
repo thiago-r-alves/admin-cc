@@ -1,8 +1,33 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildClientOrdersPdf } from './clientOrdersPdf';
 
-const autoTableMock = vi.fn((doc: any, _options: any) => {
-  _options.willDrawPage?.({ pageNumber: 1 });
+type AutoTableOptions = {
+  willDrawPage?: (input: { pageNumber: number }) => void;
+  head?: string[][];
+  body?: string[][];
+  headStyles?: { fillColor?: number[] };
+  tableWidth?: number;
+  columnStyles?: Record<string, { cellWidth?: number }>;
+  margin?: { top?: number };
+};
+
+type MockPdfDoc = {
+  lastAutoTable?: { finalY?: number };
+  internal: { pageSize: { getWidth: () => number } };
+  getCurrentPageInfo: () => { pageNumber: number };
+  addImage: ReturnType<typeof vi.fn>;
+  setFont: ReturnType<typeof vi.fn>;
+  setTextColor: ReturnType<typeof vi.fn>;
+  setFontSize: ReturnType<typeof vi.fn>;
+  text: ReturnType<typeof vi.fn>;
+  setDrawColor: ReturnType<typeof vi.fn>;
+  setLineWidth: ReturnType<typeof vi.fn>;
+  line: ReturnType<typeof vi.fn>;
+  output: ReturnType<typeof vi.fn>;
+};
+
+const autoTableMock = vi.fn((doc: MockPdfDoc, options: AutoTableOptions) => {
+  options.willDrawPage?.({ pageNumber: 1 });
   doc.lastAutoTable = { finalY: 30 };
 });
 
@@ -65,7 +90,7 @@ describe('buildClientOrdersPdf', () => {
     type: 'retirada' as const,
     priority: 0,
     status: 'concluido' as const,
-    motorista: { username: 'Retirador' },
+    motorista: { _id: 'drv-1', username: 'Retirador' },
     placa: 'RET1A23',
     cacambas: [
       {
@@ -109,19 +134,18 @@ describe('buildClientOrdersPdf', () => {
     );
 
     expect(autoTableMock).toHaveBeenCalledTimes(2);
-    const summary = autoTableMock.mock.calls[0]?.[1]!;
-    const details = autoTableMock.mock.calls[1]?.[1]!;
-    expect(summary).toBeDefined();
-    expect(details).toBeDefined();
+    const summary = autoTableMock.mock.calls[0]?.[1];
+    const details = autoTableMock.mock.calls[1]?.[1];
+    if (!summary || !details) throw new Error('PDF tables were not rendered.');
     const allPdfText = JSON.stringify([summary.head, summary.body, details.head, details.body]);
 
     expect(summary.head).toEqual([['Resumo do Relatorio', '']]);
-    expect(summary.headStyles.fillColor).toEqual([227, 6, 19]);
-    expect(details.headStyles.fillColor).toEqual([227, 6, 19]);
+    expect(summary.headStyles?.fillColor).toEqual([227, 6, 19]);
+    expect(details.headStyles?.fillColor).toEqual([227, 6, 19]);
     expect(details.tableWidth).toBe(277);
     expect(
-      Object.values(details.columnStyles).reduce(
-        (sum: number, column: any) => sum + Number(column.cellWidth || 0),
+      Object.values(details.columnStyles ?? {}).reduce(
+        (sum, column) => sum + Number(column.cellWidth || 0),
         0,
       ),
     ).toBe(277);
@@ -130,8 +154,9 @@ describe('buildClientOrdersPdf', () => {
     expect(allPdfText).not.toContain('Conteudo');
     expect(allPdfText).not.toContain('Pagamento via Pix');
     expect(allPdfText).not.toContain('Pix copia e cola');
-    expect(details.body[0][0]).toBe('101');
-    expect(details.head[0]).toEqual([
+    const firstDetailsRow = details.body?.[0] ?? [];
+    expect(firstDetailsRow[0]).toBe('101');
+    expect(details.head?.[0]).toEqual([
       'Cacamba',
       'Local',
       'OS',
@@ -145,13 +170,13 @@ describe('buildClientOrdersPdf', () => {
       'Placa retirada',
       'Pedido retirada',
     ]);
-    expect(details.body[0]).toHaveLength(12);
-    expect(details.body[0][5]).toBe('Entregador');
-    expect(details.body[0][6]).toBe('ENT1A23');
-    expect(details.body[0][7]).toBe('10');
-    expect(details.body[0][9]).toBe('Retirador');
-    expect(details.body[0][10]).toBe('RET1A23');
-    expect(details.body[0][11]).toBe('20');
+    expect(firstDetailsRow).toHaveLength(12);
+    expect(firstDetailsRow[5]).toBe('Entregador');
+    expect(firstDetailsRow[6]).toBe('ENT1A23');
+    expect(firstDetailsRow[7]).toBe('10');
+    expect(firstDetailsRow[9]).toBe('Retirador');
+    expect(firstDetailsRow[10]).toBe('RET1A23');
+    expect(firstDetailsRow[11]).toBe('20');
     expect(addImageMock).toHaveBeenCalledWith(
       expect.any(Uint8Array),
       'PNG',
@@ -176,8 +201,8 @@ describe('buildClientOrdersPdf', () => {
         'PIX CNPJ: 14.071.560/0001-41',
       ]),
     );
-    expect(summary.margin.top).toBe(46);
-    expect(details.margin.top).toBe(46);
+    expect(summary.margin?.top).toBe(46);
+    expect(details.margin?.top).toBe(46);
   });
 
   it('omite a linha de periodo quando o periodo nao foi definido', async () => {
@@ -191,8 +216,9 @@ describe('buildClientOrdersPdf', () => {
       { output: 'blob' },
     );
 
-    const summary = autoTableMock.mock.calls[0]?.[1]!;
-    expect(summary.body.some((row: string[]) => row[0] === 'Periodo')).toBe(false);
+    const summary = autoTableMock.mock.calls[0]?.[1];
+    if (!summary) throw new Error('Summary table was not rendered.');
+    expect(summary.body?.some((row) => row[0] === 'Periodo')).toBe(false);
   });
 
   it('desenha o cabecalho uma unica vez em cada pagina do PDF', async () => {
@@ -216,14 +242,14 @@ describe('buildClientOrdersPdf', () => {
           setLineWidth: vi.fn(),
           line: vi.fn(),
           output: vi.fn(() => new Blob(['pdf'], { type: 'application/pdf' })),
-        }) as any,
+        }) as unknown as InstanceType<typeof jsPDF>,
     );
     autoTableMock
-      .mockImplementationOnce((doc: any, options: any) => {
+      .mockImplementationOnce((doc: MockPdfDoc, options: AutoTableOptions) => {
         options.willDrawPage?.({ pageNumber: 1 });
         doc.lastAutoTable = { finalY: 30 };
       })
-      .mockImplementationOnce((_doc: any, options: any) => {
+      .mockImplementationOnce((_doc: MockPdfDoc, options: AutoTableOptions) => {
         options.willDrawPage?.({ pageNumber: 1 });
         currentPage = 2;
         options.willDrawPage?.({ pageNumber: 2 });

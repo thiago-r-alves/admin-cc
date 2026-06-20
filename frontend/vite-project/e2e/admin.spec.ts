@@ -562,8 +562,12 @@ test.describe('Admin', () => {
   test('logout limpa sessao e volta para login', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
     await page.getByRole('button', { name: 'Sair' }).click();
-    await page.getByRole('button', { name: 'Sair' }).last().click();
-    await expect(page).toHaveURL(/\/$/);
+    const confirmDialog = page.getByRole('dialog', { name: 'Sair do sistema' });
+    await expect(confirmDialog).toBeVisible();
+    await Promise.all([
+      page.waitForURL((url) => url.pathname === '/'),
+      confirmDialog.getByRole('button', { name: 'Sair' }).click(),
+    ]);
     await expect(page.getByRole('button', { name: /Entrar|Login|Acessar/i })).toBeVisible();
   });
 

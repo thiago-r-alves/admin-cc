@@ -216,6 +216,9 @@ const formatDateTime = (value?: string | null) => {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toLocaleString('pt-BR');
 };
 
+const buildImageUrl = (apiUrl: string, imageUrl: string) =>
+  imageUrl.startsWith('http') ? imageUrl : `${apiUrl}${imageUrl}`;
+
 const CacambaList: React.FC<CacambaListProps> = ({
   cacambas,
   onImageClick,
@@ -234,24 +237,42 @@ const CacambaList: React.FC<CacambaListProps> = ({
   onReturnToPending,
   showDeliveryDateForRetirada = false,
 }) => {
-  if (cacambas.length === 0) {
-    return <EmptyState>Nenhuma caçamba registrada ainda</EmptyState>;
-  }
-
   const apiUrl = import.meta.env.VITE_API_URL;
+  const requestedThumbsRef = React.useRef<Set<string>>(new Set());
   const [thumbs, setThumbs] = React.useState<Record<string, string>>({});
 
   React.useEffect(() => {
-    cacambas.forEach((c) => {
-      if (c.imageUrl && !thumbs[c._id]) {
-        const full = c.imageUrl.startsWith('http') ? c.imageUrl : `${apiUrl}${c.imageUrl}`;
-        import('../utils/image')
-          .then(({ resizeImage }) => resizeImage(full, 66, 1))
-          .then((r) => setThumbs((prev) => ({ ...prev, [c._id]: r })))
-          .catch(console.error);
-      }
+    let cancelled = false;
+
+    cacambas.forEach((cacamba) => {
+      if (!cacamba.imageUrl) return;
+
+      const thumbKey = `${cacamba._id}:${cacamba.imageUrl}`;
+      if (requestedThumbsRef.current.has(thumbKey)) return;
+
+      requestedThumbsRef.current.add(thumbKey);
+      const full = buildImageUrl(apiUrl, cacamba.imageUrl);
+
+      import('../utils/image')
+        .then(({ resizeImage }) => resizeImage(full, 66, 1))
+        .then((result) => {
+          if (cancelled) return;
+          setThumbs((prev) => (prev[thumbKey] ? prev : { ...prev, [thumbKey]: result }));
+        })
+        .catch((error: unknown) => {
+          requestedThumbsRef.current.delete(thumbKey);
+          console.error(error);
+        });
     });
-  }, [cacambas, apiUrl, thumbs]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cacambas, apiUrl]);
+
+  if (cacambas.length === 0) {
+    return <EmptyState>Nenhuma caçamba registrada ainda</EmptyState>;
+  }
 
   return (
     <Container>
@@ -279,6 +300,9 @@ const CacambaList: React.FC<CacambaListProps> = ({
             warningText = 'Caçamba sem tipo de conteúdo definido.\nDefina os dados para liberar o pagamento.';
           }
         }
+
+        const imageUrl = cacamba.imageUrl ? buildImageUrl(apiUrl, cacamba.imageUrl) : null;
+        const thumbKey = cacamba.imageUrl ? `${cacamba._id}:${cacamba.imageUrl}` : '';
 
         return (
           <CacambaCard key={cacamba._id}>
@@ -343,20 +367,19 @@ const CacambaList: React.FC<CacambaListProps> = ({
               <ImageContainer>
                 {cacamba.imageUrl ? (
                   <CacambaImage
-                    src={thumbs[cacamba._id] || cacamba.imageUrl}
+                    src={thumbs[thumbKey] || imageUrl || cacamba.imageUrl}
                     alt="Foto da caçamba"
+                    loading="lazy"
+                    decoding="async"
                     onClick={async () => {
-                      if (onImageClick && cacamba.imageUrl) {
-                        const full = cacamba.imageUrl.startsWith('http')
-                          ? cacamba.imageUrl
-                          : `${apiUrl}${cacamba.imageUrl}`;
+                      if (onImageClick && imageUrl) {
                         try {
                           const mod = await import('../utils/image');
-                          const large = await mod.resizeImage(full, 1200, 0.8);
+                          const large = await mod.resizeImage(imageUrl, 1200, 0.8);
                           onImageClick(large);
                         } catch (e) {
                           console.error('Erro redimensionando imagem:', e);
-                          onImageClick(full);
+                          onImageClick(imageUrl);
                         }
                       }
                     }}

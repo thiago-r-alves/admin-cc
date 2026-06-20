@@ -1,7 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 import type { IDriver, IClient, OrderType } from '../interfaces';
-import type { SingleValue } from 'react-select';
+import type {
+  FilterOptionOption,
+  Props as ReactSelectProps,
+  SingleValue,
+  StylesConfig,
+} from 'react-select';
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -415,6 +420,7 @@ interface CreateOrderModalProps {
 }
 
 type ClientOption = { value: string; label: string; clientName: string };
+type SelectComponentType = React.ComponentType<ReactSelectProps<ClientOption, false>>;
 
 type CreateOrderForm = {
   clientName: string;
@@ -488,7 +494,7 @@ const SearchIcon = () => (
 );
 
 const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCreated, drivers }) => {
-  const [SelectComponent, setSelectComponent] = useState<any>(null);
+  const [SelectComponent, setSelectComponent] = useState<SelectComponentType | null>(null);
   const [clients, setClients] = useState<IClient[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [form, setForm] = useState(emptyForm);
@@ -501,7 +507,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
   useEffect(() => {
     let mounted = true;
     import('react-select').then(mod => {
-      if (mounted) setSelectComponent(mod.default || mod);
+      if (mounted) setSelectComponent(() => mod.default as SelectComponentType);
     }).catch(() => {});
 
     return () => {
@@ -653,7 +659,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
   const onlyDigits = (s: string) => s.replace(/\D/g, '');
   const maskCep = (digits: string) => (digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5, 8)}` : digits);
 
-  const fetchCep = async (cepDigits: string) => {
+  const fetchCep = useCallback(async (cepDigits: string) => {
     if (!cepDigits || cepDigits.length !== 8) return;
     if (lastCepRef.current === cepDigits) return;
     lastCepRef.current = cepDigits;
@@ -676,7 +682,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
     } finally {
       setIsFetchingCep(false);
     }
-  };
+  }, []);
 
   const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const digits = onlyDigits(e.target.value).slice(0, 8);
@@ -687,8 +693,29 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
   useEffect(() => {
     const digits = onlyDigits(form.cep || '');
     if (digits.length === 8) fetchCep(digits);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.cep]);
+  }, [form.cep, fetchCep]);
+
+  const selectStyles = useMemo<StylesConfig<ClientOption, false>>(
+    () => ({
+      control: (base, state) => ({
+        ...base,
+        minHeight: 38,
+        borderColor: state.isFocused ? '#e30613' : '#d8b4b4',
+        boxShadow: state.isFocused ? '0 0 0 3px rgba(227, 6, 19, 0.12)' : 'none',
+        borderRadius: 4,
+        fontSize: '0.9rem',
+        '&:hover': { borderColor: '#e30613' },
+      }),
+      menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+    }),
+    [],
+  );
+
+  const filterClientOption = (opt: FilterOptionOption<ClientOption>, raw: string) => {
+    const option = opt.data;
+    const search = raw.toLowerCase();
+    return option.label.toLowerCase().includes(search) || option.clientName.toLowerCase().includes(search);
+  };
 
   const renderClientPicker = () => (
     <Field $span={2}>
@@ -702,24 +729,9 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
           isSearchable
           isClearable
           autoFocus
-          filterOption={(opt: any, raw: any) => {
-            const option = opt.data as ClientOption;
-            const search = (raw || '').toLowerCase();
-            return option.label.toLowerCase().includes(search) || option.clientName.toLowerCase().includes(search);
-          }}
+          filterOption={filterClientOption}
           menuPortalTarget={document.body}
-          styles={{
-            control: (base: any, state: any) => ({
-              ...base,
-              minHeight: 38,
-              borderColor: state.isFocused ? '#e30613' : '#d8b4b4',
-              boxShadow: state.isFocused ? '0 0 0 3px rgba(227, 6, 19, 0.12)' : 'none',
-              borderRadius: 4,
-              fontSize: '0.9rem',
-              '&:hover': { borderColor: '#e30613' },
-            }),
-            menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
-          }}
+          styles={selectStyles}
         />
       ) : (
         <Select
