@@ -171,6 +171,39 @@ describe('Driver APIs', () => {
     expect(duplicate.status).toBe(400);
   });
 
+  it('POST /driver/orders/:id/cacambas exige exatamente três dígitos no número', async () => {
+    const app = await loadApp();
+    const { driver } = await ensureUsers();
+    const token = signToken(String(driver._id), 'motorista');
+    const order = await createOrderForDriver(String(driver._id), 'entrega');
+
+    for (const numero of ['1', '12', '1234', '12a', ' 123 ', '12-']) {
+      const invalid = await request(app)
+        .post(`/driver/orders/${order._id}/cacambas`)
+        .set('Authorization', `Bearer ${token}`)
+        .field('numero', numero)
+        .field('horaServicoDigitos', '123')
+        .field('local', 'via_publica')
+        .attach('image', tinyPng, 'img.png');
+
+      expect(invalid.status).toBe(400);
+      expect(invalid.body.message).toBe('Número da caçamba deve conter exatamente 3 dígitos.');
+    }
+
+    for (const numero of ['001', '123', '999']) {
+      const valid = await request(app)
+        .post(`/driver/orders/${order._id}/cacambas`)
+        .set('Authorization', `Bearer ${token}`)
+        .field('numero', numero)
+        .field('horaServicoDigitos', '123')
+        .field('local', 'via_publica')
+        .attach('image', tinyPng, 'img.png');
+
+      expect(valid.status).toBe(201);
+      expect(valid.body.cacamba.numero).toBe(numero);
+    }
+  });
+
   it('POST /driver/orders/:id/cacambas valida disponibilidade da caçamba por cliente', async () => {
     const app = await loadApp();
     const { driver } = await ensureUsers();
