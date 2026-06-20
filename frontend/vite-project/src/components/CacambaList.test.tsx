@@ -62,4 +62,36 @@ describe('CacambaList', () => {
 
     expect(onReturnToPending).toHaveBeenCalledWith(paidCacamba);
   });
+
+  it('exibe data de entrega da retirada apenas quando habilitado', () => {
+    const retiradaCacamba: ICacamba = {
+      ...baseCacamba,
+      tipo: 'retirada',
+      closureDelivery: {
+        date: '2026-05-01T10:00:00.000Z',
+        driverName: 'Motorista',
+        placa: 'ABC1D23',
+        orderNumber: 10,
+      },
+    };
+
+    const { rerender } = render(<CacambaList cacambas={[retiradaCacamba]} showTitle={false} />);
+
+    expect(screen.queryByText(/Entregue em:/)).not.toBeInTheDocument();
+
+    rerender(
+      <CacambaList
+        cacambas={[retiradaCacamba]}
+        showTitle={false}
+        showDeliveryDateForRetirada
+      />,
+    );
+
+    expect(screen.getByText(/Entregue em:/)).toBeInTheDocument();
+    expect(screen.getByText(/Retirada em:/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Entregue em:/).compareDocumentPosition(screen.getByText(/Retirada em:/)) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
 });

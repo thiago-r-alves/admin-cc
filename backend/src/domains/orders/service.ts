@@ -7,6 +7,7 @@ import { UserModel } from '../../models/User';
 import { mapPriority } from '../../utils/order';
 import { emitOrderCompleted, emitOrdersUpdated, notifyDrivers } from '../../shared/realtime';
 import { buildOrderClientSnapshot, isOrderType, ORDER_CLIENT_SNAPSHOT_FIELDS } from './helpers';
+import { enrichWithdrawalCacambasWithDeliveryMetadata } from '../cacambas/enrichment';
 import {
   buildClosureGroupClientMatch,
   getNextClosureGroupSequence,
@@ -100,8 +101,8 @@ export const createOrder = async (payload: Record<string, unknown>) => {
   return { status: 201, body: populated };
 };
 
-export const listOrders = () =>
-  OrderModel.find()
+export const listOrders = async () => {
+  const orders = await OrderModel.find()
     .select('+cacambaPrice')
     .populate([
       {
@@ -113,7 +114,11 @@ export const listOrders = () =>
         select: 'numero tipo paymentStatus contentType price imageUrl createdAt local horaServicoDigitos',
       },
     ])
-    .sort({ priority: -1, createdAt: 1 });
+    .sort({ priority: -1, createdAt: 1 })
+    .lean();
+
+  return enrichWithdrawalCacambasWithDeliveryMetadata(orders as any[]);
+};
 
 export const changeOrderClient = async (id: string, targetClientId: string) => {
   const normalizedClientId = String(targetClientId || '').trim();

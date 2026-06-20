@@ -537,6 +537,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
           onImageClick={setModalImage}
           showTitle={false}
           onReturnToPending={(cacamba) => setPendingReturn({ group, cacamba })}
+          showDeliveryDateForRetirada
         />
       </>
     );

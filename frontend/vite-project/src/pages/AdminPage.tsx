@@ -1643,6 +1643,7 @@ const AdminPage: React.FC = () => {
       }))
     );
     setFeedback({ tone: 'success', message: `Caçamba #${updated.numero} editada com sucesso.` });
+    await fetchData({ background: true });
   };
 
   // Funções de Gerenciamento de Motoristas
@@ -1717,6 +1718,7 @@ const AdminPage: React.FC = () => {
       adminMetaActions={order.type === 'retirada'}
       canEditPrice={order.type === 'retirada' && order.status === 'concluido'}
       onEditPrice={(cacamba) => setCacambaMetaModal({ mode: 'price', cacamba })}
+      showDeliveryDateForRetirada
     />
   );
 
@@ -1781,6 +1783,7 @@ const AdminPage: React.FC = () => {
                   editLabel="Editar caçamba"
                   adminMetaActions={order.type === 'retirada'}
                   canEditPrice={false}
+                  showDeliveryDateForRetirada
                 />
               )}
             </CacambaSection>

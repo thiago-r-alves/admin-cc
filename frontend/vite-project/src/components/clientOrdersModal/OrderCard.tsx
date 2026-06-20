@@ -66,6 +66,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
           onEditContentType={onEditContentType}
           selectedCacambaIds={selectedCacambaIds}
           onToggleSelect={onToggleSelect}
+          showDeliveryDateForRetirada
         />
       )}
     </OrderCardBody>

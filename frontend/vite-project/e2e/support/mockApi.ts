@@ -7,6 +7,12 @@ const API_ORIGIN = 'http://api.local';
 const nowIso = new Date('2026-05-16T12:00:00.000Z').toISOString();
 
 type Driver = { _id: string; username: string };
+type CacambaActionMetadata = {
+  date?: string;
+  driverName?: string;
+  placa?: string;
+  orderNumber?: number | null;
+};
 type Cacamba = {
   _id: string;
   numero: string;
@@ -20,6 +26,8 @@ type Cacamba = {
   imageUrl?: string;
   createdAt: string;
   horaServicoDigitos?: string;
+  closureDelivery?: CacambaActionMetadata | null;
+  closureWithdrawal?: CacambaActionMetadata | null;
 };
 type Order = {
   _id: string;
@@ -212,6 +220,12 @@ const initialOrders: Order[] = [
         horaServicoDigitos: '777',
         paymentStatus: 'pendente',
         price: 320,
+        closureDelivery: {
+          date: '2026-05-10T10:00:00.000Z',
+          driverName: 'adalberto',
+          placa: 'ENT1A23',
+          orderNumber: 1500,
+        },
       },
     ],
     imageUrls: [],

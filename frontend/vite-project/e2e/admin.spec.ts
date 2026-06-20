@@ -282,6 +282,12 @@ test.describe('Admin', () => {
     await expect(page.getByRole('button', { name: 'Baixar Pedido' })).toHaveCount(0);
   });
 
+  test('mostra data de entrega anterior em retirada na visualizacao admin', async ({ page }) => {
+    const withdrawalOrderCard = page.getByTestId('order-card-ord-4');
+    await expect(withdrawalOrderCard.getByText('#777')).toBeVisible();
+    await expect(withdrawalOrderCard.getByText(/Entregue em:/)).toBeVisible();
+  });
+
   test('filtra clientes na aba fechamento por periodo aplicado', async ({ page, isMobile }) => {
     await openMenuIfMobile(page, isMobile);
     await page.getByRole('button', { name: 'Fechamento' }).click();

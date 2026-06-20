@@ -101,6 +101,84 @@ describe('Admin APIs', () => {
     expect(del404.status).toBe(404);
   });
 
+  it('GET /orders inclui a data da entrega anterior em caçambas de retirada', async () => {
+    const app = await loadApp();
+    const { admin, driver } = await ensureUsers();
+    const adminToken = signToken(String(admin._id), 'admin');
+    const client = await ClientModel.create({
+      clientName: 'Cliente Entrega Retirada',
+      contactName: 'Contato',
+      contactNumber: '123',
+      neighborhood: 'Centro',
+      address: 'Rua 1',
+      addressNumber: '10',
+    });
+
+    const deliveryOrder = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: client._id,
+      clientName: client.clientName,
+      contactName: client.contactName,
+      contactNumber: client.contactNumber,
+      neighborhood: client.neighborhood,
+      address: client.address,
+      addressNumber: client.addressNumber,
+      type: 'entrega',
+      status: 'concluido',
+      motorista: driver._id,
+      placa: 'ENT1A23',
+    });
+    const deliveryCacamba = await CacambaModel.create({
+      numero: '801',
+      tipo: 'entrega',
+      imageUrl: '/files/507f1f77bcf86cd799439081',
+      orderId: deliveryOrder._id,
+      local: 'via_publica',
+      createdAt: new Date('2026-05-10T10:00:00.000Z'),
+      horaServicoDigitos: '801',
+    });
+    await OrderModel.findByIdAndUpdate(deliveryOrder._id, { $push: { cacambas: deliveryCacamba._id } });
+
+    const withdrawalOrder = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: client._id,
+      clientName: client.clientName,
+      contactName: client.contactName,
+      contactNumber: client.contactNumber,
+      neighborhood: client.neighborhood,
+      address: client.address,
+      addressNumber: client.addressNumber,
+      type: 'retirada',
+      status: 'concluido',
+      motorista: driver._id,
+      placa: 'RET1A23',
+    });
+    const withdrawalCacamba = await CacambaModel.create({
+      numero: '801',
+      tipo: 'retirada',
+      contentType: 'Entulho limpo',
+      paymentStatus: 'pendente',
+      price: 120,
+      imageUrl: '/files/507f1f77bcf86cd799439082',
+      orderId: withdrawalOrder._id,
+      local: 'via_publica',
+      createdAt: new Date('2026-05-15T10:00:00.000Z'),
+      horaServicoDigitos: '802',
+    });
+    await OrderModel.findByIdAndUpdate(withdrawalOrder._id, { $push: { cacambas: withdrawalCacamba._id } });
+
+    const res = await request(app).get('/orders').set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+
+    const order = res.body.find((item: any) => String(item._id) === String(withdrawalOrder._id));
+    expect(order?.cacambas[0]?.closureDelivery).toMatchObject({
+      date: '2026-05-10T10:00:00.000Z',
+      driverName: driver.username,
+      placa: 'ENT1A23',
+      orderNumber: deliveryOrder.orderNumber,
+    });
+  });
+
   it('PATCH /orders/:id/correction corrige somente pedidos pendentes sem caçambas', async () => {
     const app = await loadApp();
     const { admin, driver } = await ensureUsers();

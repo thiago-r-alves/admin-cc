@@ -207,7 +207,14 @@ interface CacambaListProps {
   selectedCacambaIds?: string[];
   onToggleSelect?: (cacamba: ICacamba, checked: boolean) => void;
   onReturnToPending?: (cacamba: ICacamba) => void;
+  showDeliveryDateForRetirada?: boolean;
 }
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toLocaleString('pt-BR');
+};
 
 const CacambaList: React.FC<CacambaListProps> = ({
   cacambas,
@@ -225,6 +232,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
   selectedCacambaIds = [],
   onToggleSelect,
   onReturnToPending,
+  showDeliveryDateForRetirada = false,
 }) => {
   if (cacambas.length === 0) {
     return <EmptyState>Nenhuma caçamba registrada ainda</EmptyState>;
@@ -259,6 +267,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
         const missingValue = isRetirada && !hasValidPrice;
         const missingContentType = isRetirada && !hasValidContentType;
         const isSelectableInClosure = selectable && isRetirada && !isPaid && hasValidPrice && hasValidContentType;
+        const deliveryDate = formatDateTime(cacamba.closureDelivery?.date);
 
         let warningText = '';
         if (selectable && !isPaid && isRetirada && (missingValue || missingContentType)) {
@@ -285,8 +294,14 @@ const CacambaList: React.FC<CacambaListProps> = ({
                   {isPaid && <PaymentBadge>Paga</PaymentBadge>}
                 </HeaderInfo>
 
+                {showDeliveryDateForRetirada && isRetirada && (
+                  <DateInfo>
+                    <strong>Entregue em:</strong> {deliveryDate || 'Data não disponível'}
+                  </DateInfo>
+                )}
+
                 <DateInfo>
-                  Registrada em:{' '}
+                  {isRetirada ? <strong>Retirada em:</strong> : 'Registrada em:'}{' '}
                   {cacamba.createdAt
                     ? new Date(cacamba.createdAt).toLocaleString('pt-BR')
                     : 'Data não disponível'}
