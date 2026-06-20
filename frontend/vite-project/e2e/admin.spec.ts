@@ -50,6 +50,14 @@ test.describe('Admin', () => {
   });
 
   test('cria pedido com submit completo', async ({ page }) => {
+    let orderPostCount = 0;
+    page.on('request', (request) => {
+      const url = new URL(request.url());
+      if (url.pathname.endsWith('/orders') && request.method() === 'POST') {
+        orderPostCount += 1;
+      }
+    });
+
     await page.getByRole('button', { name: /\+ Adicionar Pedido/i }).click();
 
     const clientInput = page.locator('input[id^="react-select-"]').first();
@@ -61,22 +69,32 @@ test.describe('Admin', () => {
 
     await expect(page.getByText('Nome do Cliente')).toBeVisible();
 
+    const serviceTypeGroup = page.getByRole('radiogroup', { name: 'Tipo de Serviço' });
+    const deliveryOption = serviceTypeGroup.getByRole('radio', { name: /Entrega/i });
+    const pickupOption = serviceTypeGroup.getByRole('radio', { name: /Retirada/i });
+    await expect(deliveryOption).toHaveAttribute('aria-checked', 'false');
+    await expect(pickupOption).toHaveAttribute('aria-checked', 'false');
+    await expect(page.getByText('Valor da Caçamba (R$)')).toHaveCount(0);
+
     await page
       .locator('label', { hasText: 'Placa' })
       .locator('xpath=following::select[1]')
       .selectOption('fto2e29');
     await page
-      .locator('label', { hasText: 'Tipo de Serviço' })
+      .locator('label', { hasText: 'Atribuir Motorista' })
       .locator('xpath=following::select[1]')
-      .selectOption('retirada');
+      .selectOption('drv-1');
+
+    await page.getByRole('button', { name: 'Criar Pedido' }).click();
+    await expect(page.getByText('Selecione Entrega ou Retirada para continuar.')).toBeVisible();
+    expect(orderPostCount).toBe(0);
+
+    await pickupOption.click();
+    await expect(pickupOption).toHaveAttribute('aria-checked', 'true');
     await page
       .locator('label', { hasText: 'Valor da Caçamba (R$)' })
       .locator('xpath=following::input[1]')
       .fill('180');
-    await page
-      .locator('label', { hasText: 'Atribuir Motorista' })
-      .locator('xpath=following::select[1]')
-      .selectOption('drv-1');
 
     const orderPost = page.waitForResponse(
       (response) => response.url().includes('/orders') && response.request().method() === 'POST',

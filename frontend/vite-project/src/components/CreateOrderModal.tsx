@@ -204,6 +204,94 @@ const Select = styled.select`
   }
 `;
 
+const ServiceTypeGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+
+  @media (max-width: 560px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const ServiceTypeOption = styled.button<{ $tone: OrderType; $selected: boolean }>`
+  width: 100%;
+  min-height: 94px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding: 0.75rem;
+  border: 1px solid
+    ${({ $selected, $tone }) => {
+      if (!$selected) return '#d8b4b4';
+      return $tone === 'entrega' ? '#22c55e' : '#ef4444';
+    }};
+  border-radius: 6px;
+  background: ${({ $selected, $tone }) => {
+    if (!$selected) return '#ffffff';
+    return $tone === 'entrega' ? '#f0fdf4' : '#fff1f2';
+  }};
+  color: ${({ $selected, $tone }) => {
+    if (!$selected) return '#374151';
+    return $tone === 'entrega' ? '#14532d' : '#7f1d1d';
+  }};
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
+
+  &:hover {
+    border-color: ${({ $tone }) => ($tone === 'entrega' ? '#22c55e' : '#ef4444')};
+    background: ${({ $tone }) => ($tone === 'entrega' ? '#f0fdf4' : '#fff1f2')};
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: ${({ $tone }) => ($tone === 'entrega' ? '#22c55e' : '#ef4444')};
+    box-shadow: 0 0 0 3px
+      ${({ $tone }) => ($tone === 'entrega' ? 'rgba(34, 197, 94, 0.18)' : 'rgba(239, 68, 68, 0.18)')};
+  }
+`;
+
+const ServiceTypeHeader = styled.span`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+`;
+
+const ServiceTypeName = styled.span<{ $tone: OrderType }>`
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid ${({ $tone }) => ($tone === 'entrega' ? '#bbf7d0' : '#fecaca')};
+  border-radius: 4px;
+  background: ${({ $tone }) => ($tone === 'entrega' ? '#dcfce7' : '#fee2e2')};
+  color: ${({ $tone }) => ($tone === 'entrega' ? '#166534' : '#b91c1c')};
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+`;
+
+const ServiceTypeDot = styled.span<{ $tone: OrderType }>`
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: ${({ $tone }) => ($tone === 'entrega' ? '#22c55e' : '#ef4444')};
+  box-shadow: 0 0 0 3px ${({ $tone }) => ($tone === 'entrega' ? '#dcfce7' : '#fee2e2')};
+`;
+
+const ServiceTypeDescription = styled.span`
+  color: #4b5563;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.35;
+`;
+
 const FetchingHint = styled.small`
   display: block;
   margin-top: 0.35rem;
@@ -328,7 +416,23 @@ interface CreateOrderModalProps {
 
 type ClientOption = { value: string; label: string; clientName: string };
 
-const emptyForm = {
+type CreateOrderForm = {
+  clientName: string;
+  cnpjCpf: string;
+  contactName: string;
+  contactNumber: string;
+  neighborhood: string;
+  address: string;
+  addressNumber: string;
+  city: string;
+  cep: string;
+  type: OrderType | '';
+  motorista: string;
+  placa: string;
+  cacambaPrice: string;
+};
+
+const emptyForm: CreateOrderForm = {
   clientName: '',
   cnpjCpf: '',
   contactName: '',
@@ -338,11 +442,28 @@ const emptyForm = {
   addressNumber: '',
   city: '',
   cep: '',
-  type: 'entrega' as OrderType,
+  type: '',
   motorista: '',
   placa: '',
   cacambaPrice: '',
 };
+
+const serviceTypeOptions: Array<{
+  value: OrderType;
+  title: string;
+  description: string;
+}> = [
+  {
+    value: 'entrega',
+    title: 'Entrega',
+    description: 'Colocar caçamba no cliente',
+  },
+  {
+    value: 'retirada',
+    title: 'Retirada',
+    description: 'Retirar caçamba do cliente',
+  },
+];
 
 const DocumentIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -465,6 +586,15 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
     setSelectedClientById(opt?.value || '');
   };
 
+  const selectOrderType = (type: OrderType) => {
+    setForm(prev => ({
+      ...prev,
+      type,
+      cacambaPrice: type === 'retirada' ? prev.cacambaPrice : '',
+    }));
+    setError('');
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
@@ -473,8 +603,13 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
       setError('Por favor, selecione um cliente.');
       return;
     }
+    if (!form.type) {
+      setError('Selecione Entrega ou Retirada para continuar.');
+      return;
+    }
+    const orderType = form.type;
     const parsedCacambaPrice = Number(form.cacambaPrice.replace(',', '.'));
-    if (form.type === 'retirada' && (!Number.isFinite(parsedCacambaPrice) || parsedCacambaPrice <= 0)) {
+    if (orderType === 'retirada' && (!Number.isFinite(parsedCacambaPrice) || parsedCacambaPrice <= 0)) {
       setError('Informe o valor da caçamba para pedidos de retirada.');
       return;
     }
@@ -497,11 +632,11 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
         neighborhood: form.neighborhood,
         address: form.address,
         addressNumber: form.addressNumber,
-        type: form.type,
+        type: orderType,
         priority: 0,
         placa: form.placa,
         motorista: form.motorista || undefined,
-        ...(form.type === 'retirada' ? { cacambaPrice: parsedCacambaPrice } : {}),
+        ...(orderType === 'retirada' ? { cacambaPrice: parsedCacambaPrice } : {}),
       }),
     });
 
@@ -679,19 +814,31 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                       />
                     </Field>
 
-                    <Field>
-                      <Label>Tipo de Serviço</Label>
-                      <Select
-                        value={form.type}
-                        onChange={e => setForm(prev => ({
-                          ...prev,
-                          type: e.target.value as OrderType,
-                          cacambaPrice: e.target.value === 'retirada' ? prev.cacambaPrice : '',
-                        }))}
-                      >
-                        <option value="entrega">Entrega</option>
-                        <option value="retirada">Retirada</option>
-                      </Select>
+                    <Field $span={2}>
+                      <Label as="div" id="order-type-label">Tipo de Serviço</Label>
+                      <ServiceTypeGrid role="radiogroup" aria-labelledby="order-type-label">
+                        {serviceTypeOptions.map(option => {
+                          const selected = form.type === option.value;
+                          return (
+                            <ServiceTypeOption
+                              key={option.value}
+                              type="button"
+                              role="radio"
+                              aria-checked={selected}
+                              data-testid={`order-type-${option.value}`}
+                              $tone={option.value}
+                              $selected={selected}
+                              onClick={() => selectOrderType(option.value)}
+                            >
+                              <ServiceTypeHeader>
+                                <ServiceTypeName $tone={option.value}>{option.title}</ServiceTypeName>
+                                <ServiceTypeDot $tone={option.value} />
+                              </ServiceTypeHeader>
+                              <ServiceTypeDescription>{option.description}</ServiceTypeDescription>
+                            </ServiceTypeOption>
+                          );
+                        })}
+                      </ServiceTypeGrid>
                     </Field>
 
                     {form.type === 'retirada' && (
