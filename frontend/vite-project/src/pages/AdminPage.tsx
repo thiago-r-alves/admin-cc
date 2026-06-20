@@ -8,6 +8,7 @@ import ActionConfirmModal from '../components/ActionConfirmModal';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import LoadingScreen from '../components/LoadingScreen';
 import ImageModal from '../components/ImageModal';
+import { SelectInput } from '../components/ui';
 import {
   filterAcompanhamentoCacambas,
   formatDaysOnSite,
@@ -19,7 +20,9 @@ import {
   getDriverOrders,
   getPendingCountByDriver,
   getPendingOrders,
+  sortAcompanhamentoCacambas,
   type AcompanhamentoFilters,
+  type AcompanhamentoSortMode,
   type CacambaAgeTone,
 } from '../features/admin/admin.helpers';
 import { useAdminData } from '../features/admin/useAdminData';
@@ -299,7 +302,7 @@ const AcompanhamentoToolbar = styled.div`
   align-items: center;
   justify-content: space-between;
   gap: 0.85rem;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   padding: 0.2rem 0;
   margin-bottom: 1rem;
 `;
@@ -355,6 +358,10 @@ const AcompanhamentoFilterInput = styled.input`
     border-color: #e30613;
     box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
   }
+`;
+
+const AcompanhamentoSortSelect = styled(SelectInput)`
+  border-color: #fecaca;
 `;
 
 const SummaryBadge = styled.span`
@@ -1201,6 +1208,7 @@ const AdminPage: React.FC = () => {
     city: '',
     cep: '',
   });
+  const [acompanhamentoSortMode, setAcompanhamentoSortMode] = useState<AcompanhamentoSortMode>('default');
   const PAGE_SIZE = 5;
   const clearSessionAndRedirect = useCallback(() => {
     clearStoredSession();
@@ -1223,6 +1231,10 @@ const AdminPage: React.FC = () => {
   const acompanhamentoCacambasFiltradas = useMemo(
     () => filterAcompanhamentoCacambas(acompanhamentoCacambas, acompanhamentoFilters),
     [acompanhamentoCacambas, acompanhamentoFilters],
+  );
+  const acompanhamentoCacambasOrdenadas = useMemo(
+    () => sortAcompanhamentoCacambas(acompanhamentoCacambasFiltradas, acompanhamentoSortMode),
+    [acompanhamentoCacambasFiltradas, acompanhamentoSortMode],
   );
 
   // Pedidos do motorista selecionado (aceita motorista como id ou objeto populado)
@@ -1693,7 +1705,7 @@ const AdminPage: React.FC = () => {
                 <AcompanhamentoToolbar>
                   <OrdersSectionTitle>Acompanhamentos</OrdersSectionTitle>
                   <SummaryBadge>
-                    TOTAL: {acompanhamentoCacambasFiltradas.length}
+                    TOTAL: {acompanhamentoCacambasOrdenadas.length}
                   </SummaryBadge>
                 </AcompanhamentoToolbar>
                 <AcompanhamentoFiltersGrid>
@@ -1746,11 +1758,22 @@ const AdminPage: React.FC = () => {
                     <AcompanhamentoFilterLabel htmlFor="filtro-cep">CEP</AcompanhamentoFilterLabel>
                     <AcompanhamentoFilterInput id="filtro-cep" type="text" value={acompanhamentoFilters.cep} onChange={(e) => setAcompanhamentoFilters((prev) => ({ ...prev, cep: e.target.value }))} />
                   </AcompanhamentoFilterField>
+                  <AcompanhamentoFilterField>
+                    <AcompanhamentoFilterLabel htmlFor="acompanhamento-sort-mode">Ordenar por</AcompanhamentoFilterLabel>
+                    <AcompanhamentoSortSelect
+                      id="acompanhamento-sort-mode"
+                      value={acompanhamentoSortMode}
+                      onChange={(e) => setAcompanhamentoSortMode(e.target.value as AcompanhamentoSortMode)}
+                    >
+                      <option value="default">Tempo de entrega</option>
+                      <option value="clientName">Cliente A-Z</option>
+                    </AcompanhamentoSortSelect>
+                  </AcompanhamentoFilterField>
                 </AcompanhamentoFiltersGrid>
 
-                {acompanhamentoCacambasFiltradas.length ? (
+                {acompanhamentoCacambasOrdenadas.length ? (
                   <OrdersGrid>
-                    {acompanhamentoCacambasFiltradas.map(({ numero, cacamba, order }) => {
+                    {acompanhamentoCacambasOrdenadas.map(({ numero, cacamba, order }) => {
                       const motoristaNome =
                         typeof order.motorista === 'object' && order.motorista !== null
                           ? (order.motorista as { username?: string }).username

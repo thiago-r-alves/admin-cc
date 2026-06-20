@@ -7,6 +7,7 @@ import {
   getCompletedOrders,
   getPendingCountByDriver,
   getPendingOrders,
+  sortAcompanhamentoCacambas,
 } from './admin.helpers';
 
 const buildOrder = (overrides: Partial<IOrder>): IOrder => ({
@@ -110,6 +111,75 @@ describe('admin.helpers', () => {
         cep: '',
       }),
     ).toHaveLength(1);
+  });
+
+  it('ordena acompanhamentos por cliente em ordem alfabetica quando solicitado', () => {
+    const orders = [
+      buildOrder({
+        _id: 'ord-beta',
+        clientName: 'Beta Obras',
+        cacambas: [
+          {
+            _id: 'cac-beta',
+            numero: '201',
+            tipo: 'entrega',
+            orderId: 'ord-beta',
+            createdAt: '2026-05-03T10:00:00.000Z',
+          },
+        ],
+      }),
+      buildOrder({
+        _id: 'ord-alpha',
+        clientName: 'Alpha Obras',
+        cacambas: [
+          {
+            _id: 'cac-alpha',
+            numero: '101',
+            tipo: 'entrega',
+            orderId: 'ord-alpha',
+            createdAt: '2026-05-01T10:00:00.000Z',
+          },
+        ],
+      }),
+    ];
+    const items = getAcompanhamentoCacambas(orders);
+
+    expect(items.map((item) => item.numero)).toEqual(['201', '101']);
+    expect(sortAcompanhamentoCacambas(items, 'clientName').map((item) => item.numero)).toEqual(['101', '201']);
+  });
+
+  it('desempata a ordenacao alfabetica de acompanhamentos pelo numero da cacamba', () => {
+    const orders = [
+      buildOrder({
+        _id: 'ord-1',
+        clientName: 'Cliente Repetido',
+        cacambas: [
+          {
+            _id: 'cac-10',
+            numero: '010',
+            tipo: 'entrega',
+            orderId: 'ord-1',
+            createdAt: '2026-05-03T10:00:00.000Z',
+          },
+        ],
+      }),
+      buildOrder({
+        _id: 'ord-2',
+        clientName: 'Cliente Repetido',
+        cacambas: [
+          {
+            _id: 'cac-2',
+            numero: '002',
+            tipo: 'entrega',
+            orderId: 'ord-2',
+            createdAt: '2026-05-01T10:00:00.000Z',
+          },
+        ],
+      }),
+    ];
+    const items = getAcompanhamentoCacambas(orders);
+
+    expect(sortAcompanhamentoCacambas(items, 'clientName').map((item) => item.numero)).toEqual(['002', '010']);
   });
 
   it('ordena pendentes e concluidos do motorista por data mais recente', () => {

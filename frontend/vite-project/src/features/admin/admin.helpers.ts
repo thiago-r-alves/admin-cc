@@ -24,6 +24,8 @@ export type AcompanhamentoItem = {
   cacamba: ICacamba;
 };
 
+export type AcompanhamentoSortMode = 'default' | 'clientName';
+
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const getLocalDayIndex = (date: Date) =>
@@ -182,6 +184,32 @@ export const filterAcompanhamentoCacambas = (
       (!filters.city || cityValue.includes(filters.city)) &&
       (!filters.cep || cepValue.includes(filters.cep))
     );
+  });
+};
+
+export const sortAcompanhamentoCacambas = (
+  items: AcompanhamentoItem[],
+  mode: AcompanhamentoSortMode,
+) => {
+  if (mode === 'default') return items;
+
+  return [...items].sort((a, b) => {
+    const aClientName = String(a.order.clientName || '').trim();
+    const bClientName = String(b.order.clientName || '').trim();
+
+    if (aClientName && !bClientName) return -1;
+    if (!aClientName && bClientName) return 1;
+
+    const clientNameComparison = aClientName.localeCompare(bClientName, 'pt-BR', {
+      sensitivity: 'base',
+      numeric: true,
+    });
+    if (clientNameComparison !== 0) return clientNameComparison;
+
+    return a.numero.localeCompare(b.numero, 'pt-BR', {
+      sensitivity: 'base',
+      numeric: true,
+    });
   });
 };
 
