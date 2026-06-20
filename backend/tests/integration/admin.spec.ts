@@ -1460,7 +1460,7 @@ describe('Admin APIs', () => {
       orderNumber: nextOrderNumber++,
       clientId: clientA._id,
       clientName: clientA.clientName,
-      city: 'Jacarei',
+      city: 'Jacareí',
       contactName: clientA.contactName,
       contactNumber: clientA.contactNumber,
       neighborhood: clientA.neighborhood,
@@ -1490,7 +1490,7 @@ describe('Admin APIs', () => {
       orderNumber: nextOrderNumber++,
       clientId: clientA._id,
       clientName: clientA.clientName,
-      city: 'Jacarei',
+      city: 'Jacareí',
       contactName: clientA.contactName,
       contactNumber: clientA.contactNumber,
       neighborhood: clientA.neighborhood,
@@ -1505,7 +1505,7 @@ describe('Admin APIs', () => {
       orderNumber: nextOrderNumber++,
       clientId: clientA._id,
       clientName: clientA.clientName,
-      city: 'Jacarei',
+      city: 'Jacareí',
       contactName: clientA.contactName,
       contactNumber: clientA.contactNumber,
       neighborhood: clientA.neighborhood,
@@ -1594,7 +1594,7 @@ describe('Admin APIs', () => {
     expect(summary.body.summary.previousPeriodRevenue).toBe(100);
     expect(summary.body.summary.revenueDeltaPercent).toBe(100);
     expect(summary.body.topClients[0].clientName).toBe('Cliente Faturamento A');
-    expect(summary.body.topCities[0].city).toBe('Jacarei');
+    expect(summary.body.topCities[0].city).toBe('Jacareí');
     expect(summary.body.topContentTypes[0].contentType).toBe('Terra');
     expect(summary.body.highlights.topClientName).toBe('Cliente Faturamento A');
     expect(summary.body.highlights.bestBucketLabel).toContain('2026');
@@ -1607,7 +1607,7 @@ describe('Admin APIs', () => {
     expect(paidOnly.body.summary.totalCacambas).toBe(1);
 
     const filtered = await request(app)
-      .get(`/billing/summary?startDate=2026-05-01&endDate=2026-05-31&granularity=monthly&city=Jacarei&clientId=${clientA._id}&contentType=Terra`)
+      .get(`/billing/summary?startDate=2026-05-01&endDate=2026-05-31&granularity=monthly&city=jacarei&clientId=${clientA._id}&contentType=Terra`)
       .set('Authorization', `Bearer ${token}`);
     expect(filtered.status).toBe(200);
     expect(filtered.body.summary.totalRevenue).toBe(200);

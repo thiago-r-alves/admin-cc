@@ -195,11 +195,11 @@ const initialOrders: Order[] = [
     clientId: 'cli-1',
     clientName: '3GK HOLDING E PARTICIPACOES OBRA 1',
     cnpjCpf: '39.003.660/0001-61',
-    city: 'JacareÃ­',
+    city: 'Jacareí',
     cep: '12338-500',
     contactName: 'SR SAMIIR',
     contactNumber: '(12) 98195-6675',
-    neighborhood: 'Jardim CalifÃ³rnia',
+    neighborhood: 'Jardim Califórnia',
     address: 'Rodovia Geraldo Scavone',
     addressNumber: '4975',
     placa: 'XYZ1A23',
@@ -239,11 +239,11 @@ const initialOrders: Order[] = [
     clientId: 'cli-1',
     clientName: '3GK HOLDING E PARTICIPACOES OBRA 1',
     cnpjCpf: '39.003.660/0001-61',
-    city: 'JacareÃ­',
+    city: 'Jacareí',
     cep: '12338-500',
     contactName: 'SR SAMIIR',
     contactNumber: '(12) 98195-6675',
-    neighborhood: 'Jardim CalifÃ³rnia',
+    neighborhood: 'Jardim Califórnia',
     address: 'Rodovia Geraldo Scavone',
     addressNumber: '4975',
     placa: 'QWE1R23',
@@ -300,6 +300,13 @@ const parseInputDate = (value: string) => {
   const [year, month, day] = value.split('-').map(Number);
   return new Date(year, month - 1, day, 0, 0, 0, 0);
 };
+
+const normalizeBillingCity = (value: string) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 
 const buildPreviousRange = (start: Date, end: Date) => {
   const duration = end.getTime() - start.getTime() + 1;
@@ -658,11 +665,12 @@ export const setupMockApi = async (page: Page) => {
       const end = parseInputDate(endDate);
       end.setHours(23, 59, 59, 999);
       const { previousStart, previousEnd } = buildPreviousRange(start, end);
+      const normalizedCityKey = normalizeBillingCity(city);
 
       const buildRows = (rangeStart: Date, rangeEnd: Date) =>
         orders
           .filter((order) => order.type === 'retirada' && order.status === 'concluido')
-          .filter((order) => !city || order.city === city)
+          .filter((order) => !normalizedCityKey || normalizeBillingCity(order.city) === normalizedCityKey)
           .filter((order) => !clientId || order.clientId === clientId)
           .filter((order) => {
             const updatedAt = new Date(order.updatedAt).getTime();

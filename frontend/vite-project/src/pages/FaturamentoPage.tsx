@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import type {
-  BillingGranularity,
   IBillingSummaryResponse,
   ICity,
   IClient,
@@ -11,13 +10,29 @@ import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import { getDefaultBillingDateRange, getTopAverageTicketClients, formatCurrency, formatPercent } from './billing.helpers';
 
 const apiUrl = import.meta.env.VITE_API_URL;
+const BILLING_GRANULARITY = 'monthly';
+
+type BillingFilters = {
+  startDate: string;
+  endDate: string;
+  city: string;
+  clientId: string;
+  contentType: string;
+};
 
 const Page = styled.div`
   display: grid;
   gap: 1.25rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 `;
 
 const SectionCard = styled.section`
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
   border: 1px solid #f1d3d8;
   border-radius: 22px;
   padding: 1.2rem;
@@ -62,6 +77,7 @@ const Label = styled.label`
 
 const sharedFieldCss = `
   width: 100%;
+  min-width: 0;
   min-height: 44px;
   box-sizing: border-box;
   padding: 0.68rem 0.78rem;
@@ -83,32 +99,54 @@ const sharedFieldCss = `
 const Input = styled.input`${sharedFieldCss}`;
 const Select = styled.select`${sharedFieldCss}`;
 
-const GranularityBar = styled.div`
-  display: inline-grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.45rem;
-  padding: 0.35rem;
-  border: 1px solid #f3c2ca;
-  border-radius: 999px;
-  background: #fff7f8;
-`;
-
-const GranularityButton = styled.button<{ $active: boolean }>`
-  min-height: 40px;
-  padding: 0.65rem 1rem;
+const ApplyFilterButton = styled.button`
+  width: 100%;
+  min-height: 44px;
   border: 0;
-  border-radius: 999px;
-  background: ${({ $active }) => ($active ? '#e30613' : 'transparent')};
-  color: ${({ $active }) => ($active ? '#ffffff' : '#7f1d1d')};
+  border-radius: 12px;
+  background: #e30613;
+  color: #ffffff;
   cursor: pointer;
-  font-size: 0.83rem;
+  font-size: 0.86rem;
   font-weight: 900;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background 0.18s ease, transform 0.18s ease, opacity 0.18s ease;
 
   &:hover {
+    background: #c9000b;
     transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+`;
+
+const ClearFilterButton = styled(ApplyFilterButton)`
+  border: 1px solid #f3c2ca;
+  background: #ffffff;
+  color: #7f1d1d;
+
+  &:hover {
+    background: #fff7f8;
+  }
+`;
+
+const FilterActions = styled.div`
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 180px));
+  justify-content: start;
+  gap: 0.65rem;
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
   }
 `;
 
@@ -116,6 +154,7 @@ const KpiGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.9rem;
+  min-width: 0;
 
   @media (max-width: 1100px) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -128,6 +167,7 @@ const KpiGrid = styled.div`
 
 const KpiCard = styled.div`
   position: relative;
+  min-width: 0;
   overflow: hidden;
   border-radius: 18px;
   border: 1px solid #f5d5db;
@@ -160,6 +200,7 @@ const KpiValue = styled.strong`
   color: #111827;
   font-size: clamp(1.45rem, 2vw, 2rem);
   line-height: 1.05;
+  overflow-wrap: anywhere;
 `;
 
 const KpiFootnote = styled.span`
@@ -176,12 +217,22 @@ const CardHeader = styled.div`
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1rem;
+  min-width: 0;
+
+  > div {
+    min-width: 0;
+  }
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+  }
 `;
 
 const CardTitle = styled.h3`
   margin: 0;
   color: #111827;
   font-size: 1.08rem;
+  overflow-wrap: anywhere;
 `;
 
 const CardSubtitle = styled.p`
@@ -189,17 +240,24 @@ const CardSubtitle = styled.p`
   color: #6b7280;
   font-size: 0.88rem;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 `;
 
 const TrendChartWrap = styled.div`
   display: grid;
   gap: 0.9rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 `;
 
 const TrendChartSvg = styled.svg`
   display: block;
   width: 100%;
   height: 280px;
+  flex: 0 0 auto;
 `;
 
 const TrendAxisLabel = styled.text`
@@ -214,6 +272,7 @@ const LegendRow = styled.div`
   justify-content: space-between;
   gap: 0.9rem;
   flex-wrap: wrap;
+  min-width: 0;
 `;
 
 const LegendPill = styled.span`
@@ -251,6 +310,7 @@ const InsightsGrid = styled.div`
 `;
 
 const InsightCard = styled.div`
+  min-width: 0;
   border: 1px solid #f2d6da;
   border-radius: 18px;
   padding: 1rem;
@@ -272,12 +332,14 @@ const InsightValue = styled.strong`
   color: #111827;
   font-size: 1.02rem;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 `;
 
 const TablesGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
+  min-width: 0;
 
   @media (max-width: 980px) {
     grid-template-columns: 1fr;
@@ -289,11 +351,14 @@ const TableCard = styled(SectionCard)`
 `;
 
 const TableWrap = styled.div`
+  max-width: 100%;
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
 `;
 
 const Table = styled.table`
   width: 100%;
+  min-width: 520px;
   border-collapse: collapse;
 
   th,
@@ -310,11 +375,13 @@ const Table = styled.table`
     font-weight: 900;
     letter-spacing: 0.06em;
     text-transform: uppercase;
+    white-space: nowrap;
   }
 
   td {
     color: #1f2937;
     font-weight: 600;
+    overflow-wrap: anywhere;
   }
 
   tbody tr:last-child td {
@@ -341,6 +408,16 @@ const FilterHeader = styled.div`
   gap: 1rem;
   margin-bottom: 1rem;
   flex-wrap: wrap;
+  min-width: 0;
+
+  > div {
+    min-width: 0;
+  }
+
+  @media (max-width: 640px) {
+    align-items: stretch;
+    flex-direction: column;
+  }
 `;
 
 const FilterTitle = styled.h3`
@@ -351,7 +428,7 @@ const FilterTitle = styled.h3`
 
 const TrendChart = ({ items }: { items: IBillingSummaryResponse['timeseries'] }) => {
   const maxRevenue = Math.max(...items.map((item) => item.revenue), 0);
-  const width = 760;
+  const width = Math.max(760, items.length * 84);
   const height = 280;
   const chartTop = 18;
   const chartBottom = 232;
@@ -361,7 +438,12 @@ const TrendChart = ({ items }: { items: IBillingSummaryResponse['timeseries'] })
 
   return (
     <TrendChartWrap data-testid="billing-trend-chart">
-      <TrendChartSvg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Evolução do faturamento">
+      <TrendChartSvg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label="Evolução do faturamento"
+        style={{ minWidth: `${width}px` }}
+      >
         <defs>
           <linearGradient id="billing-bar-gradient" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor="#fb7185" />
@@ -463,12 +545,19 @@ const FaturamentoPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
-  const [granularity, setGranularity] = useState<BillingGranularity>('monthly');
+  const initialFilters = useMemo<BillingFilters>(() => ({
+    startDate: defaultRange.startDate,
+    endDate: defaultRange.endDate,
+    city: '',
+    clientId: '',
+    contentType: '',
+  }), [defaultRange.endDate, defaultRange.startDate]);
   const [startDate, setStartDate] = useState(defaultRange.startDate);
   const [endDate, setEndDate] = useState(defaultRange.endDate);
   const [city, setCity] = useState('');
   const [clientId, setClientId] = useState('');
   const [contentType, setContentType] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState<BillingFilters>(initialFilters);
 
   const authenticatedFetch = async (input: string) =>
     fetch(input, {
@@ -531,13 +620,13 @@ const FaturamentoPage: React.FC = () => {
       try {
         setLoading(true);
         const query = new URLSearchParams({
-          startDate,
-          endDate,
-          granularity,
+          startDate: appliedFilters.startDate,
+          endDate: appliedFilters.endDate,
+          granularity: BILLING_GRANULARITY,
         });
-        if (city) query.append('city', city);
-        if (clientId) query.append('clientId', clientId);
-        if (contentType) query.append('contentType', contentType);
+        if (appliedFilters.city) query.append('city', appliedFilters.city);
+        if (appliedFilters.clientId) query.append('clientId', appliedFilters.clientId);
+        if (appliedFilters.contentType) query.append('contentType', appliedFilters.contentType);
 
         const response = await authenticatedFetch(`${apiUrl}/billing/summary?${query.toString()}`);
         const data = await response.json();
@@ -565,14 +654,28 @@ const FaturamentoPage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [city, clientId, contentType, endDate, granularity, startDate]);
+  }, [appliedFilters]);
 
   const hasResults = Boolean(summary && summary.summary.totalCacambas > 0);
   const topAverageClients = useMemo(() => getTopAverageTicketClients(summary), [summary]);
-  const granularityLabels: Record<BillingGranularity, string> = {
-    monthly: 'Mensal',
-    semiannual: 'Semestral',
-    annual: 'Anual',
+  const handleApplyFilters = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAppliedFilters({
+      startDate,
+      endDate,
+      city,
+      clientId,
+      contentType,
+    });
+  };
+
+  const handleClearFilters = () => {
+    setStartDate(initialFilters.startDate);
+    setEndDate(initialFilters.endDate);
+    setCity(initialFilters.city);
+    setClientId(initialFilters.clientId);
+    setContentType(initialFilters.contentType);
+    setAppliedFilters(initialFilters);
   };
 
   return (
@@ -587,24 +690,11 @@ const FaturamentoPage: React.FC = () => {
         <FilterHeader>
           <div>
             <FilterTitle>Recorte analítico</FilterTitle>
-            <CardSubtitle>Escolha a granularidade e os filtros que fazem sentido para validar sua operação.</CardSubtitle>
+            <CardSubtitle>Escolha o período e os filtros que fazem sentido para validar sua operação.</CardSubtitle>
           </div>
-
-          <GranularityBar aria-label="Granularidade do faturamento">
-            {(['monthly', 'semiannual', 'annual'] as BillingGranularity[]).map((item) => (
-              <GranularityButton
-                key={item}
-                type="button"
-                $active={granularity === item}
-                onClick={() => setGranularity(item)}
-              >
-                {granularityLabels[item]}
-              </GranularityButton>
-            ))}
-          </GranularityBar>
         </FilterHeader>
 
-        <FiltersGrid>
+        <FiltersGrid as="form" onSubmit={handleApplyFilters}>
           <Field>
             <Label htmlFor="billing-start-date">Data inicial</Label>
             <Input
@@ -660,6 +750,14 @@ const FaturamentoPage: React.FC = () => {
               ))}
             </Select>
           </Field>
+          <FilterActions>
+            <ApplyFilterButton type="submit" disabled={loading}>
+              Aplicar filtro
+            </ApplyFilterButton>
+            <ClearFilterButton type="button" disabled={loading} onClick={handleClearFilters}>
+              Limpar filtro
+            </ClearFilterButton>
+          </FilterActions>
         </FiltersGrid>
       </SectionCard>
 
@@ -692,7 +790,7 @@ const FaturamentoPage: React.FC = () => {
             <KpiCard>
               <KpiLabel>Variação vs período anterior</KpiLabel>
               <KpiValue>{formatPercent(summary.summary.revenueDeltaPercent)}</KpiValue>
-              <KpiFootnote>{granularityLabels[granularity]} com base no recorte atual</KpiFootnote>
+              <KpiFootnote>Com base no recorte aplicado</KpiFootnote>
             </KpiCard>
           </KpiGrid>
 

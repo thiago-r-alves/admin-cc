@@ -8,6 +8,13 @@ import {
 import { buildLocalDateRange } from '../../utils/order';
 import { buildClientIdMatch } from '../closures/helpers';
 
+const normalizeBillingCity = (value: string) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
 export const getBillingSummary = async (query: {
   startDate?: string;
   endDate?: string;
@@ -37,6 +44,7 @@ export const getBillingSummary = async (query: {
   const previousRange = buildPreviousPeriodRange(currentRange.start, currentRange.end);
   const resolvedGranularity = parseBillingGranularity(granularity);
   const normalizedCity = String(city || '').trim();
+  const normalizedCityKey = normalizeBillingCity(normalizedCity);
   const normalizedContentType = String(contentType || '').trim();
   const normalizedClientId = String(clientId || '').trim();
 
@@ -46,10 +54,6 @@ export const getBillingSummary = async (query: {
       type: 'retirada',
       updatedAt: { $gte: start, $lte: end },
     };
-
-    if (normalizedCity) {
-      billingQuery.city = normalizedCity;
-    }
 
     if (normalizedClientId) {
       billingQuery.$or = buildClientIdMatch(normalizedClientId);
@@ -73,12 +77,17 @@ export const getBillingSummary = async (query: {
       .lean(),
   ]);
 
-  const currentRows = extractBillingRows(currentOrders as any[], {
+  const applyCityFilter = (rows: ReturnType<typeof extractBillingRows>) =>
+    normalizedCityKey
+      ? rows.filter((row) => normalizeBillingCity(row.city) === normalizedCityKey)
+      : rows;
+
+  const currentRows = applyCityFilter(extractBillingRows(currentOrders as any[], {
     contentType: normalizedContentType,
-  });
-  const previousRows = extractBillingRows(previousOrders as any[], {
+  }));
+  const previousRows = applyCityFilter(extractBillingRows(previousOrders as any[], {
     contentType: normalizedContentType,
-  });
+  }));
 
   return {
     status: 200,
