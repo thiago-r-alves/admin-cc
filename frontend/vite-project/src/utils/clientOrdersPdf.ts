@@ -7,6 +7,8 @@ type DownloadClientOrdersPdfInput = {
   endDate?: string;
   type?: 'entrega' | 'retirada';
   clientTotal: number;
+  paymentMethod?: 'invoice' | 'pix';
+  pixCopyPaste?: string;
 };
 
 type BuildClientOrdersPdfOptions = {
@@ -26,13 +28,55 @@ const companyLogoUrl = '/logo-central-cacambas-pdf.png';
 const companyLogoWidth = 49;
 const companyLogoAspectRatio = 300 / 110;
 const pdfHeaderTop = 8;
-const pdfHeaderBottom = 38;
+const pdfHeaderBottom = 46;
+const pixQrSize = 34;
 const bankDetails = [
   'Dados Bancarios',
   'Banco: Sicredi',
   'Ag.: 0710  C/C: 58930-2',
   'PIX CNPJ: 14.071.560/0001-41',
 ];
+
+const field = (id: string, value: string) =>
+  `${id}${String(new TextEncoder().encode(value).length).padStart(2, '0')}${value}`;
+
+const normalizePixText = (value: string, maxLength: number) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9 $%*+\-./:]/g, '')
+    .toUpperCase()
+    .trim()
+    .slice(0, maxLength);
+
+const crc16Ccitt = (value: string) => {
+  let crc = 0xffff;
+  for (const byte of new TextEncoder().encode(value)) {
+    crc ^= byte << 8;
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc & 0x8000) !== 0 ? ((crc << 1) ^ 0x1021) & 0xffff : (crc << 1) & 0xffff;
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, '0');
+};
+
+const buildPixCopyPaste = (amount: number) => {
+  const merchantAccount = field('00', 'BR.GOV.BCB.PIX') + field('01', '14071560000141');
+  const additionalData = field('05', 'FECHAMENTO');
+  const payloadWithoutCrc = [
+    field('00', '01'),
+    field('26', merchantAccount),
+    field('52', '0000'),
+    field('53', '986'),
+    field('54', Math.max(amount, 0).toFixed(2)),
+    field('58', 'BR'),
+    field('59', normalizePixText('CENTRAL CACAMBAS', 25)),
+    field('60', normalizePixText('SAO JOSE CAMPOS', 15)),
+    field('62', additionalData),
+    '6304',
+  ].join('');
+  return `${payloadWithoutCrc}${crc16Ccitt(payloadWithoutCrc)}`;
+};
 
 const loadCompanyLogo = async () => {
   const response = await fetch(companyLogoUrl);
@@ -115,6 +159,14 @@ export async function buildClientOrdersPdf(
   const pageWidth = doc.internal.pageSize.getWidth();
   const availableTableWidth = pageWidth - horizontalMargin * 2;
   const companyLogo = await loadCompanyLogo();
+  const QRCode = await import('qrcode');
+  const toQrDataUrl =
+    QRCode.toDataURL || (QRCode as any).default?.toDataURL || (QRCode as any)['module.exports']?.toDataURL;
+  const pixQrCode = await toQrDataUrl(buildPixCopyPaste(clientTotal), {
+    errorCorrectionLevel: 'M',
+    margin: 1,
+    width: 240,
+  });
   const renderedHeaderPages = new Set<number>();
 
   const drawPageHeader = () => {
@@ -133,14 +185,18 @@ export async function buildClientOrdersPdf(
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(31, 41, 55);
     doc.setFontSize(10);
-    doc.text(bankDetails[0], pageWidth - horizontalMargin, pdfHeaderTop + 2, { align: 'right' });
+    const qrX = pageWidth - horizontalMargin - pixQrSize;
+    const qrY = pdfHeaderTop - 1;
+    const bankDetailsRight = qrX - 5;
+    doc.text(bankDetails[0], bankDetailsRight, pdfHeaderTop + 3, { align: 'right' });
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     bankDetails.slice(1).forEach((line, index) => {
-      doc.text(line, pageWidth - horizontalMargin, pdfHeaderTop + 7 + index * 4.5, {
+      doc.text(line, bankDetailsRight, pdfHeaderTop + 8 + index * 4.8, {
         align: 'right',
       });
     });
+    doc.addImage(pixQrCode, 'PNG', qrX, qrY, pixQrSize, pixQrSize);
     doc.setDrawColor(...projectRed);
     doc.setLineWidth(0.4);
     doc.line(horizontalMargin, pdfHeaderBottom - 4, pageWidth - horizontalMargin, pdfHeaderBottom - 4);

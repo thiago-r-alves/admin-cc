@@ -218,6 +218,15 @@ export const listClients = async (query: Record<string, unknown>) => {
               },
             },
           },
+          pixPendingClosureCount: {
+            $size: {
+              $filter: {
+                input: '$closureCacambas',
+                as: 'cacamba',
+                cond: { $eq: ['$$cacamba.paymentStatus', 'pix_pendente'] },
+              },
+            },
+          },
           paidClosureCount: {
             $size: {
               $filter: {
@@ -232,7 +241,7 @@ export const listClients = async (query: Record<string, unknown>) => {
       {
         $addFields: {
           generatedClosureGroupsCount: {
-            $add: ['$invoicePendingClosureCount', '$paidClosureCount'],
+            $add: ['$invoicePendingClosureCount', '$pixPendingClosureCount', '$paidClosureCount'],
           },
         },
       },
@@ -253,6 +262,12 @@ export const listClients = async (query: Record<string, unknown>) => {
               invoicePendingClosureCount: { $gt: 0 },
             },
           }]
+          : closurePaymentFilter === 'pix_pending'
+            ? [{
+              $match: {
+                pixPendingClosureCount: { $gt: 0 },
+              },
+            }]
           : closurePaymentFilter === 'metadata_pending'
             ? [{
               $match: {
@@ -566,6 +581,9 @@ export const listClientOrders = async (clientId: string, query: Record<string, u
           if (closurePaymentFilter === 'invoice_pending') {
             return cacamba?.paymentStatus === 'nota_fiscal_pendente';
           }
+          if (closurePaymentFilter === 'pix_pending') {
+            return cacamba?.paymentStatus === 'pix_pendente';
+          }
           if (closurePaymentFilter === 'paid') {
             return cacamba?.paymentStatus === 'paga';
           }
@@ -582,7 +600,7 @@ export const listClientOrders = async (clientId: string, query: Record<string, u
 
 export const listClosureGroups = async (
   clientId: string,
-  query: { startDate?: string; endDate?: string; status?: 'nota_fiscal_pendente' | 'paga' | 'all' },
+  query: { startDate?: string; endDate?: string; status?: 'nota_fiscal_pendente' | 'pix_pendente' | 'paga' | 'all' },
 ) => {
   const { startDate, endDate, status } = query;
   const hasDateRange = Boolean(startDate && endDate);

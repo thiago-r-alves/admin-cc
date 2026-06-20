@@ -64,7 +64,7 @@ export interface ICacamba {
   _id: string;
   numero: string;
   tipo: 'entrega' | 'retirada';
-  paymentStatus?: 'pendente' | 'nota_fiscal_pendente' | 'paga';
+  paymentStatus?: 'pendente' | 'nota_fiscal_pendente' | 'pix_pendente' | 'paga';
   closureGroupId?: string;
   contentType?: CacambaContentType;
   price?: number;
@@ -81,8 +81,12 @@ export interface IClosureGroup {
   _id: string;
   clientId: string;
   clientSequenceNumber: number;
-  status: 'nota_fiscal_pendente' | 'paga';
+  status: 'nota_fiscal_pendente' | 'pix_pendente' | 'paga';
+  paymentMethod?: 'invoice' | 'pix';
   invoiceNumber?: string;
+  totalAmount?: number;
+  pixCopyPaste?: string;
+  pixTxid?: string;
   startDate: string;
   endDate: string;
   cacambaIds: ICacamba[];

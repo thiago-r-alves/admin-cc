@@ -17,12 +17,14 @@ export type ClosurePaymentFilter =
   | 'all'
   | 'pending'
   | 'invoice_pending'
+  | 'pix_pending'
   | 'paid'
   | 'metadata_pending';
 
 export const parseClosurePaymentFilter = (value: unknown): ClosurePaymentFilter => {
   if (value === 'pending') return 'pending';
   if (value === 'invoice_pending') return 'invoice_pending';
+  if (value === 'pix_pending') return 'pix_pending';
   if (value === 'paid') return 'paid';
   if (value === 'metadata_pending') return 'metadata_pending';
   return 'all';

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticateToken, AuthenticatedRequest, isAdmin } from '../../shared/auth';
-import { createClosureDownload, reopenClosureGroupCacamba, saveClosureGroupInvoice } from './service';
+import { createClosureDownload, markPixClosureGroupPaid, reopenClosureGroupCacamba, saveClosureGroupInvoice } from './service';
 
 export const closuresRouter = Router();
 
@@ -21,6 +21,16 @@ closuresRouter.patch('/closure-groups/:id/invoice', authenticateToken, isAdmin, 
   } catch (error) {
     console.error('Erro ao salvar NF do grupo:', error);
     return res.status(500).json({ message: 'Erro ao salvar nota fiscal do grupo.' });
+  }
+});
+
+closuresRouter.patch('/closure-groups/:id/mark-paid', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const result = await markPixClosureGroupPaid(req.params.id);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error('Erro ao confirmar pagamento Pix:', error);
+    return res.status(500).json({ message: 'Erro ao confirmar pagamento Pix.' });
   }
 });
 

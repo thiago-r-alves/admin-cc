@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ICacamba, IClosureGroup, IOrder } from '../../interfaces';
-import { downloadClientOrdersPdf } from '../../utils/clientOrdersPdf';
+import { buildClientOrdersPdf, downloadClientOrdersPdf } from '../../utils/clientOrdersPdf';
+import {
+  buildPixWhatsAppMessage,
+  buildWhatsAppUrl,
+  normalizeBrazilianWhatsAppNumber,
+} from '../../utils/whatsapp';
 import {
   buildSelectedOrders,
   getOrderTotal,
@@ -38,6 +43,7 @@ export const useClientOrdersModal = ({
   const [currentClosureGroup, setCurrentClosureGroup] = useState<IClosureGroup | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'invoice' | 'pix'>('invoice');
   const [isEditingInvoice, setIsEditingInvoice] = useState(false);
   const [modalImage, setModalImage] = useState<string | null>(null);
   const [selectedCacambaIds, setSelectedCacambaIds] = useState<string[]>([]);
@@ -85,7 +91,7 @@ export const useClientOrdersModal = ({
   };
 
   const fetchExistingClosureGroups = async (
-    status: 'nota_fiscal_pendente' | 'paga' | 'all' = 'all',
+    status: 'nota_fiscal_pendente' | 'pix_pendente' | 'paga' | 'all' = 'all',
   ) => {
     setIsLoadingHistory(true);
     try {
@@ -242,16 +248,17 @@ export const useClientOrdersModal = ({
     const payloadOrders = closureMode ? selectedOrders : eligibleOrders;
     if (payloadOrders.length === 0) return null;
 
-    await downloadClientOrdersPdf({
-      client,
-      orders: payloadOrders,
-      startDate,
-      endDate,
-      type,
-      clientTotal: closureMode ? selectedTotal : clientTotal,
-    });
-
-    if (!closureMode) return null;
+    if (!closureMode) {
+      await downloadClientOrdersPdf({
+        client,
+        orders: payloadOrders,
+        startDate,
+        endDate,
+        type,
+        clientTotal,
+      });
+      return null;
+    }
 
     setIsSubmittingPayment(true);
     try {
@@ -266,6 +273,7 @@ export const useClientOrdersModal = ({
           startDate,
           endDate,
           selectedCacambaIds,
+          paymentMethod,
         }),
       });
 
@@ -282,7 +290,9 @@ export const useClientOrdersModal = ({
         updatedAt: createdAt,
         cacambaIds: selectedCacambas.map((cacamba) => ({
           ...cacamba,
-          paymentStatus: 'nota_fiscal_pendente',
+          paymentStatus:
+            (data as { closureGroup?: { status?: IClosureGroup['status'] } }).closureGroup?.status ||
+            'nota_fiscal_pendente',
         })),
       };
 
@@ -293,6 +303,17 @@ export const useClientOrdersModal = ({
       ]);
       setSelectedGroupId(createdGroup._id);
       setInvoiceNumber('');
+
+      await downloadClientOrdersPdf({
+        client,
+        orders: payloadOrders,
+        startDate,
+        endDate,
+        type,
+        clientTotal: selectedTotal,
+        paymentMethod: createdGroup.paymentMethod,
+        pixCopyPaste: createdGroup.pixCopyPaste,
+      });
 
       await onClosureStateChanged?.();
       await fetchEligibleOrders();
@@ -313,7 +334,91 @@ export const useClientOrdersModal = ({
         const price = Number(cacamba.price);
         return Number.isFinite(price) ? sum + price : sum;
       }, 0),
+      paymentMethod: group.paymentMethod,
+      pixCopyPaste: group.pixCopyPaste,
     });
+  };
+
+  const sharePixGroupOnWhatsApp = async (group: IClosureGroup) => {
+    if (group.paymentMethod !== 'pix' || !group.pixCopyPaste) {
+      throw new Error('Este fechamento não possui um Pix disponível para envio.');
+    }
+    const phone = normalizeBrazilianWhatsAppNumber(client.contactNumber);
+    if (!phone) {
+      throw new Error('O telefone do cliente é inválido para abrir o WhatsApp.');
+    }
+
+    const totalAmount =
+      group.totalAmount ??
+      (group.cacambaIds || []).reduce((sum, cacamba) => {
+        const price = Number(cacamba.price);
+        return Number.isFinite(price) ? sum + price : sum;
+      }, 0);
+    const message = buildPixWhatsAppMessage({
+      recipientName: client.contactName || client.clientName,
+      cacambaCount: group.cacambaIds?.length || 0,
+      totalAmount,
+      pixCopyPaste: group.pixCopyPaste,
+    });
+    const whatsappWindow = window.open('', '_blank');
+    if (!whatsappWindow) {
+      throw new Error('O navegador bloqueou a abertura do WhatsApp. Libere os pop-ups e tente novamente.');
+    }
+
+    try {
+      const { filename, blob } = await buildClientOrdersPdf(
+        {
+          client,
+          orders: buildOrdersFromGroup(group),
+          startDate,
+          endDate,
+          type,
+          clientTotal: totalAmount,
+          paymentMethod: group.paymentMethod,
+          pixCopyPaste: group.pixCopyPaste,
+        },
+        { output: 'blob' },
+      );
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      whatsappWindow.location.href = buildWhatsAppUrl(phone, message);
+    } catch (error) {
+      whatsappWindow.close();
+      throw error;
+    }
+  };
+
+  const markPixGroupPaid = async (groupId: string) => {
+    const response = await fetch(`${apiUrl}/closure-groups/${groupId}/mark-paid`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    const data = await response.json().catch(() => ({} as Record<string, unknown>));
+    if (!response.ok) {
+      throw new Error((data as { message?: string }).message || 'Erro ao confirmar pagamento Pix.');
+    }
+    setCurrentClosureGroup((prev) =>
+      prev?._id === groupId
+        ? { ...prev, status: 'paga', cacambaIds: prev.cacambaIds.map((c) => ({ ...c, paymentStatus: 'paga' })) }
+        : prev,
+    );
+    setExistingClosureGroups((prev) =>
+      prev.map((group) =>
+        group._id === groupId
+          ? { ...group, status: 'paga', cacambaIds: group.cacambaIds.map((c) => ({ ...c, paymentStatus: 'paga' })) }
+          : group,
+      ),
+    );
+    await onClosureStateChanged?.();
   };
 
   const saveInvoiceForGroup = async (groupId: string, invoice: string) => {
@@ -437,6 +542,8 @@ export const useClientOrdersModal = ({
     selectedGroup,
     invoiceNumber,
     setInvoiceNumber,
+    paymentMethod,
+    setPaymentMethod,
     isEditingInvoice,
     setIsEditingInvoice,
     modalImage,
@@ -459,7 +566,9 @@ export const useClientOrdersModal = ({
     handleUpdateCacambaMeta,
     handleDownload,
     downloadExistingClosureGroup,
+    sharePixGroupOnWhatsApp,
     saveInvoiceForGroup,
+    markPixGroupPaid,
     returnCacambaToPending,
   };
 };

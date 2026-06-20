@@ -18,7 +18,7 @@ type Cacamba = {
   numero: string;
   tipo: 'entrega' | 'retirada';
   contentType?: string;
-  paymentStatus?: 'pendente' | 'nota_fiscal_pendente' | 'paga';
+  paymentStatus?: 'pendente' | 'nota_fiscal_pendente' | 'pix_pendente' | 'paga';
   closureGroupId?: string;
   price?: number;
   local: 'via_publica' | 'canteiro_obra';
@@ -987,13 +987,15 @@ export const setupMockApi = async (page: Page) => {
     }
 
     if (pathname === '/closures/download' && method === 'POST') {
-      const body = req.postDataJSON() as { selectedCacambaIds?: string[] };
+      const body = req.postDataJSON() as { selectedCacambaIds?: string[]; paymentMethod?: 'invoice' | 'pix' };
       const ids = body.selectedCacambaIds || [];
+      const pendingStatus: NonNullable<Cacamba['paymentStatus']> =
+        body.paymentMethod === 'pix' ? 'pix_pendente' : 'nota_fiscal_pendente';
       const selectedCacambas: Cacamba[] = [];
       orders.forEach((o) => {
         o.cacambas = o.cacambas.map((c) => {
           if (!ids.includes(c._id)) return c;
-          const next = { ...c, paymentStatus: 'nota_fiscal_pendente' as const };
+          const next = { ...c, paymentStatus: pendingStatus };
           selectedCacambas.push(next);
           return next;
         });
@@ -1011,15 +1013,42 @@ export const setupMockApi = async (page: Page) => {
         clientSequenceNumber: nextSequence,
         startDate: String((req.postDataJSON() as any).startDate || nowIso),
         endDate: String((req.postDataJSON() as any).endDate || nowIso),
-        status: 'nota_fiscal_pendente',
+        status: pendingStatus,
+        paymentMethod: body.paymentMethod || 'invoice',
+        totalAmount: selectedCacambas.reduce((sum, item) => sum + Number(item.price || 0), 0),
+        pixCopyPaste: body.paymentMethod === 'pix' ? '000201PIX-COPIA-E-COLA-TESTE6304ABCD' : undefined,
         cacambaIds: selectedCacambas,
         createdAt: nowIso,
         updatedAt: nowIso,
       });
       return json(route, {
-        closureGroup: { _id: groupId, clientId, clientSequenceNumber: nextSequence, status: 'nota_fiscal_pendente' },
+        closureGroup: {
+          _id: groupId,
+          clientId,
+          clientSequenceNumber: nextSequence,
+          status: pendingStatus,
+          paymentMethod: body.paymentMethod || 'invoice',
+          totalAmount: selectedCacambas.reduce((sum, item) => sum + Number(item.price || 0), 0),
+          pixCopyPaste: body.paymentMethod === 'pix' ? '000201PIX-COPIA-E-COLA-TESTE6304ABCD' : undefined,
+        },
         updatedCacambaIds: ids,
       });
+    }
+
+    if (/^\/closure-groups\/[^/]+\/mark-paid$/.test(pathname) && method === 'PATCH') {
+      const groupId = pathname.split('/')[2];
+      const group = closureGroups.find((item) => item._id === groupId);
+      if (!group) return json(route, { message: 'Grupo não encontrado' }, 404);
+      group.status = 'paga';
+      group.updatedAt = nowIso;
+      orders.forEach((order) => {
+        order.cacambas = order.cacambas.map((cacamba) =>
+          group.cacambaIds.some((item) => item._id === cacamba._id)
+            ? { ...cacamba, paymentStatus: 'paga' }
+            : cacamba,
+        );
+      });
+      return json(route, { closureGroup: { ...group, cacambaIds: undefined } });
     }
 
     if (/^\/closure-groups\/[^/]+\/invoice$/.test(pathname) && method === 'PATCH') {
@@ -1144,8 +1173,11 @@ type ClosureGroup = {
   clientSequenceNumber: number;
   startDate: string;
   endDate: string;
-  status: 'nota_fiscal_pendente' | 'paga';
+  status: 'nota_fiscal_pendente' | 'pix_pendente' | 'paga';
+  paymentMethod?: 'invoice' | 'pix';
   invoiceNumber?: string;
+  totalAmount?: number;
+  pixCopyPaste?: string;
   cacambaIds: Cacamba[];
   createdAt?: string;
   updatedAt?: string;

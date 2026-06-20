@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { buildLocalDateRange, mapPriority, parseLocalDate } from '../../src/utils/order';
+import { buildPixCopyPaste, crc16Ccitt, normalizePixText } from '../../src/utils/pix';
 
 describe('Utils de negócio', () => {
   it('mapPriority suporta número, string e fallback', () => {
@@ -43,5 +44,22 @@ describe('Utils de negócio', () => {
     expect(out.contentType).toBe('image/webp');
     expect(out.filename.endsWith('.webp')).toBe(true);
     expect(Buffer.isBuffer(out.buffer)).toBe(true);
+  });
+
+  it('gera Pix copia e cola com valor, texto normalizado e CRC válido', () => {
+    const payload = buildPixCopyPaste({
+      key: '14.071.560/0001-41',
+      amount: 320.5,
+      txid: 'CCCLIENTEG1',
+      merchantName: 'Central Caçambas',
+      merchantCity: 'São José dos Campos',
+    });
+
+    expect(payload).toContain('5406320.50');
+    expect(payload).toContain('14071560000141');
+    expect(payload).toContain('CENTRAL CACAMBAS');
+    expect(payload).toContain('SAO JOSE DOS CA');
+    expect(payload.slice(-4)).toBe(crc16Ccitt(payload.slice(0, -4)));
+    expect(normalizePixText('Caçambas & Cia', 25)).toBe('CACAMBAS  CIA');
   });
 });

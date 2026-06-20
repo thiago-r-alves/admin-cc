@@ -239,7 +239,7 @@ const norm = (s: unknown) =>
 
 const isIsoDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
 
-type ClosurePaymentStatus = 'all' | 'pending' | 'invoice_pending' | 'paid' | 'metadata_pending';
+type ClosurePaymentStatus = 'all' | 'pending' | 'invoice_pending' | 'pix_pending' | 'paid' | 'metadata_pending';
 
 const getClosureActionLabel = (paymentStatus: ClosurePaymentStatus) =>
   paymentStatus === 'metadata_pending'
@@ -413,6 +413,7 @@ const FechamentoPage: React.FC = () => {
             <option value="pending">Pendentes</option>
             <option value="metadata_pending">Informações pendentes</option>
             <option value="invoice_pending">NF pendente</option>
+            <option value="pix_pending">Pix pendente</option>
             <option value="paid">Pagas</option>
           </Select>
         </Field>
@@ -490,5 +491,4 @@ const FechamentoPage: React.FC = () => {
 };
 
 export default FechamentoPage;
-
 

@@ -23,7 +23,7 @@ export type CacambaContentType = typeof CACAMBA_CONTENT_TYPES[number];
 export interface ICacamba extends Document {
   numero: string;
   tipo: 'entrega' | 'retirada';
-  paymentStatus: 'pendente' | 'nota_fiscal_pendente' | 'paga';
+  paymentStatus: 'pendente' | 'nota_fiscal_pendente' | 'pix_pendente' | 'paga';
   closureGroupId?: mongoose.Types.ObjectId;
   contentType?: CacambaContentType;
   price?: number;
@@ -37,7 +37,7 @@ export interface ICacamba extends Document {
 const CacambaSchema: Schema = new Schema({
   numero: { type: String, required: true },
   tipo: { type: String, enum: ['entrega', 'retirada'], required: true },
-  paymentStatus: { type: String, enum: ['pendente', 'nota_fiscal_pendente', 'paga'], default: 'pendente' },
+  paymentStatus: { type: String, enum: ['pendente', 'nota_fiscal_pendente', 'pix_pendente', 'paga'], default: 'pendente' },
   closureGroupId: { type: Schema.Types.ObjectId, ref: 'ClosureGroup', required: false },
   contentType: { type: String, enum: CACAMBA_CONTENT_TYPES, required: false },
   price: { type: Number, min: 0, required: false },

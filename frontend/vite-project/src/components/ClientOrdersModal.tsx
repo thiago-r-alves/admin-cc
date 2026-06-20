@@ -10,6 +10,7 @@ import ClientOrdersSummary from './clientOrdersModal/ClientOrdersSummary';
 import { useClientOrdersModal } from './clientOrdersModal/useClientOrdersModal';
 import type { ClientOrdersModalProps } from './clientOrdersModal/types';
 import CacambaList from './CacambaList';
+import ToastPopup from './ToastPopup';
 import type { ICacamba, IClosureGroup } from '../interfaces';
 
 const ModalOverlay = styled.div`
@@ -223,6 +224,37 @@ const ActionButtonsRow = styled.div`
   flex-wrap: wrap;
 `;
 
+const PaymentMethodRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  padding: 0 1.25rem 1rem;
+`;
+
+const PaymentMethodButton = styled.button<{ $active: boolean }>`
+  min-height: 42px;
+  border: 1px solid ${({ $active }) => ($active ? '#e30613' : '#fecaca')};
+  border-radius: 8px;
+  background: ${({ $active }) => ($active ? '#fff1f2' : '#ffffff')};
+  color: ${({ $active }) => ($active ? '#991b1b' : '#4b5563')};
+  font-weight: 900;
+  cursor: pointer;
+`;
+
+const PixCode = styled.textarea`
+  width: 100%;
+  min-height: 110px;
+  box-sizing: border-box;
+  resize: vertical;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 0.75rem;
+  color: #374151;
+  background: #fffafa;
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+`;
+
 const EmptyState = styled.div`
   padding: 1rem;
   border: 1px dashed #fecaca;
@@ -246,7 +278,7 @@ const InlineFeedback = styled.div<{ $tone: 'success' | 'error' }>`
 type ClosureStep = 'select' | 'invoice' | 'paid';
 
 const formatGroupReferenceDate = (
-  status: 'nota_fiscal_pendente' | 'paga',
+  status: 'nota_fiscal_pendente' | 'pix_pendente' | 'paga',
   createdAt?: string,
   updatedAt?: string,
 ) => {
@@ -296,6 +328,10 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     tone: 'success' | 'error';
     message: string;
   } | null>(null);
+  const [toastFeedback, setToastFeedback] = useState<{
+    tone: 'success' | 'error' | 'info';
+    message: string;
+  } | null>(null);
   const [pendingReturn, setPendingReturn] = useState<{
     group: IClosureGroup;
     cacamba: ICacamba;
@@ -312,6 +348,8 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     selectedGroup,
     invoiceNumber,
     setInvoiceNumber,
+    paymentMethod,
+    setPaymentMethod,
     isEditingInvoice,
     setIsEditingInvoice,
     modalImage,
@@ -327,7 +365,9 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     handleUpdateCacambaMeta,
     handleDownload,
     downloadExistingClosureGroup,
+    sharePixGroupOnWhatsApp,
     saveInvoiceForGroup,
+    markPixGroupPaid,
     returnCacambaToPending,
   } = useClientOrdersModal({
     client,
@@ -351,7 +391,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
   const stepItems = [
     { key: 'select' as const, label: 'Etapa 1', title: 'Selecionar caçambas' },
     { key: 'invoice' as const, label: 'Etapa 2', title: 'Grupo gerado' },
-    { key: 'paid' as const, label: 'Etapa 3', title: 'NF salva / Pago' },
+    { key: 'paid' as const, label: 'Etapa 3', title: 'Pagamento concluído' },
   ];
 
   const stepIndex = stepItems.findIndex((item) => item.key === step);
@@ -380,6 +420,14 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
       setShowHistory(true);
       setIsEditingInvoice(false);
       void fetchExistingClosureGroups('nota_fiscal_pendente');
+      return;
+    }
+
+    if (paymentStatus === 'pix_pending') {
+      setStep('invoice');
+      setShowHistory(true);
+      setIsEditingInvoice(false);
+      void fetchExistingClosureGroups('pix_pendente');
       return;
     }
 
@@ -419,14 +467,13 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
       setInvoiceNumber('');
       setShowHistory(true);
       setStep('paid');
-      setInvoiceFeedback(
-        wasPaid
-          ? {
-              tone: 'success',
-              message: 'Nota fiscal atualizada com sucesso.',
-            }
-          : null,
-      );
+      setInvoiceFeedback(null);
+      if (wasPaid) {
+        setToastFeedback({
+          tone: 'success',
+          message: 'Nota fiscal atualizada com sucesso.',
+        });
+      }
     } catch (error) {
       setInvoiceFeedback({
         tone: 'error',
@@ -443,7 +490,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
       setIsReturningCacamba(true);
       setInvoiceFeedback(null);
       await returnCacambaToPending(pendingReturn.group._id, pendingReturn.cacamba._id);
-      setInvoiceFeedback({
+      setToastFeedback({
         tone: 'success',
         message: `Caçamba #${pendingReturn.cacamba.numero} voltou para pendente.`,
       });
@@ -456,6 +503,36 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
       });
     } finally {
       setIsReturningCacamba(false);
+    }
+  };
+
+  const handleMarkPixPaid = async (group: IClosureGroup) => {
+    try {
+      setInvoiceFeedback(null);
+      await markPixGroupPaid(group._id);
+      setStep('paid');
+      setToastFeedback({ tone: 'success', message: 'Pagamento Pix confirmado com sucesso.' });
+    } catch (error) {
+      setInvoiceFeedback({
+        tone: 'error',
+        message: error instanceof Error ? error.message : 'Não foi possível confirmar o Pix.',
+      });
+    }
+  };
+
+  const handleSharePixOnWhatsApp = async (group: IClosureGroup) => {
+    try {
+      setInvoiceFeedback(null);
+      await sharePixGroupOnWhatsApp(group);
+      setToastFeedback({
+        tone: 'success',
+        message: 'PDF baixado. Anexe-o no chat e envie a mensagem preparada.',
+      });
+    } catch (error) {
+      setInvoiceFeedback({
+        tone: 'error',
+        message: error instanceof Error ? error.message : 'Não foi possível abrir o WhatsApp.',
+      });
     }
   };
 
@@ -473,16 +550,59 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     return (
       <>
         <div>
-          <strong>Detalhes da nota fiscal</strong>
+          <strong>{group.paymentMethod === 'pix' ? 'Detalhes do Pix' : 'Detalhes da nota fiscal'}</strong>
         </div>
         <MetaRow>
           <div>Grupo #{getGroupDisplayNumber(group, 0, closureGroups.length || 1)}</div>
           <div>{formatGroupReferenceDate(group.status, group.createdAt, group.updatedAt)}</div>
         </MetaRow>
-        <div>NF atual: {group.invoiceNumber || '-'}</div>
+        <div>Pagamento: {group.paymentMethod === 'pix' ? 'Pix' : 'NF'}</div>
+        {group.paymentMethod !== 'pix' && <div>NF atual: {group.invoiceNumber || '-'}</div>}
         <ValueHighlight>
-          Valor total da nota: {formatCurrency(getGroupTotal(group))}
+          {group.paymentMethod === 'pix' ? 'Valor total do Pix' : 'Valor total da nota'}:{' '}
+          {formatCurrency(group.totalAmount ?? getGroupTotal(group))}
         </ValueHighlight>
+        {group.paymentMethod === 'pix' && group.pixCopyPaste && (
+          <>
+            <PixCode readOnly value={group.pixCopyPaste} aria-label="Pix copia e cola" />
+            <ActionButtonsRow>
+              <SecondaryButton
+                type="button"
+                data-testid="closure-group-copy-pix"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(group.pixCopyPaste || '');
+                    setInvoiceFeedback(null);
+                    setToastFeedback({ tone: 'success', message: 'Código Pix copiado.' });
+                  } catch {
+                    setInvoiceFeedback({
+                      tone: 'error',
+                      message: 'Não foi possível copiar o código Pix.',
+                    });
+                  }
+                }}
+              >
+                Copiar Pix
+              </SecondaryButton>
+              <SecondaryButton
+                type="button"
+                data-testid="closure-group-share-whatsapp"
+                onClick={() => handleSharePixOnWhatsApp(group)}
+              >
+                Enviar por WhatsApp
+              </SecondaryButton>
+              {group.status === 'pix_pendente' && (
+                <HighlightButton
+                  type="button"
+                  data-testid="closure-group-mark-pix-paid"
+                  onClick={() => handleMarkPixPaid(group)}
+                >
+                  Marcar Pix como pago
+                </HighlightButton>
+              )}
+            </ActionButtonsRow>
+          </>
+        )}
         <ActionButtonsRow>
           <HighlightButton
             type="button"
@@ -504,7 +624,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
             </SecondaryButton>
           )}
         </ActionButtonsRow>
-        {(group.status === 'nota_fiscal_pendente' || isEditingInvoice) && (
+        {group.paymentMethod !== 'pix' && (group.status === 'nota_fiscal_pendente' || isEditingInvoice) && (
           <InvoiceRow>
             <InvoiceInput
               value={invoiceNumber}
@@ -556,6 +676,11 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
 
   return (
     <ModalOverlay onMouseDown={handleOverlayMouseDown} onMouseUp={handleOverlayMouseUp}>
+      <ToastPopup
+        message={toastFeedback?.message}
+        tone={toastFeedback?.tone}
+        onClose={() => setToastFeedback(null)}
+      />
       {modalImage && <ImageModal url={modalImage} onClose={() => setModalImage(null)} />}
 
       <ModalContent
@@ -661,6 +786,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
                         </strong>
                       </div>
                       <div>NF: {group.invoiceNumber || '-'}</div>
+                      <div>{group.paymentMethod === 'pix' ? 'Pix' : 'NF'}</div>
                     </GroupItem>
                   ))}
                 </GroupList>
@@ -674,15 +800,33 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
           </StageBody>
 
           {!isGeneratedNotesView && step === 'select' && !isMetadataPendingView && (
-            <ClientOrdersFooter
-              onDownload={handleGenerateClosure}
-              disabled={
-                orders.length === 0 || isSubmittingPayment || selectedCacambaIds.length === 0
-              }
-              isSubmittingPayment={isSubmittingPayment}
-              closureMode
-              actionLabel="Gerar fechamento"
-            />
+            <>
+              <PaymentMethodRow aria-label="Forma de pagamento">
+                <PaymentMethodButton
+                  type="button"
+                  $active={paymentMethod === 'invoice'}
+                  onClick={() => setPaymentMethod('invoice')}
+                >
+                  Nota fiscal
+                </PaymentMethodButton>
+                <PaymentMethodButton
+                  type="button"
+                  $active={paymentMethod === 'pix'}
+                  onClick={() => setPaymentMethod('pix')}
+                >
+                  Pix
+                </PaymentMethodButton>
+              </PaymentMethodRow>
+              <ClientOrdersFooter
+                onDownload={handleGenerateClosure}
+                disabled={
+                  orders.length === 0 || isSubmittingPayment || selectedCacambaIds.length === 0
+                }
+                isSubmittingPayment={isSubmittingPayment}
+                closureMode
+                actionLabel="Gerar fechamento"
+              />
+            </>
           )}
         </ModalBody>
 

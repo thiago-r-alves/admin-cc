@@ -34,6 +34,10 @@ vi.mock('jspdf-autotable', () => ({
   default: autoTableMock,
 }));
 
+vi.mock('qrcode', () => ({
+  toDataURL: vi.fn(async (text: string) => `data:image/png;base64,qr-${text}`),
+}));
+
 describe('buildClientOrdersPdf', () => {
   beforeEach(() => {
     autoTableMock.mockClear();
@@ -124,6 +128,8 @@ describe('buildClientOrdersPdf', () => {
     expect(allPdfText).not.toContain('Tipo aplicado');
     expect(allPdfText).not.toContain('(Retiradas)');
     expect(allPdfText).not.toContain('Conteudo');
+    expect(allPdfText).not.toContain('Pagamento via Pix');
+    expect(allPdfText).not.toContain('Pix copia e cola');
     expect(details.body[0][0]).toBe('101');
     expect(details.head[0]).toEqual([
       'Cacamba',
@@ -154,6 +160,14 @@ describe('buildClientOrdersPdf', () => {
       49,
       49 / (300 / 110),
     );
+    expect(addImageMock).toHaveBeenCalledWith(
+      expect.stringContaining('data:image/png;base64,qr-'),
+      'PNG',
+      253,
+      7,
+      34,
+      34,
+    );
     expect(textMock.mock.calls.map(([text]) => text)).toEqual(
       expect.arrayContaining([
         'Dados Bancarios',
@@ -162,8 +176,8 @@ describe('buildClientOrdersPdf', () => {
         'PIX CNPJ: 14.071.560/0001-41',
       ]),
     );
-    expect(summary.margin.top).toBe(38);
-    expect(details.margin.top).toBe(38);
+    expect(summary.margin.top).toBe(46);
+    expect(details.margin.top).toBe(46);
   });
 
   it('omite a linha de periodo quando o periodo nao foi definido', async () => {
@@ -224,6 +238,6 @@ describe('buildClientOrdersPdf', () => {
       { output: 'blob' },
     );
 
-    expect(addImageMock).toHaveBeenCalledTimes(2);
+    expect(addImageMock).toHaveBeenCalledTimes(4);
   });
 });

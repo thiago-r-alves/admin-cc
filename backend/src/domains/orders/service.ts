@@ -157,7 +157,9 @@ export const changeOrderClient = async (id: string, targetClientId: string) => {
     (cacamba) =>
       cacamba.tipo === 'retirada' &&
       cacamba.closureGroupId &&
-      (cacamba.paymentStatus === 'nota_fiscal_pendente' || cacamba.paymentStatus === 'paga'),
+      (cacamba.paymentStatus === 'nota_fiscal_pendente' ||
+        cacamba.paymentStatus === 'pix_pendente' ||
+        cacamba.paymentStatus === 'paga'),
   );
 
   const groupedIds = new Set(groupedCacambas.map((cacamba) => cacamba._id));

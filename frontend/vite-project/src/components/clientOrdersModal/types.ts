@@ -8,7 +8,7 @@ export interface ClientOrdersModalProps {
   type?: 'entrega' | 'retirada';
   closureMode?: boolean;
   viewMode?: 'create_closure' | 'generated_notes';
-  paymentStatus?: 'all' | 'pending' | 'invoice_pending' | 'paid' | 'metadata_pending';
+  paymentStatus?: 'all' | 'pending' | 'invoice_pending' | 'pix_pending' | 'paid' | 'metadata_pending';
   onClosureStateChanged?: () => Promise<void> | void;
 }
 
