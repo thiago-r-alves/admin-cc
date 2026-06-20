@@ -22,6 +22,8 @@ test.describe('Motorista', () => {
     await expect(page.locator('form').getByText(/Retirada|Entrega/).last()).toBeVisible();
     await expect(page.locator('#cacamba-numero')).toHaveValue('');
     await expect(page.locator('#cacamba-numero').locator('option')).toHaveCount(4);
+    await expect(page.locator('#cacamba-numero').locator('option').nth(1)).toHaveText('435 - entregue em 14/05/2026');
+    await expect(page.locator('#cacamba-numero')).not.toContainText(/pedido #/i);
   });
 
   test('exibe acao de concluir pedido quando ha pelo menos uma cacamba', async ({ page }) => {

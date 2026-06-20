@@ -282,7 +282,11 @@ describe('Driver APIs', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.cacambas).toEqual([
-      expect.objectContaining({ numero: '101', deliveryOrderNumber: entregaA.orderNumber }),
+      expect.objectContaining({
+        numero: '101',
+        deliveredAt: '2026-01-01T10:00:00.000Z',
+        deliveryOrderNumber: entregaA.orderNumber,
+      }),
     ]);
   });
 

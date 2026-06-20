@@ -26,6 +26,23 @@ const FooterButton = styled(UIButton)`min-width:150px; @media (max-width:560px){
 
 interface CacambaFormProps { orderId: string; orderType: OrderType; onCacambaAdded: (c: ICacamba) => void; onClose: () => void; beforeUploadFiles?: (files: File[]) => Promise<{ allowed: File[]; error?: string }>; }
 
+type AvailableCacamba = {
+  numero: string;
+  deliveredAt?: string | Date | null;
+  deliveryOrderNumber?: number | null;
+};
+
+const formatDeliveredAt = (value?: string | Date | null) => {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('pt-BR');
+};
+
+const formatAvailableCacambaLabel = (cacamba: AvailableCacamba) => {
+  const deliveredAt = formatDeliveredAt(cacamba.deliveredAt);
+  return deliveredAt ? `${cacamba.numero} - entregue em ${deliveredAt}` : cacamba.numero;
+};
+
 const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacambaAdded, onClose, beforeUploadFiles }) => {
   const [numero, setNumero] = useState('');
   const [horaServicoDigitos, setHoraServicoDigitos] = useState('');
@@ -34,7 +51,7 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingAvailable, setLoadingAvailable] = useState(orderType === 'retirada');
-  const [availableCacambas, setAvailableCacambas] = useState<Array<{ numero: string; deliveryOrderNumber?: number | null }>>([]);
+  const [availableCacambas, setAvailableCacambas] = useState<AvailableCacamba[]>([]);
   const [error, setError] = useState('');
   const errorRef = useRef<HTMLDivElement>(null);
 
@@ -164,8 +181,7 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
                           </option>
                           {availableCacambas.map((cacamba) => (
                             <option key={cacamba.numero} value={cacamba.numero}>
-                              {cacamba.numero}
-                              {cacamba.deliveryOrderNumber ? ` - entregue no pedido #${cacamba.deliveryOrderNumber}` : ''}
+                              {formatAvailableCacambaLabel(cacamba)}
                             </option>
                           ))}
                         </SelectInput>

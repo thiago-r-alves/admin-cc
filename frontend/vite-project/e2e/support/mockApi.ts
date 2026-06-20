@@ -1064,9 +1064,9 @@ export const setupMockApi = async (page: Page) => {
     if (/^\/driver\/orders\/[^/]+\/available-cacambas$/.test(pathname) && method === 'GET') {
       return json(route, {
         cacambas: [
-          { numero: '435', deliveryOrderNumber: 2200 },
-          { numero: '556', deliveryOrderNumber: 2201 },
-          { numero: '777', deliveryOrderNumber: 2202 },
+          { numero: '435', deliveredAt: '2026-05-14T12:00:00.000Z', deliveryOrderNumber: 2200 },
+          { numero: '556', deliveredAt: '2026-05-15T12:00:00.000Z', deliveryOrderNumber: 2201 },
+          { numero: '777', deliveredAt: '2026-05-16T12:00:00.000Z', deliveryOrderNumber: 2202 },
         ],
       });
     }
