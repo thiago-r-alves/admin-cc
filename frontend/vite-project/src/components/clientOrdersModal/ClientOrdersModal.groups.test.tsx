@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ClientOrdersModal from '../ClientOrdersModal';
 
 const handleDownloadMock = vi.fn(async () => ({
@@ -38,11 +38,16 @@ const handleDownloadMock = vi.fn(async () => ({
 const downloadExistingClosureGroupMock = vi.fn(async () => undefined);
 const saveInvoiceForGroupMock = vi.fn(async () => undefined);
 const returnCacambaToPendingMock = vi.fn(async () => undefined);
+const shareClosureGroupOnWhatsAppMock = vi.fn(async () => undefined);
+const shareClosureGroupByEmailMock = vi.fn(async () => undefined);
+const markPixGroupPaidMock = vi.fn(async () => undefined);
 const setInvoiceNumberMock = vi.fn();
 const setIsEditingInvoiceMock = vi.fn();
+const hookOverrides: { current: Record<string, unknown> } = { current: {} };
 
 vi.mock('./useClientOrdersModal', () => ({
-  useClientOrdersModal: () => ({
+  useClientOrdersModal: () => {
+    const base = {
     orders: [
       {
         _id: 'ord-1',
@@ -173,12 +178,22 @@ vi.mock('./useClientOrdersModal', () => ({
     handleUpdateCacambaMeta: vi.fn(async () => undefined),
     handleDownload: handleDownloadMock,
     downloadExistingClosureGroup: downloadExistingClosureGroupMock,
+    shareClosureGroupOnWhatsApp: shareClosureGroupOnWhatsAppMock,
+    shareClosureGroupByEmail: shareClosureGroupByEmailMock,
     saveInvoiceForGroup: saveInvoiceForGroupMock,
+    markPixGroupPaid: markPixGroupPaidMock,
     returnCacambaToPending: returnCacambaToPendingMock,
-  }),
+    };
+    return { ...base, ...hookOverrides.current };
+  },
 }));
 
 describe('ClientOrdersModal (closure flow)', () => {
+  beforeEach(() => {
+    hookOverrides.current = {};
+    vi.clearAllMocks();
+  });
+
   it('exibe ações de baixar novamente e editar NF em grupo pago', async () => {
     render(
       <ClientOrdersModal
@@ -207,6 +222,104 @@ describe('ClientOrdersModal (closure flow)', () => {
     fireEvent.click(screen.getByTestId('closure-group-edit-invoice'));
     expect(setInvoiceNumberMock).toHaveBeenCalledWith('NF-0001');
     expect(setIsEditingInvoiceMock).toHaveBeenCalledWith(true);
+  });
+
+  it('exibe envio por WhatsApp e email para grupo de NF quando existem contato e email', async () => {
+    render(
+      <ClientOrdersModal
+        client={{
+          _id: 'client-1',
+          clientName: 'Cliente Teste',
+          contactNumber: '(12) 98195-6675',
+          email: 'cliente@example.com',
+        }}
+        onClose={vi.fn()}
+        closureMode
+        paymentStatus="paid"
+      />,
+    );
+
+    expect(screen.getByText('Detalhes da nota fiscal')).toBeInTheDocument();
+    expect(screen.getByTestId('closure-group-share-whatsapp')).toBeInTheDocument();
+    expect(screen.getByTestId('closure-group-share-email')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('closure-group-share-whatsapp'));
+    fireEvent.click(screen.getByTestId('closure-group-share-email'));
+
+    await waitFor(() => expect(shareClosureGroupOnWhatsAppMock).toHaveBeenCalled());
+    await waitFor(() => expect(shareClosureGroupByEmailMock).toHaveBeenCalled());
+  });
+
+  it('não exibe envio por email quando o cliente não tem email salvo', () => {
+    render(
+      <ClientOrdersModal
+        client={{
+          _id: 'client-1',
+          clientName: 'Cliente Teste',
+          contactNumber: '(12) 98195-6675',
+        }}
+        onClose={vi.fn()}
+        closureMode
+        paymentStatus="paid"
+      />,
+    );
+
+    expect(screen.getByTestId('closure-group-share-whatsapp')).toBeInTheDocument();
+    expect(screen.queryByTestId('closure-group-share-email')).not.toBeInTheDocument();
+  });
+
+  it('exibe WhatsApp e email em grupo Pix mantendo ações Pix', () => {
+    const pixGroup = {
+      _id: 'grp-pix',
+      clientId: 'client-1',
+      status: 'pix_pendente' as const,
+      paymentMethod: 'pix' as const,
+      invoiceNumber: '',
+      totalAmount: 100,
+      pixCopyPaste: 'PIX-COPIA-E-COLA',
+      startDate: '2026-05-01T00:00:00.000Z',
+      endDate: '2026-05-31T23:59:59.999Z',
+      createdAt: '2026-05-10T12:00:00.000Z',
+      updatedAt: '2026-05-11T12:00:00.000Z',
+      cacambaIds: [
+        {
+          _id: 'cac-1',
+          numero: '101',
+          tipo: 'retirada' as const,
+          paymentStatus: 'pix_pendente' as const,
+          contentType: 'Entulho limpo',
+          price: 100,
+          orderId: 'ord-1',
+          createdAt: '2026-05-10T10:00:00.000Z',
+        },
+      ],
+    };
+    hookOverrides.current = {
+      currentClosureGroup: pixGroup,
+      closureGroups: [pixGroup],
+      selectedGroupId: 'grp-pix',
+      selectedGroup: pixGroup,
+    };
+
+    render(
+      <ClientOrdersModal
+        client={{
+          _id: 'client-1',
+          clientName: 'Cliente Teste',
+          contactNumber: '(12) 98195-6675',
+          email: 'cliente@example.com',
+        }}
+        onClose={vi.fn()}
+        closureMode
+        paymentStatus="pix_pending"
+      />,
+    );
+
+    expect(screen.getByText('Detalhes do Pix')).toBeInTheDocument();
+    expect(screen.getByTestId('closure-group-copy-pix')).toBeInTheDocument();
+    expect(screen.getByTestId('closure-group-mark-pix-paid')).toBeInTheDocument();
+    expect(screen.getByTestId('closure-group-share-whatsapp')).toBeInTheDocument();
+    expect(screen.getByTestId('closure-group-share-email')).toBeInTheDocument();
   });
 
   it('confirma volta da caçamba do grupo para pendente', async () => {

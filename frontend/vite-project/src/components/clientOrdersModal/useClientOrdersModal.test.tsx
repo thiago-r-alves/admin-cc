@@ -1,18 +1,69 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useClientOrdersModal } from './useClientOrdersModal';
-import { downloadClientOrdersPdf } from '../../utils/clientOrdersPdf';
+import { buildClientOrdersPdf, downloadClientOrdersPdf } from '../../utils/clientOrdersPdf';
 
 vi.mock('../../utils/clientOrdersPdf', () => ({
+  buildClientOrdersPdf: vi.fn(async () => ({
+    filename: 'fechamento.pdf',
+    blob: new Blob(['pdf'], { type: 'application/pdf' }),
+  })),
   downloadClientOrdersPdf: vi.fn(async () => undefined),
 }));
 
 const client = { _id: 'cli-1', clientName: 'Cliente Teste' };
 
+const paidGroup = {
+  _id: 'grp-1',
+  clientId: 'cli-1',
+  clientSequenceNumber: 1,
+  status: 'paga' as const,
+  invoiceNumber: 'NF-0001',
+  startDate: '2026-05-01T00:00:00.000Z',
+  endDate: '2026-05-31T23:59:59.999Z',
+  createdAt: '2026-05-10T12:00:00.000Z',
+  updatedAt: '2026-05-11T12:00:00.000Z',
+  cacambaIds: [
+    {
+      _id: 'cac-1',
+      numero: '101',
+      tipo: 'retirada' as const,
+      paymentStatus: 'paga' as const,
+      contentType: 'Entulho limpo' as const,
+      price: 120,
+      orderId: 'ord-1',
+      createdAt: '2026-05-10T10:00:00.000Z',
+    },
+  ],
+};
+
+const pixGroup = {
+  ...paidGroup,
+  paymentMethod: 'pix' as const,
+  invoiceNumber: '',
+  totalAmount: 120,
+  pixCopyPaste: 'PIX-COPIA-E-COLA',
+  status: 'pix_pendente' as const,
+};
+
 describe('useClientOrdersModal', () => {
   beforeEach(() => {
     localStorage.setItem('token', 'token-test');
     vi.restoreAllMocks();
+    vi.mocked(buildClientOrdersPdf).mockResolvedValue({
+      filename: 'fechamento.pdf',
+      blob: new Blob(['pdf'], { type: 'application/pdf' }),
+    } as never);
+    vi.mocked(downloadClientOrdersPdf).mockResolvedValue(undefined);
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: vi.fn(() => 'blob:fechamento'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: vi.fn(),
+    });
   });
 
   it('carrega pedidos elegíveis de fechamento sempre com paymentStatus pending', async () => {
@@ -239,6 +290,144 @@ describe('useClientOrdersModal', () => {
       expect.stringContaining('/closure-groups/grp-1/invoice'),
       expect.objectContaining({ method: 'PATCH' }),
     );
+  });
+
+  it('compartilha NF por WhatsApp baixando o PDF e abrindo mensagem pronta', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => [],
+    }));
+    const openedWindow = {
+      location: { href: '' },
+      close: vi.fn(),
+    };
+    const windowOpenMock = vi.spyOn(window, 'open').mockReturnValue(openedWindow as unknown as Window);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() =>
+      useClientOrdersModal({
+        client: {
+          ...client,
+          contactName: 'Contato Cliente',
+          contactNumber: '(12) 98195-6675',
+        },
+        closureMode: true,
+      }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await result.current.shareClosureGroupOnWhatsApp(paidGroup);
+    });
+
+    expect(buildClientOrdersPdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orders: expect.any(Array),
+        clientTotal: 120,
+        paymentMethod: undefined,
+      }),
+      { output: 'blob' },
+    );
+    expect(windowOpenMock).toHaveBeenCalledWith('', '_blank');
+    expect(openedWindow.location.href).toContain('https://wa.me/5512981956675?text=');
+    expect(decodeURIComponent(openedWindow.location.href)).toContain('NF: NF-0001');
+  });
+
+  it('compartilha Pix por email baixando o PDF e abrindo mailto', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => [],
+    }));
+    const openedWindow = {
+      location: { href: '' },
+      close: vi.fn(),
+    };
+    const windowOpenMock = vi.spyOn(window, 'open').mockReturnValue(openedWindow as unknown as Window);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() =>
+      useClientOrdersModal({
+        client: {
+          ...client,
+          email: 'cliente@example.com',
+        },
+        closureMode: true,
+      }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await result.current.shareClosureGroupByEmail(pixGroup);
+    });
+
+    expect(buildClientOrdersPdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientTotal: 120,
+        paymentMethod: 'pix',
+        pixCopyPaste: 'PIX-COPIA-E-COLA',
+      }),
+      { output: 'blob' },
+    );
+    expect(windowOpenMock).toHaveBeenCalledWith('', '_blank');
+    expect(openedWindow.location.href).toContain('mailto:cliente%40example.com?subject=');
+    expect(decodeURIComponent(openedWindow.location.href)).toContain('Pix copia e cola');
+    expect(decodeURIComponent(openedWindow.location.href)).toContain('PIX-COPIA-E-COLA');
+  });
+
+  it('impede envio por email quando o email cadastrado é inválido', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => [],
+    }));
+    const windowOpenMock = vi.spyOn(window, 'open');
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() =>
+      useClientOrdersModal({
+        client: {
+          ...client,
+          email: 'cliente-invalido',
+        },
+        closureMode: true,
+      }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    await expect(result.current.shareClosureGroupByEmail(paidGroup)).rejects.toThrow(
+      'O cliente não possui um e-mail válido cadastrado.',
+    );
+    expect(buildClientOrdersPdf).not.toHaveBeenCalled();
+    expect(windowOpenMock).not.toHaveBeenCalled();
+  });
+
+  it('mantém erro de telefone inválido ao compartilhar por WhatsApp', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => [],
+    }));
+    const windowOpenMock = vi.spyOn(window, 'open');
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() =>
+      useClientOrdersModal({
+        client: {
+          ...client,
+          contactNumber: '123',
+        },
+        closureMode: true,
+      }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    await expect(result.current.shareClosureGroupOnWhatsApp(paidGroup)).rejects.toThrow(
+      'O telefone do cliente é inválido para abrir o WhatsApp.',
+    );
+    expect(buildClientOrdersPdf).not.toHaveBeenCalled();
+    expect(windowOpenMock).not.toHaveBeenCalled();
   });
 
   it('na consulta de notas geradas não carrega pedidos elegíveis na abertura', async () => {

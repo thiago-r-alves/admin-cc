@@ -12,6 +12,7 @@ import type { ClientOrdersModalProps } from './clientOrdersModal/types';
 import CacambaList from './CacambaList';
 import ToastPopup from './ToastPopup';
 import type { ICacamba, IClosureGroup } from '../interfaces';
+import { normalizeBrazilianWhatsAppNumber, normalizeEmailAddress } from '../utils/whatsapp';
 
 const ModalOverlay = styled.div`
   position: fixed;
@@ -365,7 +366,8 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     handleUpdateCacambaMeta,
     handleDownload,
     downloadExistingClosureGroup,
-    sharePixGroupOnWhatsApp,
+    shareClosureGroupOnWhatsApp,
+    shareClosureGroupByEmail,
     saveInvoiceForGroup,
     markPixGroupPaid,
     returnCacambaToPending,
@@ -525,10 +527,10 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     }
   };
 
-  const handleSharePixOnWhatsApp = async (group: IClosureGroup) => {
+  const handleShareOnWhatsApp = async (group: IClosureGroup) => {
     try {
       setInvoiceFeedback(null);
-      await sharePixGroupOnWhatsApp(group);
+      await shareClosureGroupOnWhatsApp(group);
       setToastFeedback({
         tone: 'success',
         message: 'PDF baixado. Anexe-o no chat e envie a mensagem preparada.',
@@ -537,6 +539,22 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
       setInvoiceFeedback({
         tone: 'error',
         message: error instanceof Error ? error.message : 'Não foi possível abrir o WhatsApp.',
+      });
+    }
+  };
+
+  const handleShareByEmail = async (group: IClosureGroup) => {
+    try {
+      setInvoiceFeedback(null);
+      await shareClosureGroupByEmail(group);
+      setToastFeedback({
+        tone: 'success',
+        message: 'PDF baixado. Anexe-o no email aberto e envie a mensagem preparada.',
+      });
+    } catch (error) {
+      setInvoiceFeedback({
+        tone: 'error',
+        message: error instanceof Error ? error.message : 'Não foi possível abrir o email.',
       });
     }
   };
@@ -551,6 +569,9 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
         </EmptyState>
       );
     }
+
+    const canShareOnWhatsApp = Boolean(normalizeBrazilianWhatsAppNumber(client.contactNumber));
+    const canShareByEmail = Boolean(normalizeEmailAddress(client.email));
 
     return (
       <>
@@ -589,13 +610,6 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
               >
                 Copiar Pix
               </SecondaryButton>
-              <SecondaryButton
-                type="button"
-                data-testid="closure-group-share-whatsapp"
-                onClick={() => handleSharePixOnWhatsApp(group)}
-              >
-                Enviar por WhatsApp
-              </SecondaryButton>
               {group.status === 'pix_pendente' && (
                 <HighlightButton
                   type="button"
@@ -616,6 +630,24 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
           >
             Baixar nota
           </HighlightButton>
+          {canShareOnWhatsApp && (
+            <SecondaryButton
+              type="button"
+              data-testid="closure-group-share-whatsapp"
+              onClick={() => handleShareOnWhatsApp(group)}
+            >
+              Enviar por WhatsApp
+            </SecondaryButton>
+          )}
+          {canShareByEmail && (
+            <SecondaryButton
+              type="button"
+              data-testid="closure-group-share-email"
+              onClick={() => handleShareByEmail(group)}
+            >
+              Enviar por email
+            </SecondaryButton>
+          )}
           {group.invoiceNumber && !isEditingInvoice && (
             <SecondaryButton
               type="button"

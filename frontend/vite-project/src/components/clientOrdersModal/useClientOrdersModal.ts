@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ICacamba, IClosureGroup, IOrder } from '../../interfaces';
 import { buildClientOrdersPdf, downloadClientOrdersPdf } from '../../utils/clientOrdersPdf';
 import {
-  buildPixWhatsAppMessage,
+  buildClosureShareMessage,
+  buildEmailUrl,
   buildWhatsAppUrl,
+  normalizeEmailAddress,
   normalizeBrazilianWhatsAppNumber,
 } from '../../utils/whatsapp';
 import {
@@ -26,6 +28,13 @@ type UseClientOrdersModalArgs = Pick<
 >;
 
 const apiUrl = import.meta.env.VITE_API_URL;
+
+const getGroupTotal = (group: IClosureGroup) =>
+  group.totalAmount ??
+  (group.cacambaIds || []).reduce((sum, cacamba) => {
+    const price = Number(cacamba.price);
+    return Number.isFinite(price) ? sum + price : sum;
+  }, 0);
 
 export const useClientOrdersModal = ({
   client,
@@ -345,66 +354,89 @@ export const useClientOrdersModal = ({
       startDate,
       endDate,
       type,
-      clientTotal: (group.cacambaIds || []).reduce((sum, cacamba) => {
-        const price = Number(cacamba.price);
-        return Number.isFinite(price) ? sum + price : sum;
-      }, 0),
+      clientTotal: getGroupTotal(group),
       paymentMethod: group.paymentMethod,
       pixCopyPaste: group.pixCopyPaste,
     });
   };
 
-  const sharePixGroupOnWhatsApp = async (group: IClosureGroup) => {
-    if (group.paymentMethod !== 'pix' || !group.pixCopyPaste) {
-      throw new Error('Este fechamento não possui um Pix disponível para envio.');
-    }
+  const downloadGroupPdfBlob = async (group: IClosureGroup, totalAmount: number) => {
+    const { filename, blob } = await buildClientOrdersPdf(
+      {
+        client,
+        orders: buildOrdersFromGroup(group),
+        startDate,
+        endDate,
+        type,
+        clientTotal: totalAmount,
+        paymentMethod: group.paymentMethod,
+        pixCopyPaste: group.pixCopyPaste,
+      },
+      { output: 'blob' },
+    );
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const buildGroupShareMessage = (group: IClosureGroup, totalAmount: number) =>
+    buildClosureShareMessage({
+      recipientName: client.contactName || client.clientName,
+      cacambaCount: group.cacambaIds?.length || 0,
+      totalAmount,
+      paymentMethod: group.paymentMethod,
+      pixCopyPaste: group.pixCopyPaste,
+      invoiceNumber: group.invoiceNumber,
+    });
+
+  const shareClosureGroupOnWhatsApp = async (group: IClosureGroup) => {
     const phone = normalizeBrazilianWhatsAppNumber(client.contactNumber);
     if (!phone) {
       throw new Error('O telefone do cliente é inválido para abrir o WhatsApp.');
     }
 
-    const totalAmount =
-      group.totalAmount ??
-      (group.cacambaIds || []).reduce((sum, cacamba) => {
-        const price = Number(cacamba.price);
-        return Number.isFinite(price) ? sum + price : sum;
-      }, 0);
-    const message = buildPixWhatsAppMessage({
-      recipientName: client.contactName || client.clientName,
-      cacambaCount: group.cacambaIds?.length || 0,
-      totalAmount,
-      pixCopyPaste: group.pixCopyPaste,
-    });
+    const totalAmount = getGroupTotal(group);
+    const message = buildGroupShareMessage(group, totalAmount);
     const whatsappWindow = window.open('', '_blank');
     if (!whatsappWindow) {
       throw new Error('O navegador bloqueou a abertura do WhatsApp. Libere os pop-ups e tente novamente.');
     }
 
     try {
-      const { filename, blob } = await buildClientOrdersPdf(
-        {
-          client,
-          orders: buildOrdersFromGroup(group),
-          startDate,
-          endDate,
-          type,
-          clientTotal: totalAmount,
-          paymentMethod: group.paymentMethod,
-          pixCopyPaste: group.pixCopyPaste,
-        },
-        { output: 'blob' },
-      );
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      await downloadGroupPdfBlob(group, totalAmount);
       whatsappWindow.location.href = buildWhatsAppUrl(phone, message);
     } catch (error) {
       whatsappWindow.close();
+      throw error;
+    }
+  };
+
+  const shareClosureGroupByEmail = async (group: IClosureGroup) => {
+    const email = normalizeEmailAddress(client.email);
+    if (!email) {
+      throw new Error('O cliente não possui um e-mail válido cadastrado.');
+    }
+
+    const totalAmount = getGroupTotal(group);
+    const message = buildGroupShareMessage(group, totalAmount);
+    const emailWindow = window.open('', '_blank');
+    if (!emailWindow) {
+      throw new Error('O navegador bloqueou a abertura do email. Libere os pop-ups e tente novamente.');
+    }
+    try {
+      await downloadGroupPdfBlob(group, totalAmount);
+      emailWindow.location.href = buildEmailUrl({
+        email,
+        subject: `Fechamento Central Caçambas - ${client.clientName}`,
+        body: message,
+      });
+    } catch (error) {
+      emailWindow.close();
       throw error;
     }
   };
@@ -581,7 +613,8 @@ export const useClientOrdersModal = ({
     handleUpdateCacambaMeta,
     handleDownload,
     downloadExistingClosureGroup,
-    sharePixGroupOnWhatsApp,
+    shareClosureGroupOnWhatsApp,
+    shareClosureGroupByEmail,
     saveInvoiceForGroup,
     markPixGroupPaid,
     returnCacambaToPending,
