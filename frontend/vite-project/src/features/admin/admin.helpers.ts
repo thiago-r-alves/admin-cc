@@ -26,6 +26,36 @@ export type AcompanhamentoItem = {
 
 export type AcompanhamentoSortMode = 'default' | 'clientName';
 
+export type WithdrawalDueItem = AcompanhamentoItem & {
+  businessDaysOnSite: number;
+  dueDate: string;
+  plannedWithdrawal?: {
+    orderId: string;
+    orderNumber: number | null;
+    status: IOrder['status'];
+  };
+};
+
+export type WithdrawalAddressGroup = {
+  key: string;
+  order: IOrder;
+  items: WithdrawalDueItem[];
+  cacambaIds: string[];
+  availableCacambaIds: string[];
+  address: string;
+  oldestCreatedAtMs: number;
+  maxBusinessDaysOnSite: number;
+};
+
+export type WithdrawalClientGroup = {
+  key: string;
+  clientId?: string;
+  clientName: string;
+  cnpjCpf?: string;
+  groups: WithdrawalAddressGroup[];
+  totalCacambas: number;
+};
+
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const getLocalDayIndex = (date: Date) =>
@@ -43,6 +73,133 @@ const norm = (value: unknown) =>
     .toLowerCase();
 
 const digits = (value: unknown) => norm(value).replace(/\D/g, '');
+
+const saoPauloDateFormatter = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/Sao_Paulo',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+const getSaoPauloDateParts = (date: Date) => {
+  const parts = saoPauloDateFormatter.formatToParts(date);
+  const year = Number(parts.find((part) => part.type === 'year')?.value);
+  const month = Number(parts.find((part) => part.type === 'month')?.value);
+  const day = Number(parts.find((part) => part.type === 'day')?.value);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+  return { year, month, day };
+};
+
+const dateKey = (year: number, month: number, day: number) =>
+  `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+const getDayIndexFromParts = ({ year, month, day }: { year: number; month: number; day: number }) =>
+  Math.floor(Date.UTC(year, month - 1, day) / MS_PER_DAY);
+
+const getPartsFromDayIndex = (dayIndex: number) => {
+  const date = new Date(dayIndex * MS_PER_DAY);
+  return {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+  };
+};
+
+const addDaysToParts = (
+  parts: { year: number; month: number; day: number },
+  amount: number,
+) => getPartsFromDayIndex(getDayIndexFromParts(parts) + amount);
+
+const getEasterParts = (year: number) => {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return { year, month, day };
+};
+
+export const getSaoJoseDosCamposHolidayKeys = (year: number) => {
+  const easter = getEasterParts(year);
+  const goodFriday = addDaysToParts(easter, -2);
+  const corpusChristi = addDaysToParts(easter, 60);
+  return new Set([
+    dateKey(year, 1, 1),
+    dateKey(year, 3, 19),
+    dateKey(goodFriday.year, goodFriday.month, goodFriday.day),
+    dateKey(year, 4, 21),
+    dateKey(year, 5, 1),
+    dateKey(corpusChristi.year, corpusChristi.month, corpusChristi.day),
+    dateKey(year, 7, 9),
+    dateKey(year, 7, 27),
+    dateKey(year, 9, 7),
+    dateKey(year, 10, 12),
+    dateKey(year, 11, 2),
+    dateKey(year, 11, 15),
+    dateKey(year, 11, 20),
+    dateKey(year, 12, 25),
+  ]);
+};
+
+export const isSaoJoseBusinessDay = (dayIndex: number) => {
+  const parts = getPartsFromDayIndex(dayIndex);
+  const weekday = new Date(dayIndex * MS_PER_DAY).getUTCDay();
+  if (weekday === 0 || weekday === 6) return false;
+  return !getSaoJoseDosCamposHolidayKeys(parts.year).has(dateKey(parts.year, parts.month, parts.day));
+};
+
+export const getSaoJoseBusinessDaysAfter = (start?: string | null, end: Date = new Date()) => {
+  if (!start) return null;
+  const startDate = new Date(start);
+  if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(end.getTime())) return null;
+
+  const startParts = getSaoPauloDateParts(startDate);
+  const endParts = getSaoPauloDateParts(end);
+  if (!startParts || !endParts) return null;
+
+  const startIndex = getDayIndexFromParts(startParts);
+  const endIndex = getDayIndexFromParts(endParts);
+  if (endIndex <= startIndex) return 0;
+
+  let businessDays = 0;
+  for (let dayIndex = startIndex + 1; dayIndex <= endIndex; dayIndex += 1) {
+    if (isSaoJoseBusinessDay(dayIndex)) businessDays += 1;
+  }
+  return businessDays;
+};
+
+export const getSaoJoseDueDateAfterBusinessDays = (start?: string | null, days = 5) => {
+  if (!start) return null;
+  const startDate = new Date(start);
+  if (!Number.isFinite(startDate.getTime())) return null;
+  const startParts = getSaoPauloDateParts(startDate);
+  if (!startParts) return null;
+
+  let businessDays = 0;
+  let dayIndex = getDayIndexFromParts(startParts);
+  while (businessDays < days) {
+    dayIndex += 1;
+    if (isSaoJoseBusinessDay(dayIndex)) businessDays += 1;
+  }
+
+  const dueParts = getPartsFromDayIndex(dayIndex);
+  return dateKey(dueParts.year, dueParts.month, dueParts.day);
+};
+
+export const formatBusinessDaysOnSite = (days: number | null) => {
+  if (days === null) return 'Sem prazo calculado';
+  if (days === 1) return '1 dia útil';
+  return `${days} dias úteis`;
+};
 
 export const getDaysOnSite = (createdAt?: string | null) => {
   if (!createdAt) return null;
@@ -211,6 +368,143 @@ export const sortAcompanhamentoCacambas = (
       numeric: true,
     });
   });
+};
+
+const getOpenPlannedWithdrawalCacambaMap = (orders: IOrder[]) => {
+  const planned = new Map<
+    string,
+    {
+      orderId: string;
+      orderNumber: number | null;
+      status: IOrder['status'];
+      createdAtMs: number;
+    }
+  >();
+
+  for (const order of orders) {
+    if (order.type !== 'retirada') continue;
+    if (order.status === 'concluido' || order.status === 'cancelado') continue;
+
+    const createdAtMs = getTime(order.createdAt);
+    for (const id of order.plannedWithdrawalCacambaIds || []) {
+      const normalized = String(id || '').trim();
+      if (!normalized) continue;
+
+      const current = planned.get(normalized);
+      if (current && current.createdAtMs > createdAtMs) continue;
+      planned.set(normalized, {
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        createdAtMs,
+      });
+    }
+  }
+
+  return planned;
+};
+
+const getClientGroupKey = (order: IOrder) =>
+  String(order.clientId || '').trim() || `${norm(order.clientName).trim()}|${digits(order.cnpjCpf)}`;
+
+const getAddressGroupKey = (order: IOrder) =>
+  [
+    norm(order.address).trim(),
+    norm(order.addressNumber).trim(),
+    norm(order.neighborhood).trim(),
+    norm(order.city).trim(),
+    digits(order.cep),
+  ].join('|');
+
+export const getPendingWithdrawalGroups = (orders: IOrder[], today: Date = new Date()) => {
+  const plannedByCacambaId = getOpenPlannedWithdrawalCacambaMap(orders);
+  const dueItems = getAcompanhamentoCacambas(orders)
+    .map((item): WithdrawalDueItem | null => {
+      const businessDaysOnSite = getSaoJoseBusinessDaysAfter(item.cacamba.createdAt, today);
+      if (businessDaysOnSite === null || businessDaysOnSite < 5) return null;
+      const plannedWithdrawal = plannedByCacambaId.get(String(item.cacamba._id));
+      return {
+        ...item,
+        businessDaysOnSite,
+        dueDate: getSaoJoseDueDateAfterBusinessDays(item.cacamba.createdAt, 5) || '',
+        plannedWithdrawal: plannedWithdrawal
+          ? {
+              orderId: plannedWithdrawal.orderId,
+              orderNumber: plannedWithdrawal.orderNumber,
+              status: plannedWithdrawal.status,
+            }
+          : undefined,
+      };
+    })
+    .filter((item): item is WithdrawalDueItem => Boolean(item));
+
+  const clients = new Map<string, WithdrawalClientGroup>();
+  for (const item of dueItems) {
+    const clientKey = getClientGroupKey(item.order);
+    const clientGroup = clients.get(clientKey) || {
+      key: clientKey,
+      clientId: item.order.clientId,
+      clientName: item.order.clientName || '-',
+      cnpjCpf: item.order.cnpjCpf,
+      groups: [],
+      totalCacambas: 0,
+    };
+
+    const addressKey = getAddressGroupKey(item.order);
+    let addressGroup = clientGroup.groups.find((group) => group.key === addressKey);
+    if (!addressGroup) {
+      addressGroup = {
+        key: addressKey,
+        order: item.order,
+        items: [],
+        cacambaIds: [],
+        availableCacambaIds: [],
+        address: formatOrderAddress(item.order),
+        oldestCreatedAtMs: item.createdAtMs,
+        maxBusinessDaysOnSite: item.businessDaysOnSite,
+      };
+      clientGroup.groups.push(addressGroup);
+    }
+
+    addressGroup.items.push(item);
+    addressGroup.cacambaIds.push(item.cacamba._id);
+    if (!item.plannedWithdrawal) addressGroup.availableCacambaIds.push(item.cacamba._id);
+    addressGroup.oldestCreatedAtMs = Math.min(addressGroup.oldestCreatedAtMs, item.createdAtMs);
+    addressGroup.maxBusinessDaysOnSite = Math.max(
+      addressGroup.maxBusinessDaysOnSite,
+      item.businessDaysOnSite,
+    );
+    clientGroup.totalCacambas += 1;
+    clients.set(clientKey, clientGroup);
+  }
+
+  return [...clients.values()]
+    .map((clientGroup) => ({
+      ...clientGroup,
+      groups: [...clientGroup.groups]
+        .map((addressGroup) => {
+          const items = [...addressGroup.items].sort((a, b) =>
+            a.numero.localeCompare(b.numero, 'pt-BR', { numeric: true, sensitivity: 'base' }),
+          );
+          return {
+            ...addressGroup,
+            items,
+            cacambaIds: items.map((item) => item.cacamba._id),
+            availableCacambaIds: items
+              .filter((item) => !item.plannedWithdrawal)
+              .map((item) => item.cacamba._id),
+          };
+        })
+        .sort((a, b) => a.oldestCreatedAtMs - b.oldestCreatedAtMs),
+    }))
+    .sort((a, b) => {
+      const nameComparison = a.clientName.localeCompare(b.clientName, 'pt-BR', {
+        numeric: true,
+        sensitivity: 'base',
+      });
+      if (nameComparison !== 0) return nameComparison;
+      return a.key.localeCompare(b.key, 'pt-BR', { numeric: true, sensitivity: 'base' });
+    });
 };
 
 export const getDriverOrders = (orders: IOrder[], selectedDriverId: string) =>

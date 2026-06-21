@@ -9,6 +9,7 @@ import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import LoadingScreen from '../components/LoadingScreen';
 import ImageModal from '../components/ImageModal';
 import { SelectInput } from '../components/ui';
+import type { CreateOrderPreset } from '../components/CreateOrderModal';
 import {
   filterAcompanhamentoCacambas,
   formatDaysOnSite,
@@ -20,10 +21,12 @@ import {
   getDriverOrders,
   getPendingCountByDriver,
   getPendingOrders,
+  getPendingWithdrawalGroups,
   sortAcompanhamentoCacambas,
   type AcompanhamentoFilters,
   type AcompanhamentoSortMode,
   type CacambaAgeTone,
+  type WithdrawalAddressGroup,
 } from '../features/admin/admin.helpers';
 import { useAdminData } from '../features/admin/useAdminData';
 import { apiUrl, clearStoredSession } from '../services/api';
@@ -119,6 +122,26 @@ const SidebarItem = styled.button<{ $active?: boolean }>`
   }
 `;
 
+const SidebarItemLabel = styled.span`
+  min-width: 0;
+  flex: 1 1 auto;
+`;
+
+const SidebarCountBadge = styled.span<{ $active?: boolean }>`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  background: ${({ $active }) => ($active ? '#ffffff' : '#e30613')};
+  color: ${({ $active }) => ($active ? '#e30613' : '#ffffff')};
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+`;
+
 const SidebarFooter = styled.div`
   margin-top: auto;
   border-top: 1px solid #fee2e2;
@@ -155,6 +178,23 @@ const MobileTopBar = styled.div`
   @media (min-width: 769px) {
     display: none;
   }
+`;
+
+const MobilePendingIndicator = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid #fecaca;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #991b1b;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  white-space: nowrap;
 `;
 
 const MenuButton = styled.button`
@@ -582,6 +622,97 @@ const AcompanhamentoImage = styled.img`
   cursor: pointer;
 `;
 
+const WithdrawalGroupsStack = styled.div`
+  display: grid;
+  gap: 1rem;
+`;
+
+const WithdrawalClientSection = styled.section`
+  overflow: hidden;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
+`;
+
+const WithdrawalClientHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #fee2e2;
+  background: #fffafa;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+  }
+`;
+
+const WithdrawalClientHeaderText = styled.div`
+  flex: 1 1 auto;
+  min-width: 0;
+`;
+
+const WithdrawalClientHeaderActions = styled.div`
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+
+  @media (max-width: 640px) {
+    width: 100%;
+    justify-content: stretch;
+  }
+`;
+
+const WithdrawalClientTitle = styled.h3`
+  margin: 0;
+  color: #1f2937;
+  font-size: 1.05rem;
+  font-weight: 900;
+  line-height: 1.3;
+  text-transform: uppercase;
+`;
+
+const WithdrawalAddressGroupBlock = styled.div`
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f3f4f6;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+`;
+
+const WithdrawalAddressHeader = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: stretch;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+
+  @media (max-width: 720px) {
+    flex-direction: column;
+  }
+`;
+
+const WithdrawalAddressInfo = styled.div`
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+`;
+
+const WithdrawalInfoGrid = styled(InfoGrid)`
+  grid-template-columns: minmax(320px, 2fr) minmax(180px, 1fr) minmax(180px, 1fr);
+  width: 100%;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
 const EmptyState = styled.div`
   border: 1px dashed #fecaca;
   border-radius: 8px;
@@ -892,6 +1023,30 @@ const DownloadOrderButton = styled(ActionButton)`
   background-color: #ffffff;
 `;
 
+const WithdrawalCreateButton = styled(ActionButton)`
+  flex: 0 0 auto;
+  background: #e30613;
+  border-color: #e30613;
+  color: #ffffff;
+
+  &:hover {
+    background: #c9000b;
+    border-color: #c9000b;
+    color: #ffffff;
+  }
+
+  &:disabled,
+  &:hover:disabled {
+    background: #ffffff;
+    border-color: #d1d5db;
+    color: #6b7280;
+  }
+
+  @media (max-width: 720px) {
+    width: 100%;
+  }
+`;
+
 const DriverTabsBar = styled.div`
   display: grid;
   grid-template-columns: repeat(3, minmax(180px, 1fr));
@@ -1020,7 +1175,7 @@ const GlobalStyle = createGlobalStyle`
   body { margin: 0; background: #f6f7fb; }
 `;
 
-type AdminTab = 'pedidos' | 'acompanhamentos' | 'clientes' | 'fechamento' | 'faturamento' | 'motoristas';
+type AdminTab = 'pedidos' | 'retiradas' | 'acompanhamentos' | 'clientes' | 'fechamento' | 'faturamento' | 'motoristas';
 type SidebarIconName = AdminTab | 'sair' | 'menu';
 
 const SidebarIcon = ({ name }: { name: SidebarIconName }) => {
@@ -1070,13 +1225,27 @@ const SidebarIcon = ({ name }: { name: SidebarIconName }) => {
     );
   }
 
+  if (name === 'retiradas') {
+    return (
+      <svg {...common}>
+        <path d="M7 7h10" />
+        <path d="M7 11h7" />
+        <path d="M5 3h14v11H5z" />
+        <path d="M9 18h6" />
+        <path d="M12 14v7" />
+        <path d="M8 21h8" />
+      </svg>
+    );
+  }
+
   if (name === 'motoristas') {
     return (
       <svg {...common}>
-        <path d="M3 13h2l2-5h10l2 5h2" />
-        <path d="M5 13v5h14v-5" />
-        <circle cx="7.5" cy="18" r="1.5" />
-        <circle cx="16.5" cy="18" r="1.5" />
+        <path d="M10 17H5V6h9v11" />
+        <path d="M14 9h4l3 4v4h-3" />
+        <path d="M10 17h4" />
+        <circle cx="7" cy="17" r="2" />
+        <circle cx="16" cy="17" r="2" />
       </svg>
     );
   }
@@ -1147,6 +1316,7 @@ const DriverTrashIcon = () => (
 
 const sidebarItems: Array<{ key: AdminTab; label: string }> = [
   { key: 'pedidos', label: 'Pedidos' },
+  { key: 'retiradas', label: 'Retiradas pendentes' },
   { key: 'clientes', label: 'Clientes' },
   { key: 'fechamento', label: 'Fechamento' },
   { key: 'faturamento', label: 'Faturamento' },
@@ -1172,6 +1342,7 @@ const AdminPage: React.FC = () => {
 
   // Estados para os modais
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [orderPreset, setOrderPreset] = useState<CreateOrderPreset | null>(null);
   const [isDriverModalOpen, setIsDriverModalOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState<IDriver | null>(null);
   const [changingClientOrder, setChangingClientOrder] = useState<IOrder | null>(null);
@@ -1235,6 +1406,11 @@ const AdminPage: React.FC = () => {
   const acompanhamentoCacambasOrdenadas = useMemo(
     () => sortAcompanhamentoCacambas(acompanhamentoCacambasFiltradas, acompanhamentoSortMode),
     [acompanhamentoCacambasFiltradas, acompanhamentoSortMode],
+  );
+  const pendingWithdrawalGroups = useMemo(() => getPendingWithdrawalGroups(orders), [orders]);
+  const pendingWithdrawalCacambaCount = useMemo(
+    () => pendingWithdrawalGroups.reduce((total, group) => total + group.totalCacambas, 0),
+    [pendingWithdrawalGroups],
   );
 
   // Pedidos do motorista selecionado (aceita motorista como id ou objeto populado)
@@ -1457,6 +1633,50 @@ const AdminPage: React.FC = () => {
     setIsSidebarOpen(false);
   };
 
+  const handleOpenCreateOrder = () => {
+    setOrderPreset(null);
+    setIsOrderModalOpen(true);
+  };
+
+  const handleCloseCreateOrder = () => {
+    setIsOrderModalOpen(false);
+    setOrderPreset(null);
+  };
+
+  const handleOpenWithdrawalOrder = (addressGroup: WithdrawalAddressGroup) => {
+    const order = addressGroup.order;
+    if (!order.clientId) {
+      setFeedback({ tone: 'error', message: 'Não foi possível identificar o cliente da entrega.' });
+      return;
+    }
+    if (addressGroup.availableCacambaIds.length === 0) {
+      setFeedback({
+        tone: 'error',
+        message: 'Todas as caçambas deste endereço já têm pedido de retirada criado.',
+      });
+      return;
+    }
+
+    setOrderPreset({
+      mode: 'withdrawal',
+      clientId: order.clientId,
+      clientName: order.clientName,
+      cnpjCpf: order.cnpjCpf,
+      contactName: order.contactName,
+      contactNumber: order.contactNumber,
+      neighborhood: order.neighborhood,
+      address: order.address,
+      addressNumber: order.addressNumber,
+      city: order.city,
+      cep: order.cep,
+      plannedWithdrawalCacambaIds: addressGroup.availableCacambaIds,
+      cacambaNumbers: addressGroup.items
+        .filter((item) => !item.plannedWithdrawal)
+        .map((item) => item.numero),
+    });
+    setIsOrderModalOpen(true);
+  };
+
   const handleLogout = () => {
     openConfirm({
       title: 'Sair do sistema',
@@ -1469,7 +1689,11 @@ const AdminPage: React.FC = () => {
     });
   };
 
-  const renderCompletedCacambas = (order: IOrder, cacambas: ICacamba[]) => (
+  const renderCompletedCacambas = (
+    order: IOrder,
+    cacambas: ICacamba[],
+    statusBadges?: Record<string, string>,
+  ) => (
     <CacambaList
       cacambas={cacambas}
       onImageClick={setModalImage}
@@ -1480,6 +1704,7 @@ const AdminPage: React.FC = () => {
       canEditPrice={order.type === 'retirada' && order.status === 'concluido'}
       onEditPrice={(cacamba) => setCacambaMetaModal({ mode: 'price', cacamba })}
       showDeliveryDateForRetirada
+      statusBadges={statusBadges}
     />
   );
 
@@ -1648,7 +1873,15 @@ const AdminPage: React.FC = () => {
                   onClick={() => handleSelectTab(item.key)}
                 >
                   <SidebarIcon name={item.key} />
-                  {item.label}
+                  <SidebarItemLabel>{item.label}</SidebarItemLabel>
+                  {item.key === 'retiradas' && pendingWithdrawalCacambaCount > 0 && (
+                    <SidebarCountBadge
+                      $active={activeTab === item.key}
+                      data-testid="pending-withdrawals-sidebar-badge"
+                    >
+                      {pendingWithdrawalCacambaCount}
+                    </SidebarCountBadge>
+                  )}
                 </SidebarItem>
               ))}
             </SidebarNav>
@@ -1671,6 +1904,15 @@ const AdminPage: React.FC = () => {
                 <SidebarIcon name="menu" />
               </MenuButton>
               <h2>Painel de Administração de Caçambas</h2>
+              {pendingWithdrawalCacambaCount > 0 && (
+                <MobilePendingIndicator
+                  type="button"
+                  onClick={() => handleSelectTab('retiradas')}
+                  data-testid="pending-withdrawals-mobile-badge"
+                >
+                  {pendingWithdrawalCacambaCount} retiradas pendentes
+                </MobilePendingIndicator>
+              )}
             </MobileTopBar>
           <Backdrop
             type="button"
@@ -1698,6 +1940,102 @@ const AdminPage: React.FC = () => {
               <FaturamentoPage />
             )}
           </React.Suspense>
+
+          {activeTab === 'retiradas' && (
+            <OrdersPage>
+              <SectionContainer>
+                <AcompanhamentoToolbar>
+                  <OrdersSectionTitle>Retiradas pendentes</OrdersSectionTitle>
+                </AcompanhamentoToolbar>
+
+                {pendingWithdrawalGroups.length ? (
+                  <WithdrawalGroupsStack>
+                    {pendingWithdrawalGroups.map((clientGroup) => (
+                      <WithdrawalClientSection key={clientGroup.key} data-testid="withdrawal-client-group">
+                        <WithdrawalClientHeader>
+                          <WithdrawalClientHeaderText>
+                            <WithdrawalClientTitle>{clientGroup.clientName}</WithdrawalClientTitle>
+                          </WithdrawalClientHeaderText>
+                          <WithdrawalClientHeaderActions>
+                            {clientGroup.groups.map((addressGroup) => {
+                              const hasAvailableCacambas = addressGroup.availableCacambaIds.length > 0;
+
+                              return (
+                                <WithdrawalCreateButton
+                                  key={addressGroup.key}
+                                  type="button"
+                                  data-testid={`create-withdrawal-order-${addressGroup.cacambaIds[0]}`}
+                                  disabled={!hasAvailableCacambas}
+                                  title={
+                                    hasAvailableCacambas
+                                      ? addressGroup.address
+                                      : 'Todas as caçambas deste endereço já têm pedido de retirada criado.'
+                                  }
+                                  onClick={() => handleOpenWithdrawalOrder(addressGroup)}
+                                >
+                                  {hasAvailableCacambas ? 'Criar pedido de retirada' : 'Pedido de retirada criado'}
+                                </WithdrawalCreateButton>
+                              );
+                            })}
+                          </WithdrawalClientHeaderActions>
+                        </WithdrawalClientHeader>
+
+                        {clientGroup.groups.map((addressGroup) => {
+                          const contact = [
+                            addressGroup.order.contactName,
+                            addressGroup.order.contactNumber ? `(${addressGroup.order.contactNumber})` : '',
+                          ].filter(Boolean).join(' ');
+                          const withdrawalStatusBadges = Object.fromEntries(
+                            addressGroup.items
+                              .filter((item) => item.plannedWithdrawal)
+                              .map((item) => [
+                                item.cacamba._id,
+                                item.plannedWithdrawal?.orderNumber
+                                  ? `Pedido #${item.plannedWithdrawal.orderNumber} criado - aguardando motorista finalizar retirada`
+                                  : 'Pedido criado - aguardando motorista finalizar retirada',
+                              ]),
+                          );
+
+                          return (
+                            <WithdrawalAddressGroupBlock key={addressGroup.key} data-testid="withdrawal-address-group">
+                              <WithdrawalAddressHeader>
+                                <WithdrawalAddressInfo>
+                                  <WithdrawalInfoGrid>
+                                    <InfoTile>
+                                      <InfoLabel>Endereço da entrega</InfoLabel>
+                                      <InfoValue>{addressGroup.address}</InfoValue>
+                                    </InfoTile>
+                                    <InfoTile>
+                                      <InfoLabel>Contato</InfoLabel>
+                                      <InfoValue>{contact || '-'}</InfoValue>
+                                    </InfoTile>
+                                    <InfoTile>
+                                      <InfoLabel>CNPJ/CPF</InfoLabel>
+                                      <InfoValue>{clientGroup.cnpjCpf || '-'}</InfoValue>
+                                    </InfoTile>
+                                  </WithdrawalInfoGrid>
+                                </WithdrawalAddressInfo>
+                              </WithdrawalAddressHeader>
+
+                              <CacambaSection>
+                                {renderCompletedCacambas(
+                                  addressGroup.order,
+                                  addressGroup.items.map((item) => item.cacamba),
+                                  withdrawalStatusBadges,
+                                )}
+                              </CacambaSection>
+                            </WithdrawalAddressGroupBlock>
+                          );
+                        })}
+                      </WithdrawalClientSection>
+                    ))}
+                  </WithdrawalGroupsStack>
+                ) : (
+                  <EmptyState>Nenhuma caçamba passou de 5 dias úteis para abertura de retirada.</EmptyState>
+                )}
+              </SectionContainer>
+            </OrdersPage>
+          )}
 
           {activeTab === 'acompanhamentos' && (
             <OrdersPage>
@@ -1914,7 +2252,7 @@ const AdminPage: React.FC = () => {
           {activeTab === 'pedidos' && (
             <OrdersPage>
               <OrdersHeader>
-                <AddOrderButton type="button" onClick={() => setIsOrderModalOpen(true)}>
+                <AddOrderButton type="button" onClick={handleOpenCreateOrder}>
                   + Adicionar Pedido
                 </AddOrderButton>
               </OrdersHeader>
@@ -2072,9 +2410,10 @@ const AdminPage: React.FC = () => {
         <React.Suspense fallback={null}>
           {isOrderModalOpen && (
             <CreateOrderModal
-              onClose={() => setIsOrderModalOpen(false)}
+              onClose={handleCloseCreateOrder}
               onOrderCreated={fetchData}
               drivers={drivers}
+              initialPreset={orderPreset}
             />
           )}
 

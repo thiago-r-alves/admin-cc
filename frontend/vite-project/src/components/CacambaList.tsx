@@ -45,6 +45,8 @@ const HeaderInfo = styled.div`
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-wrap: wrap;
+  min-width: 0;
 `;
 
 const SelectionLabel = styled.label`
@@ -94,6 +96,33 @@ const PaymentBadge = styled.span`
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+`;
+
+const StatusBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.66rem;
+  border-radius: 9999px;
+  border: 1px solid #f59e0b;
+  background-color: #fffbeb;
+  color: #92400e;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
+
+  @media (max-width: 640px) {
+    flex-basis: 100%;
+    justify-content: center;
+    border-radius: 6px;
+    padding: 0.38rem 0.55rem;
+    text-align: center;
+  }
 `;
 
 const DateInfo = styled.p`
@@ -208,6 +237,7 @@ interface CacambaListProps {
   onToggleSelect?: (cacamba: ICacamba, checked: boolean) => void;
   onReturnToPending?: (cacamba: ICacamba) => void;
   showDeliveryDateForRetirada?: boolean;
+  statusBadges?: Record<string, string>;
 }
 
 const formatDateTime = (value?: string | null) => {
@@ -236,6 +266,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
   onToggleSelect,
   onReturnToPending,
   showDeliveryDateForRetirada = false,
+  statusBadges,
 }) => {
   const apiUrl = import.meta.env.VITE_API_URL;
   const requestedThumbsRef = React.useRef<Set<string>>(new Set());
@@ -303,6 +334,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
 
         const imageUrl = cacamba.imageUrl ? buildImageUrl(apiUrl, cacamba.imageUrl) : null;
         const thumbKey = cacamba.imageUrl ? `${cacamba._id}:${cacamba.imageUrl}` : '';
+        const statusBadge = statusBadges?.[cacamba._id];
 
         return (
           <CacambaCard key={cacamba._id}>
@@ -316,6 +348,11 @@ const CacambaList: React.FC<CacambaListProps> = ({
                     </TypeBadge>
                   )}
                   {isPaid && <PaymentBadge>Paga</PaymentBadge>}
+                  {statusBadge && (
+                    <StatusBadge data-testid={`cacamba-status-badge-${cacamba._id}`}>
+                      {statusBadge}
+                    </StatusBadge>
+                  )}
                 </HeaderInfo>
 
                 {showDeliveryDateForRetirada && isRetirada && (
@@ -325,7 +362,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
                 )}
 
                 <DateInfo>
-                  {isRetirada ? <strong>Retirada em:</strong> : 'Registrada em:'}{' '}
+                  {isRetirada ? <strong>Retirada em:</strong> : <strong>Entregue em:</strong>}{' '}
                   {cacamba.createdAt
                     ? new Date(cacamba.createdAt).toLocaleString('pt-BR')
                     : 'Data não disponível'}

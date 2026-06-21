@@ -40,6 +40,139 @@ const validateCacambaPriceForType = (type: unknown, value: unknown) => {
   return { ok: true as const, value: undefined };
 };
 
+const normalizeSnapshotValue = (value: unknown) =>
+  String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const normalizeCepValue = (value: unknown) => normalizeSnapshotValue(value).replace(/\D/g, '');
+
+const sameAddressSnapshot = (order: any, payload: Record<string, unknown>) =>
+  normalizeSnapshotValue(order?.address) === normalizeSnapshotValue(payload.address) &&
+  normalizeSnapshotValue(order?.addressNumber) === normalizeSnapshotValue(payload.addressNumber) &&
+  normalizeSnapshotValue(order?.neighborhood) === normalizeSnapshotValue(payload.neighborhood) &&
+  normalizeSnapshotValue(order?.city) === normalizeSnapshotValue(payload.city) &&
+  normalizeCepValue(order?.cep) === normalizeCepValue(payload.cep);
+
+const getPlannedWithdrawalIds = (value: unknown) => {
+  if (value === undefined || value === null) return { ok: true as const, ids: [] as ObjectId[] };
+  if (!Array.isArray(value)) {
+    return {
+      ok: false as const,
+      status: 400,
+      body: { message: 'plannedWithdrawalCacambaIds deve ser uma lista de caçambas.' },
+    };
+  }
+
+  const seen = new Set<string>();
+  const ids: ObjectId[] = [];
+  for (const item of value) {
+    const id = String(item || '').trim();
+    if (!ObjectId.isValid(id)) {
+      return {
+        ok: false as const,
+        status: 400,
+        body: { message: 'plannedWithdrawalCacambaIds contém uma caçamba inválida.' },
+      };
+    }
+    if (seen.has(id)) continue;
+    seen.add(id);
+    ids.push(new ObjectId(id));
+  }
+
+  return { ok: true as const, ids };
+};
+
+const validatePlannedWithdrawals = async (
+  type: unknown,
+  clientId: unknown,
+  payload: Record<string, unknown>,
+) => {
+  const parsed = getPlannedWithdrawalIds(payload.plannedWithdrawalCacambaIds);
+  if (!parsed.ok) return parsed;
+
+  if (parsed.ids.length === 0) return { ok: true as const, ids: [] as ObjectId[] };
+
+  if (type !== 'retirada') {
+    return {
+      ok: false as const,
+      status: 400,
+      body: { message: 'Caçambas planejadas são permitidas apenas para pedidos de retirada.' },
+    };
+  }
+
+  const alreadyPlanned = await OrderModel.findOne({
+    type: 'retirada',
+    status: { $in: ['pendente', 'em_andamento'] },
+    plannedWithdrawalCacambaIds: { $in: parsed.ids },
+  })
+    .select('orderNumber')
+    .lean();
+  if (alreadyPlanned) {
+    const suffix = alreadyPlanned.orderNumber ? ` no pedido #${alreadyPlanned.orderNumber}` : '';
+    return {
+      ok: false as const,
+      status: 409,
+      body: { message: `Uma ou mais caçambas já estão planejadas para retirada${suffix}.` },
+    };
+  }
+
+  const plannedCacambas = await CacambaModel.find({ _id: { $in: parsed.ids } })
+    .populate('orderId', 'clientId clientName orderNumber address addressNumber neighborhood city cep')
+    .lean();
+  if (plannedCacambas.length !== parsed.ids.length) {
+    return {
+      ok: false as const,
+      status: 404,
+      body: { message: 'Uma ou mais caçambas planejadas não foram encontradas.' },
+    };
+  }
+
+  for (const plannedCacamba of plannedCacambas) {
+    if (plannedCacamba.tipo !== 'entrega') {
+      return {
+        ok: false as const,
+        status: 400,
+        body: { message: 'Apenas caçambas entregues podem ser planejadas para retirada.' },
+      };
+    }
+
+    const deliveryOrder = plannedCacamba.orderId as any;
+    if (String(deliveryOrder?.clientId || '') !== String(clientId || '')) {
+      return {
+        ok: false as const,
+        status: 400,
+        body: { message: 'Todas as caçambas planejadas devem pertencer ao cliente do pedido.' },
+      };
+    }
+
+    if (!sameAddressSnapshot(deliveryOrder, payload)) {
+      return {
+        ok: false as const,
+        status: 400,
+        body: { message: 'Todas as caçambas planejadas devem pertencer ao endereço do pedido.' },
+      };
+    }
+
+    const latestMovement = await CacambaModel.findOne({ numero: plannedCacamba.numero })
+      .sort({ createdAt: -1, _id: -1 })
+      .select('_id tipo')
+      .lean();
+    if (!latestMovement || String(latestMovement._id) !== String(plannedCacamba._id)) {
+      return {
+        ok: false as const,
+        status: 400,
+        body: { message: `A caçamba ${plannedCacamba.numero} já não está disponível para retirada.` },
+      };
+    }
+  }
+
+  return { ok: true as const, ids: parsed.ids };
+};
+
 export const createOrder = async (payload: Record<string, unknown>) => {
   const {
     clientId,
@@ -64,6 +197,10 @@ export const createOrder = async (payload: Record<string, unknown>) => {
   if (!isOrderType(type)) return { status: 400, body: { message: 'type deve ser entrega ou retirada' } };
   const priceValidation = validateCacambaPriceForType(type, cacambaPrice);
   if (!priceValidation.ok) return { status: 400, body: priceValidation.body };
+  const plannedWithdrawalValidation = await validatePlannedWithdrawals(type, clientId, payload);
+  if (!plannedWithdrawalValidation.ok) {
+    return { status: plannedWithdrawalValidation.status, body: plannedWithdrawalValidation.body };
+  }
 
   const last = await OrderModel.findOne({ orderNumber: { $ne: null } })
     .sort({ orderNumber: -1 })
@@ -88,6 +225,9 @@ export const createOrder = async (payload: Record<string, unknown>) => {
     orderNumber: nextOrderNumber,
     placa: placa || '',
     ...(type === 'retirada' ? { cacambaPrice: priceValidation.value } : {}),
+    ...(plannedWithdrawalValidation.ids.length
+      ? { plannedWithdrawalCacambaIds: plannedWithdrawalValidation.ids }
+      : {}),
   });
 
   const populated = await OrderModel.findById(order._id)

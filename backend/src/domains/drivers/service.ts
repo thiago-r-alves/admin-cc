@@ -165,7 +165,9 @@ export const getDriverOrderCacambas = async (orderId: string, driverId: string) 
 };
 
 export const getAvailableCacambasForWithdrawal = async (orderId: string, driverId: string) => {
-  const order = await OrderModel.findOne({ _id: orderId, motorista: driverId }).select('type clientId');
+  const order = await OrderModel.findOne({ _id: orderId, motorista: driverId }).select(
+    'type clientId plannedWithdrawalCacambaIds',
+  );
   if (!order) {
     return { status: 404, body: { message: 'Pedido não encontrado ou não pertence a este motorista.' } };
   }
@@ -173,7 +175,7 @@ export const getAvailableCacambasForWithdrawal = async (orderId: string, driverI
     return { status: 400, body: { message: 'A lista de caçambas disponíveis só existe para pedidos de retirada.' } };
   }
 
-  const cacambas = await listAvailableCacambasForClient(order.clientId);
+  const cacambas = await listAvailableCacambasForClient(order.clientId, order.plannedWithdrawalCacambaIds || []);
   return { status: 200, body: { cacambas } };
 };
 

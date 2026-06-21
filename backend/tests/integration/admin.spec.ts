@@ -101,6 +101,178 @@ describe('Admin APIs', () => {
     expect(del404.status).toBe(404);
   });
 
+  it('POST /orders valida caçambas planejadas para retirada', async () => {
+    const app = await loadApp();
+    const { admin, driver } = await ensureUsers();
+    const adminToken = signToken(String(admin._id), 'admin');
+    const client = await ClientModel.create({
+      clientName: 'Cliente Planejado',
+      cnpjCpf: '11.111.111/0001-11',
+      contactName: 'Contato',
+      contactNumber: '123',
+      neighborhood: 'Centro',
+      address: 'Rua 1',
+      addressNumber: '10',
+      city: 'São José dos Campos',
+      cep: '12200-000',
+    });
+    const otherClient = await ClientModel.create({
+      clientName: 'Outro Cliente',
+      contactName: 'Outro',
+      contactNumber: '456',
+      neighborhood: 'Centro',
+      address: 'Rua 1',
+      addressNumber: '10',
+      city: 'São José dos Campos',
+      cep: '12200-000',
+    });
+
+    const createDelivery = async (
+      numero: string,
+      targetClient: any = client,
+      addressOverrides: Record<string, unknown> = {},
+    ) => {
+      const lastOrder = await OrderModel.findOne({ orderNumber: { $ne: null } })
+        .sort({ orderNumber: -1 })
+        .select('orderNumber')
+        .lean();
+      const deliveryOrder = await OrderModel.create({
+        orderNumber: (lastOrder?.orderNumber ?? 0) + 1,
+        clientId: targetClient._id,
+        clientName: targetClient.clientName,
+        cnpjCpf: targetClient.cnpjCpf || '',
+        contactName: targetClient.contactName,
+        contactNumber: targetClient.contactNumber,
+        neighborhood: addressOverrides.neighborhood ?? targetClient.neighborhood,
+        address: addressOverrides.address ?? targetClient.address,
+        addressNumber: addressOverrides.addressNumber ?? targetClient.addressNumber,
+        city: addressOverrides.city ?? targetClient.city,
+        cep: addressOverrides.cep ?? targetClient.cep,
+        type: 'entrega',
+        status: 'concluido',
+        motorista: driver._id,
+      });
+      const cacamba = await CacambaModel.create({
+        numero,
+        tipo: 'entrega',
+        orderId: deliveryOrder._id,
+        local: 'canteiro_obra',
+        horaServicoDigitos: numero,
+        imageUrl: `/files/${new UserModel()._id}`,
+        createdAt: new Date('2026-05-01T10:00:00.000Z'),
+      });
+      await OrderModel.findByIdAndUpdate(deliveryOrder._id, { $push: { cacambas: cacamba._id } });
+      return { deliveryOrder, cacamba };
+    };
+
+    const valid = await createDelivery('101');
+    const validCreate = await request(app)
+      .post('/orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        clientId: String(client._id),
+        clientName: client.clientName,
+        cnpjCpf: client.cnpjCpf,
+        contactName: client.contactName,
+        contactNumber: client.contactNumber,
+        neighborhood: client.neighborhood,
+        address: client.address,
+        addressNumber: client.addressNumber,
+        city: client.city,
+        cep: client.cep,
+        type: 'retirada',
+        motorista: String(driver._id),
+        placa: 'ABC1D23',
+        cacambaPrice: 180,
+        plannedWithdrawalCacambaIds: [String(valid.cacamba._id)],
+      });
+    expect(validCreate.status).toBe(201);
+    expect(validCreate.body.plannedWithdrawalCacambaIds).toEqual([String(valid.cacamba._id)]);
+
+    const planOnDelivery = await request(app)
+      .post('/orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        clientId: String(client._id),
+        clientName: client.clientName,
+        type: 'entrega',
+        plannedWithdrawalCacambaIds: [String(valid.cacamba._id)],
+      });
+    expect(planOnDelivery.status).toBe(400);
+
+    const alreadyWithdrawn = await createDelivery('102');
+    await CacambaModel.create({
+      numero: '102',
+      tipo: 'retirada',
+      orderId: validCreate.body._id,
+      local: 'via_publica',
+      horaServicoDigitos: '102',
+      imageUrl: `/files/${new UserModel()._id}`,
+      createdAt: new Date('2026-05-02T10:00:00.000Z'),
+    });
+    const withdrawnPlan = await request(app)
+      .post('/orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        clientId: String(client._id),
+        clientName: client.clientName,
+        contactName: client.contactName,
+        contactNumber: client.contactNumber,
+        neighborhood: client.neighborhood,
+        address: client.address,
+        addressNumber: client.addressNumber,
+        city: client.city,
+        cep: client.cep,
+        type: 'retirada',
+        motorista: String(driver._id),
+        cacambaPrice: 180,
+        plannedWithdrawalCacambaIds: [String(alreadyWithdrawn.cacamba._id)],
+      });
+    expect(withdrawnPlan.status).toBe(400);
+
+    const otherClientDelivery = await createDelivery('103', otherClient);
+    const otherClientPlan = await request(app)
+      .post('/orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        clientId: String(client._id),
+        clientName: client.clientName,
+        contactName: client.contactName,
+        contactNumber: client.contactNumber,
+        neighborhood: client.neighborhood,
+        address: client.address,
+        addressNumber: client.addressNumber,
+        city: client.city,
+        cep: client.cep,
+        type: 'retirada',
+        motorista: String(driver._id),
+        cacambaPrice: 180,
+        plannedWithdrawalCacambaIds: [String(otherClientDelivery.cacamba._id)],
+      });
+    expect(otherClientPlan.status).toBe(400);
+
+    const otherAddressDelivery = await createDelivery('104', client, { address: 'Rua 2', addressNumber: '20' });
+    const otherAddressPlan = await request(app)
+      .post('/orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        clientId: String(client._id),
+        clientName: client.clientName,
+        contactName: client.contactName,
+        contactNumber: client.contactNumber,
+        neighborhood: client.neighborhood,
+        address: client.address,
+        addressNumber: client.addressNumber,
+        city: client.city,
+        cep: client.cep,
+        type: 'retirada',
+        motorista: String(driver._id),
+        cacambaPrice: 180,
+        plannedWithdrawalCacambaIds: [String(otherAddressDelivery.cacamba._id)],
+      });
+    expect(otherAddressPlan.status).toBe(400);
+  });
+
   it('GET /orders inclui a data da entrega anterior em caçambas de retirada', async () => {
     const app = await loadApp();
     const { admin, driver } = await ensureUsers();

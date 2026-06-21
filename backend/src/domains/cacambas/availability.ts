@@ -70,7 +70,11 @@ export const validateCacambaAvailability = async (
   return { valid: true, numero: normalizedNumero };
 };
 
-export const listAvailableCacambasForClient = async (clientId: Types.ObjectId) => {
+export const listAvailableCacambasForClient = async (
+  clientId: Types.ObjectId,
+  plannedCacambaIds: Types.ObjectId[] = [],
+) => {
+  const plannedSet = new Set(plannedCacambaIds.map((id) => String(id)));
   const movements = await CacambaModel.find()
     .sort({ createdAt: -1, _id: -1 })
     .populate('orderId', 'clientId clientName orderNumber')
@@ -88,7 +92,11 @@ export const listAvailableCacambasForClient = async (clientId: Types.ObjectId) =
   return Array.from(latestByNumero.values())
     .filter((movement) => {
       const order = movement.orderId as any;
-      return movement.tipo === 'entrega' && String(order?.clientId || '') === String(clientId);
+      return (
+        movement.tipo === 'entrega' &&
+        String(order?.clientId || '') === String(clientId) &&
+        (plannedSet.size === 0 || plannedSet.has(String(movement._id)))
+      );
     })
     .map((movement) => {
       const order = movement.orderId as any;

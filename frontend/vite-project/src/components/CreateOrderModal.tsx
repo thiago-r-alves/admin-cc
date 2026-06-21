@@ -113,6 +113,21 @@ const IntroText = styled.p`
   font-size: 0.88rem;
 `;
 
+const PresetNotice = styled.div`
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #fffafa;
+  color: #374151;
+  font-size: 0.88rem;
+  line-height: 1.45;
+
+  strong {
+    color: #991b1b;
+  }
+`;
+
 const FormGrid = styled.div`
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -413,10 +428,27 @@ const ErrorMessage = styled.p`
   font-weight: 700;
 `;
 
+export type CreateOrderPreset = {
+  mode: 'withdrawal';
+  clientId: string;
+  clientName: string;
+  cnpjCpf?: string;
+  contactName?: string;
+  contactNumber?: string;
+  neighborhood?: string;
+  address?: string;
+  addressNumber?: string;
+  city?: string;
+  cep?: string;
+  plannedWithdrawalCacambaIds: string[];
+  cacambaNumbers: string[];
+};
+
 interface CreateOrderModalProps {
   onClose: () => void;
   onOrderCreated: () => void;
   drivers: IDriver[];
+  initialPreset?: CreateOrderPreset | null;
 }
 
 type ClientOption = { value: string; label: string; clientName: string };
@@ -453,6 +485,22 @@ const emptyForm: CreateOrderForm = {
   placa: '',
   cacambaPrice: '',
 };
+
+const formFromPreset = (preset: CreateOrderPreset): CreateOrderForm => ({
+  clientName: preset.clientName || '',
+  cnpjCpf: preset.cnpjCpf ?? '',
+  contactName: preset.contactName || '',
+  contactNumber: preset.contactNumber || '',
+  neighborhood: preset.neighborhood || '',
+  address: preset.address || '',
+  addressNumber: preset.addressNumber || '',
+  city: preset.city ?? '',
+  cep: preset.cep ?? '',
+  type: 'retirada',
+  motorista: '',
+  placa: '',
+  cacambaPrice: '',
+});
 
 const serviceTypeOptions: Array<{
   value: OrderType;
@@ -493,11 +541,14 @@ const SearchIcon = () => (
   </svg>
 );
 
-const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCreated, drivers }) => {
+const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCreated, drivers, initialPreset }) => {
+  const isPresetWithdrawal = initialPreset?.mode === 'withdrawal';
   const [SelectComponent, setSelectComponent] = useState<SelectComponentType | null>(null);
   const [clients, setClients] = useState<IClient[]>([]);
-  const [selectedClientId, setSelectedClientId] = useState<string>('');
-  const [form, setForm] = useState(emptyForm);
+  const [selectedClientId, setSelectedClientId] = useState<string>(initialPreset?.clientId || '');
+  const [form, setForm] = useState<CreateOrderForm>(() =>
+    initialPreset ? formFromPreset(initialPreset) : emptyForm,
+  );
   const [error, setError] = useState('');
   const [isFetchingCep, setIsFetchingCep] = useState(false);
   const fallbackClientSelectRef = useRef<HTMLSelectElement>(null);
@@ -518,6 +569,12 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
   useEffect(() => {
     if (!SelectComponent) fallbackClientSelectRef.current?.focus();
   }, [SelectComponent]);
+
+  useEffect(() => {
+    if (!initialPreset) return;
+    setSelectedClientId(initialPreset.clientId);
+    setForm(formFromPreset(initialPreset));
+  }, [initialPreset]);
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -563,6 +620,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
   const mapOpenUrl = `https://www.google.com/maps/search/?api=1&query=${encodedMapAddress}`;
 
   const setSelectedClientById = (clientId: string) => {
+    if (isPresetWithdrawal) return;
     setSelectedClientId(clientId);
     setError('');
 
@@ -643,6 +701,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
         placa: form.placa,
         motorista: form.motorista || undefined,
         ...(orderType === 'retirada' ? { cacambaPrice: parsedCacambaPrice } : {}),
+        ...(isPresetWithdrawal ? { plannedWithdrawalCacambaIds: initialPreset?.plannedWithdrawalCacambaIds || [] } : {}),
       }),
     });
 
@@ -691,9 +750,10 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
   };
 
   useEffect(() => {
+    if (isPresetWithdrawal) return;
     const digits = onlyDigits(form.cep || '');
     if (digits.length === 8) fetchCep(digits);
-  }, [form.cep, fetchCep]);
+  }, [form.cep, fetchCep, isPresetWithdrawal]);
 
   const selectStyles = useMemo<StylesConfig<ClientOption, false>>(
     () => ({
@@ -748,13 +808,16 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
     </Field>
   );
 
+  const plannedCacambaText =
+    initialPreset?.cacambaNumbers.map((numero) => `#${numero}`).join(', ') || '';
+
   return (
     <ModalOverlay onClick={onClose}>
       <ModalContent onClick={(e) => e.stopPropagation()}>
         <ModalHeader>
           <TitleWrap>
             <TitleAccent />
-            <Title>Novo Pedido</Title>
+            <Title>{isPresetWithdrawal ? 'Novo Pedido de Retirada' : 'Novo Pedido'}</Title>
           </TitleWrap>
           <CloseButton type="button" aria-label="Fechar modal" onClick={onClose}>
             ×
@@ -763,7 +826,14 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
 
         <Form onSubmit={handleSubmit}>
           <ModalBody>
-            {!selectedClientId && (
+            {isPresetWithdrawal && (
+              <PresetNotice data-testid="withdrawal-preset-notice">
+                Pedido aberto a partir de caçamba(s) vencida(s): <strong>{plannedCacambaText}</strong>.
+                Confira os dados da entrega e informe valor, motorista e placa.
+              </PresetNotice>
+            )}
+
+            {!selectedClientId && !isPresetWithdrawal && (
               <>
                 <IntroText>Selecione um cliente para carregar os dados cadastrados e liberar os campos do pedido.</IntroText>
                 <FormGrid>
@@ -786,7 +856,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                     Dados do Pedido
                   </SectionTitle>
                   <FieldGrid>
-                    {renderClientPicker()}
+                    {!isPresetWithdrawal && renderClientPicker()}
 
                     <Field $span={2}>
                       <Label>Nome do Cliente</Label>
@@ -794,6 +864,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                         type="text"
                         value={form.clientName}
                         onChange={e => setForm(f => ({ ...f, clientName: e.target.value }))}
+                        disabled={isPresetWithdrawal}
                         required
                       />
                     </Field>
@@ -805,6 +876,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                         value={form.cnpjCpf}
                         onChange={e => setForm(f => ({ ...f, cnpjCpf: e.target.value }))}
                         placeholder="00.000.000/0000-00"
+                        disabled={isPresetWithdrawal}
                       />
                     </Field>
 
@@ -814,6 +886,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                         type="text"
                         value={form.contactNumber}
                         onChange={e => setForm(f => ({ ...f, contactNumber: e.target.value }))}
+                        disabled={isPresetWithdrawal}
                       />
                     </Field>
 
@@ -823,35 +896,38 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                         type="text"
                         value={form.contactName}
                         onChange={e => setForm(f => ({ ...f, contactName: e.target.value }))}
+                        disabled={isPresetWithdrawal}
                       />
                     </Field>
 
-                    <Field $span={2}>
-                      <Label as="div" id="order-type-label">Tipo de Serviço</Label>
-                      <ServiceTypeGrid role="radiogroup" aria-labelledby="order-type-label">
-                        {serviceTypeOptions.map(option => {
-                          const selected = form.type === option.value;
-                          return (
-                            <ServiceTypeOption
-                              key={option.value}
-                              type="button"
-                              role="radio"
-                              aria-checked={selected}
-                              data-testid={`order-type-${option.value}`}
-                              $tone={option.value}
-                              $selected={selected}
-                              onClick={() => selectOrderType(option.value)}
-                            >
-                              <ServiceTypeHeader>
-                                <ServiceTypeName $tone={option.value}>{option.title}</ServiceTypeName>
-                                <ServiceTypeDot $tone={option.value} />
-                              </ServiceTypeHeader>
-                              <ServiceTypeDescription>{option.description}</ServiceTypeDescription>
-                            </ServiceTypeOption>
-                          );
-                        })}
-                      </ServiceTypeGrid>
-                    </Field>
+                    {!isPresetWithdrawal && (
+                      <Field $span={2}>
+                        <Label as="div" id="order-type-label">Tipo de Serviço</Label>
+                        <ServiceTypeGrid role="radiogroup" aria-labelledby="order-type-label">
+                          {serviceTypeOptions.map(option => {
+                            const selected = form.type === option.value;
+                            return (
+                              <ServiceTypeOption
+                                key={option.value}
+                                type="button"
+                                role="radio"
+                                aria-checked={selected}
+                                data-testid={`order-type-${option.value}`}
+                                $tone={option.value}
+                                $selected={selected}
+                                onClick={() => selectOrderType(option.value)}
+                              >
+                                <ServiceTypeHeader>
+                                  <ServiceTypeName $tone={option.value}>{option.title}</ServiceTypeName>
+                                  <ServiceTypeDot $tone={option.value} />
+                                </ServiceTypeHeader>
+                                <ServiceTypeDescription>{option.description}</ServiceTypeDescription>
+                              </ServiceTypeOption>
+                            );
+                          })}
+                        </ServiceTypeGrid>
+                      </Field>
+                    )}
 
                     {form.type === 'retirada' && (
                       <Field>
@@ -897,6 +973,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                         placeholder="00000-000"
                         maxLength={9}
                         inputMode="numeric"
+                        disabled={isPresetWithdrawal}
                       />
                       {isFetchingCep && <FetchingHint>Buscando endereço...</FetchingHint>}
                     </Field>
@@ -907,6 +984,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                         type="text"
                         value={form.address}
                         onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+                        disabled={isPresetWithdrawal}
                       />
                     </Field>
 
@@ -916,6 +994,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                         type="text"
                         value={form.addressNumber}
                         onChange={e => setForm(f => ({ ...f, addressNumber: e.target.value }))}
+                        disabled={isPresetWithdrawal}
                       />
                     </Field>
 
@@ -925,6 +1004,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                         type="text"
                         value={form.neighborhood}
                         onChange={e => setForm(f => ({ ...f, neighborhood: e.target.value }))}
+                        disabled={isPresetWithdrawal}
                       />
                     </Field>
 
@@ -933,6 +1013,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                       <Select
                         value={form.city}
                         onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
+                        disabled={isPresetWithdrawal}
                         required
                       >
                         <option value="">Selecione...</option>

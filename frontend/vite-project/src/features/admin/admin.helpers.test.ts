@@ -7,6 +7,9 @@ import {
   getCompletedOrders,
   getPendingCountByDriver,
   getPendingOrders,
+  getPendingWithdrawalGroups,
+  getSaoJoseBusinessDaysAfter,
+  getSaoJoseDueDateAfterBusinessDays,
   sortAcompanhamentoCacambas,
 } from './admin.helpers';
 
@@ -210,5 +213,116 @@ describe('admin.helpers', () => {
         ],
       ),
     ).toEqual({ 'drv-1': 2, 'drv-2': 0 });
+  });
+
+  it.each([
+    ['fim de semana', '2026-05-08T09:00:00-03:00', '2026-05-15T12:00:00-03:00', '2026-05-15'],
+    ['19 de marco', '2026-03-18T09:00:00-03:00', '2026-03-26T12:00:00-03:00', '2026-03-26'],
+    ['Corpus Christi', '2026-06-03T09:00:00-03:00', '2026-06-11T12:00:00-03:00', '2026-06-11'],
+    ['9 de julho', '2026-07-08T09:00:00-03:00', '2026-07-16T12:00:00-03:00', '2026-07-16'],
+    ['27 de julho', '2026-07-24T09:00:00-03:00', '2026-08-03T12:00:00-03:00', '2026-08-03'],
+  ])('conta 5 dias uteis de Sao Jose dos Campos ignorando %s', (_label, deliveredAt, today, dueDate) => {
+    expect(getSaoJoseBusinessDaysAfter(deliveredAt, new Date(today))).toBe(5);
+    expect(getSaoJoseDueDateAfterBusinessDays(deliveredAt)).toBe(dueDate);
+  });
+
+  it('mantem cacamba planejada na retirada pendente e remove apenas quando a retirada foi registrada', () => {
+    const orders = [
+      buildOrder({
+        _id: 'delivery-a',
+        clientId: 'cli-1',
+        clientName: 'Cliente Retirada',
+        address: 'Rua A',
+        addressNumber: '10',
+        neighborhood: 'Centro',
+        city: 'São José dos Campos',
+        cep: '12200-000',
+        cacambas: [
+          {
+            _id: 'cac-due-1',
+            numero: '101',
+            tipo: 'entrega',
+            orderId: 'delivery-a',
+            createdAt: '2026-05-01T09:00:00-03:00',
+          },
+          {
+            _id: 'cac-planned',
+            numero: '102',
+            tipo: 'entrega',
+            orderId: 'delivery-a',
+            createdAt: '2026-05-01T09:00:00-03:00',
+          },
+          {
+            _id: 'cac-withdrawn',
+            numero: '104',
+            tipo: 'entrega',
+            orderId: 'delivery-a',
+            createdAt: '2026-05-01T09:00:00-03:00',
+          },
+        ],
+      }),
+      buildOrder({
+        _id: 'delivery-b',
+        clientId: 'cli-1',
+        clientName: 'Cliente Retirada',
+        address: 'Rua B',
+        addressNumber: '20',
+        neighborhood: 'Centro',
+        city: 'São José dos Campos',
+        cep: '12200-000',
+        cacambas: [
+          {
+            _id: 'cac-due-2',
+            numero: '103',
+            tipo: 'entrega',
+            orderId: 'delivery-b',
+            createdAt: '2026-05-01T09:00:00-03:00',
+          },
+        ],
+      }),
+      buildOrder({
+        _id: 'planned-withdrawal',
+        orderNumber: 77,
+        type: 'retirada',
+        status: 'pendente',
+        plannedWithdrawalCacambaIds: ['cac-planned'],
+        cacambas: [],
+      }),
+      buildOrder({
+        _id: 'completed-withdrawal',
+        type: 'retirada',
+        status: 'concluido',
+        cacambas: [
+          {
+            _id: 'cac-withdrawn-action',
+            numero: '104',
+            tipo: 'retirada',
+            orderId: 'completed-withdrawal',
+            createdAt: '2026-05-10T09:00:00-03:00',
+          },
+        ],
+      }),
+    ];
+
+    const groups = getPendingWithdrawalGroups(orders, new Date('2026-05-12T12:00:00-03:00'));
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].totalCacambas).toBe(3);
+    expect(groups[0].groups).toHaveLength(2);
+    const items = groups[0].groups.flatMap((group) => group.items);
+    expect(items.map((item) => item.cacamba._id).sort()).toEqual([
+      'cac-due-1',
+      'cac-due-2',
+      'cac-planned',
+    ]);
+    expect(items.find((item) => item.cacamba._id === 'cac-planned')?.plannedWithdrawal).toMatchObject({
+      orderId: 'planned-withdrawal',
+      orderNumber: 77,
+      status: 'pendente',
+    });
+    expect(items.some((item) => item.cacamba._id === 'cac-withdrawn')).toBe(false);
+    expect(groups[0].groups.find((group) => group.address.includes('Rua A'))?.availableCacambaIds).toEqual([
+      'cac-due-1',
+    ]);
   });
 });

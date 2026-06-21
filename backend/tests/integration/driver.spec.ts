@@ -323,6 +323,31 @@ describe('Driver APIs', () => {
     ]);
   });
 
+  it('GET /driver/orders/:id/available-cacambas respeita caçambas planejadas no pedido', async () => {
+    const app = await loadApp();
+    const { driver } = await ensureUsers();
+    const token = signToken(String(driver._id), 'motorista');
+    const clienteA = await createClient('Cliente A');
+    const retirada = await createOrderForDriver(String(driver._id), 'retirada', clienteA);
+    const entregaA = await createOrderForDriver(String(driver._id), 'entrega', clienteA);
+
+    const planned = await createCacambaMovement(entregaA, '201', 'entrega', new Date('2026-01-01T10:00:00.000Z'));
+    await createCacambaMovement(entregaA, '202', 'entrega', new Date('2026-01-01T10:01:00.000Z'));
+    await OrderModel.findByIdAndUpdate(retirada._id, { plannedWithdrawalCacambaIds: [planned._id] });
+
+    const res = await request(app)
+      .get(`/driver/orders/${retirada._id}/available-cacambas`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.cacambas).toEqual([
+      expect.objectContaining({
+        numero: '201',
+        deliveryOrderNumber: entregaA.orderNumber,
+      }),
+    ]);
+  });
+
   it('GET /driver/orders/:id/cacambas e PATCH /driver/orders/:id/complete', async () => {
     const app = await loadApp();
     const { driver } = await ensureUsers();

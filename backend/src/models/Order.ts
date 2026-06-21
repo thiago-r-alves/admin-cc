@@ -24,6 +24,7 @@ export interface IOrder extends Document {
   cep?: string; // ADICIONADO
   placa?: string; // ADICIONADO
   cacambaPrice?: number;
+  plannedWithdrawalCacambaIds?: mongoose.Types.ObjectId[];
 }
 
 const OrderSchema: Schema = new Schema<IOrder>({
@@ -62,6 +63,7 @@ const OrderSchema: Schema = new Schema<IOrder>({
   },
   motorista: { type: Schema.Types.ObjectId, ref: 'User' },
   cacambas: [{ type: Schema.Types.ObjectId, ref: 'Cacamba' }],
+  plannedWithdrawalCacambaIds: [{ type: Schema.Types.ObjectId, ref: 'Cacamba' }],
   imageUrls: [String],
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },

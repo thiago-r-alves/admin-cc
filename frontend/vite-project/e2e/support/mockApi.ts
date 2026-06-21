@@ -52,6 +52,7 @@ type Order = {
   createdAt: string;
   updatedAt: string;
   cacambaPrice?: number;
+  plannedWithdrawalCacambaIds?: string[];
 };
 
 type BillingBucket = {
@@ -464,6 +465,9 @@ export const setupMockApi = async (page: Page) => {
         createdAt: nowIso,
         updatedAt: nowIso,
         cacambaPrice: typeof body.cacambaPrice === 'number' ? body.cacambaPrice : undefined,
+        plannedWithdrawalCacambaIds: Array.isArray(body.plannedWithdrawalCacambaIds)
+          ? body.plannedWithdrawalCacambaIds.map(String)
+          : undefined,
       };
       orders.unshift(created);
       return json(route, created, 201);
