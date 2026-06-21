@@ -704,8 +704,11 @@ const WithdrawalAddressInfo = styled.div`
   width: 100%;
 `;
 
-const WithdrawalInfoGrid = styled(InfoGrid)`
+const WithdrawalInfoGrid = styled.div`
+  display: grid;
   grid-template-columns: minmax(320px, 2fr) minmax(180px, 1fr) minmax(180px, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
   width: 100%;
 
   @media (max-width: 900px) {
