@@ -114,12 +114,16 @@ test.describe('Admin retiradas pendentes', () => {
     await expect(page.getByText('1 endereço(s)')).toHaveCount(0);
     await expect(page.getByText('#901')).toBeVisible();
     await expect(page.getByText('#902')).toBeVisible();
-    const plannedWithdrawalBadge = page.getByTestId('cacamba-status-badge-cac-due-902');
-    await expect(plannedWithdrawalBadge).toContainText(
+    const dueBadge = page.getByTestId('cacamba-status-badge-cac-due-901-0');
+    await expect(dueBadge).toContainText('Venceu em 08/05/2026 • vencida há 2 dias úteis');
+    await expect(dueBadge).toHaveCSS('color', 'rgb(153, 27, 27)');
+    await expect(page.getByTestId('cacamba-status-badge-cac-due-902-1')).toHaveCount(0);
+    const plannedWithdrawalOrderBadge = page.getByTestId('withdrawal-order-status-ord-planned-withdrawal');
+    await expect(plannedWithdrawalOrderBadge).toContainText(
       'Pedido #4600 criado - aguardando motorista finalizar retirada',
     );
     if (isMobile) {
-      const badgeBox = await plannedWithdrawalBadge.boundingBox();
+      const badgeBox = await plannedWithdrawalOrderBadge.boundingBox();
       const viewport = page.viewportSize();
 
       expect(badgeBox).not.toBeNull();

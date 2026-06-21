@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled, { createGlobalStyle } from 'styled-components';
 import type { ICacamba, IDriver, IOrder, OrderType } from '../interfaces';
-import CacambaList from '../components/CacambaList';
+import CacambaList, { type CacambaStatusBadge } from '../components/CacambaList';
 import CacambaMetaModal from '../components/CacambaMetaModal';
 import ActionConfirmModal from '../components/ActionConfirmModal';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
@@ -716,6 +716,36 @@ const WithdrawalInfoGrid = styled.div`
   }
 `;
 
+const WithdrawalOrderStatusRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+`;
+
+const WithdrawalOrderStatusBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0.38rem 0.65rem;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+
+  @media (max-width: 640px) {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+`;
+
 const EmptyState = styled.div`
   border: 1px dashed #fecaca;
   border-radius: 8px;
@@ -1332,6 +1362,19 @@ const typeLabels: Record<IOrder['type'], string> = {
   retirada: 'Retirada',
 };
 
+const formatWithdrawalDueDate = (dueDate: string) => {
+  if (!dueDate) return '-';
+  const [year, month, day] = dueDate.split('-');
+  return year && month && day ? `${day}/${month}/${year}` : dueDate;
+};
+
+const formatOverdueBusinessDays = (businessDaysOnSite: number) => {
+  const overdueDays = Math.max(0, businessDaysOnSite - 5);
+  if (overdueDays === 0) return 'venceu hoje';
+  if (overdueDays === 1) return 'vencida há 1 dia útil';
+  return `vencida há ${overdueDays} dias úteis`;
+};
+
 const SHOW_ORDER_DOWNLOAD_BUTTON = false;
 
 // ==========================================================
@@ -1695,12 +1738,14 @@ const AdminPage: React.FC = () => {
   const renderCompletedCacambas = (
     order: IOrder,
     cacambas: ICacamba[],
-    statusBadges?: Record<string, string>,
+    statusBadges?: Record<string, CacambaStatusBadge | CacambaStatusBadge[]>,
+    options?: { showTypeBadge?: boolean },
   ) => (
     <CacambaList
       cacambas={cacambas}
       onImageClick={setModalImage}
       showTitle={false}
+      showTypeBadge={options?.showTypeBadge}
       onEdit={(cacamba) => setEditingCacamba({ cacamba, orderType: order.type })}
       editLabel="Editar caçamba"
       adminMetaActions={order.type === 'retirada'}
@@ -1988,15 +2033,32 @@ const AdminPage: React.FC = () => {
                             addressGroup.order.contactName,
                             addressGroup.order.contactNumber ? `(${addressGroup.order.contactNumber})` : '',
                           ].filter(Boolean).join(' ');
+                          const plannedWithdrawalOrders = [
+                            ...new Map(
+                              addressGroup.items
+                                .filter((item) => item.plannedWithdrawal)
+                                .map((item) => [
+                                  item.plannedWithdrawal!.orderId,
+                                  {
+                                    id: item.plannedWithdrawal!.orderId,
+                                    label: item.plannedWithdrawal!.orderNumber
+                                      ? `Pedido #${item.plannedWithdrawal!.orderNumber} criado - aguardando motorista finalizar retirada`
+                                      : 'Pedido criado - aguardando motorista finalizar retirada',
+                                  },
+                                ]),
+                            ).values(),
+                          ];
                           const withdrawalStatusBadges = Object.fromEntries(
-                            addressGroup.items
-                              .filter((item) => item.plannedWithdrawal)
-                              .map((item) => [
-                                item.cacamba._id,
-                                item.plannedWithdrawal?.orderNumber
-                                  ? `Pedido #${item.plannedWithdrawal.orderNumber} criado - aguardando motorista finalizar retirada`
-                                  : 'Pedido criado - aguardando motorista finalizar retirada',
-                              ]),
+                            addressGroup.items.map((item) => {
+                              const badges: CacambaStatusBadge[] = [
+                                {
+                                  tone: 'danger',
+                                  label: `Venceu em ${formatWithdrawalDueDate(item.dueDate)} • ${formatOverdueBusinessDays(item.businessDaysOnSite)}`,
+                                },
+                              ];
+
+                              return [item.cacamba._id, badges];
+                            }),
                           );
 
                           return (
@@ -2017,6 +2079,18 @@ const AdminPage: React.FC = () => {
                                       <InfoValue>{clientGroup.cnpjCpf || '-'}</InfoValue>
                                     </InfoTile>
                                   </WithdrawalInfoGrid>
+                                  {plannedWithdrawalOrders.length > 0 && (
+                                    <WithdrawalOrderStatusRow>
+                                      {plannedWithdrawalOrders.map((orderStatus) => (
+                                        <WithdrawalOrderStatusBadge
+                                          key={orderStatus.id}
+                                          data-testid={`withdrawal-order-status-${orderStatus.id}`}
+                                        >
+                                          {orderStatus.label}
+                                        </WithdrawalOrderStatusBadge>
+                                      ))}
+                                    </WithdrawalOrderStatusRow>
+                                  )}
                                 </WithdrawalAddressInfo>
                               </WithdrawalAddressHeader>
 
@@ -2025,6 +2099,7 @@ const AdminPage: React.FC = () => {
                                   addressGroup.order,
                                   addressGroup.items.map((item) => item.cacamba),
                                   withdrawalStatusBadges,
+                                  { showTypeBadge: false },
                                 )}
                               </CacambaSection>
                             </WithdrawalAddressGroupBlock>

@@ -98,7 +98,20 @@ const PaymentBadge = styled.span`
   letter-spacing: 0.04em;
 `;
 
-const StatusBadge = styled.span`
+const statusBadgeToneStyles = {
+  warning: {
+    border: '#f59e0b',
+    background: '#fffbeb',
+    color: '#92400e',
+  },
+  danger: {
+    border: '#ef4444',
+    background: '#fef2f2',
+    color: '#991b1b',
+  },
+};
+
+const StatusBadge = styled.span<{ $tone: CacambaStatusBadgeTone }>`
   display: inline-flex;
   align-items: center;
   max-width: 100%;
@@ -106,9 +119,9 @@ const StatusBadge = styled.span`
   padding: 0.15rem 0.45rem;
   font-size: 0.66rem;
   border-radius: 9999px;
-  border: 1px solid #f59e0b;
-  background-color: #fffbeb;
-  color: #92400e;
+  border: 1px solid ${({ $tone }) => statusBadgeToneStyles[$tone].border};
+  background-color: ${({ $tone }) => statusBadgeToneStyles[$tone].background};
+  color: ${({ $tone }) => statusBadgeToneStyles[$tone].color};
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -124,6 +137,15 @@ const StatusBadge = styled.span`
     text-align: center;
   }
 `;
+
+export type CacambaStatusBadgeTone = 'warning' | 'danger';
+
+export type CacambaStatusBadge =
+  | string
+  | {
+      label: string;
+      tone?: CacambaStatusBadgeTone;
+    };
 
 const DateInfo = styled.p`
   font-size: 0.82rem;
@@ -237,7 +259,7 @@ interface CacambaListProps {
   onToggleSelect?: (cacamba: ICacamba, checked: boolean) => void;
   onReturnToPending?: (cacamba: ICacamba) => void;
   showDeliveryDateForRetirada?: boolean;
-  statusBadges?: Record<string, string>;
+  statusBadges?: Record<string, CacambaStatusBadge | CacambaStatusBadge[]>;
 }
 
 const formatDateTime = (value?: string | null) => {
@@ -248,6 +270,16 @@ const formatDateTime = (value?: string | null) => {
 
 const buildImageUrl = (apiUrl: string, imageUrl: string) =>
   imageUrl.startsWith('http') ? imageUrl : `${apiUrl}${imageUrl}`;
+
+const normalizeStatusBadges = (badges?: CacambaStatusBadge | CacambaStatusBadge[]) => {
+  if (!badges) return [];
+  const list = Array.isArray(badges) ? badges : [badges];
+  return list.map((badge) =>
+    typeof badge === 'string'
+      ? { label: badge, tone: 'warning' as const }
+      : { label: badge.label, tone: badge.tone ?? 'warning' },
+  );
+};
 
 const CacambaList: React.FC<CacambaListProps> = ({
   cacambas,
@@ -334,7 +366,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
 
         const imageUrl = cacamba.imageUrl ? buildImageUrl(apiUrl, cacamba.imageUrl) : null;
         const thumbKey = cacamba.imageUrl ? `${cacamba._id}:${cacamba.imageUrl}` : '';
-        const statusBadge = statusBadges?.[cacamba._id];
+        const currentStatusBadges = normalizeStatusBadges(statusBadges?.[cacamba._id]);
 
         return (
           <CacambaCard key={cacamba._id}>
@@ -348,11 +380,15 @@ const CacambaList: React.FC<CacambaListProps> = ({
                     </TypeBadge>
                   )}
                   {isPaid && <PaymentBadge>Paga</PaymentBadge>}
-                  {statusBadge && (
-                    <StatusBadge data-testid={`cacamba-status-badge-${cacamba._id}`}>
-                      {statusBadge}
+                  {currentStatusBadges.map((badge, index) => (
+                    <StatusBadge
+                      key={`${badge.tone}-${badge.label}`}
+                      $tone={badge.tone}
+                      data-testid={`cacamba-status-badge-${cacamba._id}-${index}`}
+                    >
+                      {badge.label}
                     </StatusBadge>
-                  )}
+                  ))}
                 </HeaderInfo>
 
                 {showDeliveryDateForRetirada && isRetirada && (
