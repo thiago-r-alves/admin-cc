@@ -25,6 +25,7 @@ export type AcompanhamentoItem = {
 };
 
 export type AcompanhamentoSortMode = 'default' | 'clientName';
+export type PendingWithdrawalSortMode = 'overdueDesc' | 'overdueAsc' | 'clientName';
 
 export type WithdrawalDueItem = AcompanhamentoItem & {
   businessDaysOnSite: number;
@@ -55,6 +56,21 @@ export type WithdrawalClientGroup = {
   groups: WithdrawalAddressGroup[];
   totalCacambas: number;
 };
+
+const comparePtBr = (a: string, b: string) =>
+  a.localeCompare(b, 'pt-BR', { numeric: true, sensitivity: 'base' });
+
+const compareWithdrawalClientGroupsByName = (
+  a: WithdrawalClientGroup,
+  b: WithdrawalClientGroup,
+) => {
+  const nameComparison = comparePtBr(a.clientName, b.clientName);
+  if (nameComparison !== 0) return nameComparison;
+  return comparePtBr(a.key, b.key);
+};
+
+const getWithdrawalClientMaxBusinessDays = (group: WithdrawalClientGroup) =>
+  Math.max(0, ...group.groups.map((addressGroup) => addressGroup.maxBusinessDaysOnSite));
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -505,6 +521,43 @@ export const getPendingWithdrawalGroups = (orders: IOrder[], today: Date = new D
       if (nameComparison !== 0) return nameComparison;
       return a.key.localeCompare(b.key, 'pt-BR', { numeric: true, sensitivity: 'base' });
     });
+};
+
+export const sortPendingWithdrawalGroups = (
+  groups: WithdrawalClientGroup[],
+  mode: PendingWithdrawalSortMode,
+) => {
+  const groupsWithSortedAddresses = groups.map((clientGroup) => {
+    const addressGroups = [...clientGroup.groups];
+
+    if (mode === 'overdueDesc' || mode === 'overdueAsc') {
+      addressGroups.sort((a, b) => {
+        const overdueComparison =
+          mode === 'overdueDesc'
+            ? b.maxBusinessDaysOnSite - a.maxBusinessDaysOnSite
+            : a.maxBusinessDaysOnSite - b.maxBusinessDaysOnSite;
+        if (overdueComparison !== 0) return overdueComparison;
+        return comparePtBr(a.key, b.key);
+      });
+    }
+
+    return {
+      ...clientGroup,
+      groups: addressGroups,
+    };
+  });
+
+  return groupsWithSortedAddresses.sort((a, b) => {
+    if (mode === 'clientName') return compareWithdrawalClientGroupsByName(a, b);
+
+    const overdueComparison =
+      mode === 'overdueDesc'
+        ? getWithdrawalClientMaxBusinessDays(b) - getWithdrawalClientMaxBusinessDays(a)
+        : getWithdrawalClientMaxBusinessDays(a) - getWithdrawalClientMaxBusinessDays(b);
+    if (overdueComparison !== 0) return overdueComparison;
+
+    return compareWithdrawalClientGroupsByName(a, b);
+  });
 };
 
 export const getDriverOrders = (orders: IOrder[], selectedDriverId: string) =>

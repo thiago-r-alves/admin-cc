@@ -11,6 +11,7 @@ import {
   getSaoJoseBusinessDaysAfter,
   getSaoJoseDueDateAfterBusinessDays,
   sortAcompanhamentoCacambas,
+  sortPendingWithdrawalGroups,
 } from './admin.helpers';
 
 const buildOrder = (overrides: Partial<IOrder>): IOrder => ({
@@ -324,5 +325,148 @@ describe('admin.helpers', () => {
     expect(groups[0].groups.find((group) => group.address.includes('Rua A'))?.availableCacambaIds).toEqual([
       'cac-due-1',
     ]);
+  });
+
+  it('ordena retiradas pendentes por vencimento e cliente sem perder dados', () => {
+    const orders = [
+      buildOrder({
+        _id: 'delivery-alpha-old',
+        clientId: 'cli-alpha',
+        clientName: 'Alpha Obras',
+        address: 'Rua Alpha Antiga',
+        addressNumber: '10',
+        city: 'São José dos Campos',
+        cep: '12200-000',
+        cacambas: [
+          {
+            _id: 'cac-alpha-old',
+            numero: '101',
+            tipo: 'entrega',
+            orderId: 'delivery-alpha-old',
+            createdAt: '2026-05-06T09:00:00-03:00',
+          },
+          {
+            _id: 'cac-alpha-planned',
+            numero: '102',
+            tipo: 'entrega',
+            orderId: 'delivery-alpha-old',
+            createdAt: '2026-05-06T09:00:00-03:00',
+          },
+        ],
+      }),
+      buildOrder({
+        _id: 'delivery-alpha-new',
+        clientId: 'cli-alpha',
+        clientName: 'Alpha Obras',
+        address: 'Rua Alpha Nova',
+        addressNumber: '20',
+        city: 'São José dos Campos',
+        cep: '12200-000',
+        cacambas: [
+          {
+            _id: 'cac-alpha-new',
+            numero: '103',
+            tipo: 'entrega',
+            orderId: 'delivery-alpha-new',
+            createdAt: '2026-05-08T09:00:00-03:00',
+          },
+        ],
+      }),
+      buildOrder({
+        _id: 'delivery-beta',
+        clientId: 'cli-beta',
+        clientName: 'Beta Obras',
+        address: 'Rua Beta',
+        addressNumber: '30',
+        city: 'São José dos Campos',
+        cep: '12200-000',
+        cacambas: [
+          {
+            _id: 'cac-beta',
+            numero: '201',
+            tipo: 'entrega',
+            orderId: 'delivery-beta',
+            createdAt: '2026-05-12T09:00:00-03:00',
+          },
+        ],
+      }),
+      buildOrder({
+        _id: 'delivery-zeta',
+        clientId: 'cli-zeta',
+        clientName: 'Zeta Obras',
+        address: 'Rua Zeta',
+        addressNumber: '40',
+        city: 'São José dos Campos',
+        cep: '12200-000',
+        cacambas: [
+          {
+            _id: 'cac-zeta',
+            numero: '301',
+            tipo: 'entrega',
+            orderId: 'delivery-zeta',
+            createdAt: '2026-05-01T09:00:00-03:00',
+          },
+        ],
+      }),
+      buildOrder({
+        _id: 'planned-alpha',
+        orderNumber: 88,
+        type: 'retirada',
+        status: 'pendente',
+        plannedWithdrawalCacambaIds: ['cac-alpha-planned'],
+        cacambas: [],
+      }),
+    ];
+    const groups = getPendingWithdrawalGroups(orders, new Date('2026-05-20T12:00:00-03:00'));
+    const getClientNames = (items: typeof groups) => items.map((group) => group.clientName);
+    const getCacambaIds = (items: typeof groups) =>
+      items.flatMap((clientGroup) =>
+        clientGroup.groups.flatMap((addressGroup) =>
+          addressGroup.items.map((item) => item.cacamba._id),
+        ),
+      );
+
+    const overdueDesc = sortPendingWithdrawalGroups(groups, 'overdueDesc');
+    const overdueAsc = sortPendingWithdrawalGroups(groups, 'overdueAsc');
+    const clientName = sortPendingWithdrawalGroups(groups, 'clientName');
+
+    expect(getClientNames(overdueDesc)).toEqual(['Zeta Obras', 'Alpha Obras', 'Beta Obras']);
+    expect(getClientNames(overdueAsc)).toEqual(['Beta Obras', 'Alpha Obras', 'Zeta Obras']);
+    expect(getClientNames(clientName)).toEqual(['Alpha Obras', 'Beta Obras', 'Zeta Obras']);
+
+    expect(
+      overdueDesc.find((group) => group.clientName === 'Alpha Obras')?.groups.map((group) => group.cacambaIds),
+    ).toEqual([
+      ['cac-alpha-old', 'cac-alpha-planned'],
+      ['cac-alpha-new'],
+    ]);
+    expect(
+      overdueAsc.find((group) => group.clientName === 'Alpha Obras')?.groups.map((group) => group.cacambaIds),
+    ).toEqual([
+      ['cac-alpha-new'],
+      ['cac-alpha-old', 'cac-alpha-planned'],
+    ]);
+
+    expect(overdueDesc).toHaveLength(groups.length);
+    expect(overdueDesc.flatMap((group) => group.groups)).toHaveLength(
+      groups.flatMap((group) => group.groups).length,
+    );
+    expect(getCacambaIds(overdueDesc).sort()).toEqual(getCacambaIds(groups).sort());
+    expect(
+      overdueDesc
+        .flatMap((group) => group.groups)
+        .flatMap((group) => group.items)
+        .find((item) => item.cacamba._id === 'cac-alpha-planned')?.plannedWithdrawal,
+    ).toMatchObject({
+      orderId: 'planned-alpha',
+      orderNumber: 88,
+      status: 'pendente',
+    });
+    expect(
+      overdueDesc
+        .flatMap((group) => group.groups)
+        .find((group) => group.cacambaIds.includes('cac-alpha-planned'))?.availableCacambaIds,
+    ).toEqual(['cac-alpha-old']);
+    expect(getClientNames(groups)).toEqual(['Alpha Obras', 'Beta Obras', 'Zeta Obras']);
   });
 });

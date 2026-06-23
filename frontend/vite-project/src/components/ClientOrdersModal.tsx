@@ -604,19 +604,6 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     }
   };
 
-  const handleHistoryDownload = async () => {
-    try {
-      setInvoiceFeedback(null);
-      await handleDownload();
-    } catch (error) {
-      setInvoiceFeedback({
-        tone: 'error',
-        message:
-          error instanceof Error ? error.message : 'Não foi possível baixar o relatório.',
-      });
-    }
-  };
-
   const handleClearHistoryFilters = () => {
     setHistoryType('all');
     setHistoryStartDate('');
@@ -1117,15 +1104,6 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
                 actionLabel="Gerar fechamento"
               />
             </>
-          )}
-          {isHistoryMode && (
-            <ClientOrdersFooter
-              onDownload={handleHistoryDownload}
-              disabled={orders.length === 0}
-              isSubmittingPayment={false}
-              closureMode={false}
-              actionLabel="Baixar relatório"
-            />
           )}
         </ModalBody>
 

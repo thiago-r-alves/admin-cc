@@ -22,10 +22,12 @@ import {
   getPendingCountByDriver,
   getPendingOrders,
   getPendingWithdrawalGroups,
+  sortPendingWithdrawalGroups,
   sortAcompanhamentoCacambas,
   type AcompanhamentoFilters,
   type AcompanhamentoSortMode,
   type CacambaAgeTone,
+  type PendingWithdrawalSortMode,
   type WithdrawalAddressGroup,
 } from '../features/admin/admin.helpers';
 import { useAdminData } from '../features/admin/useAdminData';
@@ -1426,6 +1428,8 @@ const AdminPage: React.FC = () => {
     cep: '',
   });
   const [acompanhamentoSortMode, setAcompanhamentoSortMode] = useState<AcompanhamentoSortMode>('default');
+  const [pendingWithdrawalSortMode, setPendingWithdrawalSortMode] =
+    useState<PendingWithdrawalSortMode>('overdueDesc');
   const PAGE_SIZE = 10;
   const clearSessionAndRedirect = useCallback(() => {
     clearStoredSession();
@@ -1454,6 +1458,10 @@ const AdminPage: React.FC = () => {
     [acompanhamentoCacambasFiltradas, acompanhamentoSortMode],
   );
   const pendingWithdrawalGroups = useMemo(() => getPendingWithdrawalGroups(orders), [orders]);
+  const sortedPendingWithdrawalGroups = useMemo(
+    () => sortPendingWithdrawalGroups(pendingWithdrawalGroups, pendingWithdrawalSortMode),
+    [pendingWithdrawalGroups, pendingWithdrawalSortMode],
+  );
   const pendingWithdrawalCacambaCount = useMemo(
     () => pendingWithdrawalGroups.reduce((total, group) => total + group.totalCacambas, 0),
     [pendingWithdrawalGroups],
@@ -1997,10 +2005,24 @@ const AdminPage: React.FC = () => {
                 <AcompanhamentoToolbar>
                   <OrdersSectionTitle>Retiradas pendentes</OrdersSectionTitle>
                 </AcompanhamentoToolbar>
+                <AcompanhamentoFiltersGrid>
+                  <AcompanhamentoFilterField>
+                    <AcompanhamentoFilterLabel htmlFor="pending-withdrawal-sort-mode">Ordenar por</AcompanhamentoFilterLabel>
+                    <AcompanhamentoSortSelect
+                      id="pending-withdrawal-sort-mode"
+                      value={pendingWithdrawalSortMode}
+                      onChange={(e) => setPendingWithdrawalSortMode(e.target.value as PendingWithdrawalSortMode)}
+                    >
+                      <option value="overdueDesc">Vencidas há mais tempo</option>
+                      <option value="overdueAsc">Vencidas há menos tempo</option>
+                      <option value="clientName">Cliente A-Z</option>
+                    </AcompanhamentoSortSelect>
+                  </AcompanhamentoFilterField>
+                </AcompanhamentoFiltersGrid>
 
-                {pendingWithdrawalGroups.length ? (
+                {sortedPendingWithdrawalGroups.length ? (
                   <WithdrawalGroupsStack>
-                    {pendingWithdrawalGroups.map((clientGroup) => (
+                    {sortedPendingWithdrawalGroups.map((clientGroup) => (
                       <WithdrawalClientSection key={clientGroup.key} data-testid="withdrawal-client-group">
                         <WithdrawalClientHeader>
                           <WithdrawalClientHeaderText>
