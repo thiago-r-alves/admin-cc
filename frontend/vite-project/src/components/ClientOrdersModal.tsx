@@ -8,7 +8,13 @@ import ClientOrdersList from './clientOrdersModal/ClientOrdersList';
 import ClientOrdersModalHeader from './clientOrdersModal/ClientOrdersModalHeader';
 import ClientOrdersSummary from './clientOrdersModal/ClientOrdersSummary';
 import { useClientOrdersModal } from './clientOrdersModal/useClientOrdersModal';
-import type { ClientOrdersModalProps } from './clientOrdersModal/types';
+import type {
+  ClientOrdersHistoryFilters,
+  ClientOrdersHistoryLocal,
+  ClientOrdersHistoryStatus,
+  ClientOrdersHistoryType,
+  ClientOrdersModalProps,
+} from './clientOrdersModal/types';
 import CacambaList from './CacambaList';
 import ToastPopup from './ToastPopup';
 import type { ICacamba, IClosureGroup } from '../interfaces';
@@ -242,6 +248,107 @@ const PaymentMethodButton = styled.button<{ $active: boolean }>`
   cursor: pointer;
 `;
 
+const HistoryControls = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem 0;
+`;
+
+const HistoryTypeTabs = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const HistoryTypeButton = styled.button<{ $active: boolean }>`
+  min-height: 40px;
+  border: 1px solid ${({ $active }) => ($active ? '#e30613' : '#fecaca')};
+  border-radius: 6px;
+  background: ${({ $active }) => ($active ? '#fff1f2' : '#ffffff')};
+  color: ${({ $active }) => ($active ? '#991b1b' : '#374151')};
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+`;
+
+const HistoryFilterGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(5, minmax(130px, 1fr)) auto;
+  gap: 0.65rem;
+  align-items: end;
+
+  @media (max-width: 980px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const HistoryField = styled.label`
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.3rem;
+  color: #4b5563;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+`;
+
+const HistoryInput = styled.input`
+  min-height: 38px;
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  color: #111827;
+  background: #ffffff;
+  font-size: 0.85rem;
+
+  &:focus {
+    outline: none;
+    border-color: #e30613;
+    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
+  }
+`;
+
+const HistorySelect = styled.select`
+  min-height: 38px;
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  color: #111827;
+  background: #ffffff;
+  font-size: 0.85rem;
+
+  &:focus {
+    outline: none;
+    border-color: #e30613;
+    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
+  }
+`;
+
+const ClearFiltersButton = styled(SecondaryButton)`
+  min-height: 38px;
+  border-radius: 6px;
+  white-space: nowrap;
+
+  @media (max-width: 980px) {
+    width: 100%;
+  }
+`;
+
 const PixCode = styled.textarea`
   width: 100%;
   min-height: 110px;
@@ -312,12 +419,19 @@ const getGroupTotal = (group: IClosureGroup | null) =>
     return Number.isFinite(price) ? sum + price : sum;
   }, 0);
 
+const historyTypeOptions: Array<{ value: ClientOrdersHistoryType; label: string }> = [
+  { value: 'all', label: 'Todos os pedidos' },
+  { value: 'retirada', label: 'Retiradas' },
+  { value: 'entrega', label: 'Entregas' },
+];
+
 const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
   client,
   onClose,
   startDate,
   endDate,
   type,
+  initialType,
   closureMode = false,
   viewMode = 'create_closure',
   paymentStatus = 'all',
@@ -325,6 +439,14 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
 }) => {
   const [step, setStep] = useState<ClosureStep>('select');
   const [showHistory, setShowHistory] = useState(false);
+  const [historyType, setHistoryType] = useState<ClientOrdersHistoryType>(
+    () => initialType ?? type ?? 'all',
+  );
+  const [historyStartDate, setHistoryStartDate] = useState(startDate || '');
+  const [historyEndDate, setHistoryEndDate] = useState(endDate || '');
+  const [historyStatus, setHistoryStatus] = useState<ClientOrdersHistoryStatus>('all');
+  const [historyLocal, setHistoryLocal] = useState<ClientOrdersHistoryLocal>('all');
+  const [historySearch, setHistorySearch] = useState('');
   const [invoiceFeedback, setInvoiceFeedback] = useState<{
     tone: 'success' | 'error';
     message: string;
@@ -339,6 +461,25 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
   } | null>(null);
   const [isReturningCacamba, setIsReturningCacamba] = useState(false);
   const shouldCloseOnMouseUpRef = useRef(false);
+  const isHistoryMode = !closureMode;
+  const historyFilters = useMemo<ClientOrdersHistoryFilters>(
+    () => ({
+      type: historyType,
+      startDate: historyStartDate || undefined,
+      endDate: historyEndDate || undefined,
+      status: historyStatus,
+      local: historyLocal,
+      q: historySearch,
+    }),
+    [historyEndDate, historyLocal, historySearch, historyStartDate, historyStatus, historyType],
+  );
+  const hasHistoryFilters =
+    historyType !== 'all' ||
+    Boolean(historyStartDate) ||
+    Boolean(historyEndDate) ||
+    historyStatus !== 'all' ||
+    historyLocal !== 'all' ||
+    Boolean(historySearch.trim());
 
   const {
     orders,
@@ -376,6 +517,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     startDate,
     endDate,
     type,
+    historyFilters: isHistoryMode ? historyFilters : undefined,
     closureMode,
     viewMode,
     paymentStatus,
@@ -460,6 +602,28 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
           error instanceof Error ? error.message : 'Não foi possível gerar o fechamento.',
       });
     }
+  };
+
+  const handleHistoryDownload = async () => {
+    try {
+      setInvoiceFeedback(null);
+      await handleDownload();
+    } catch (error) {
+      setInvoiceFeedback({
+        tone: 'error',
+        message:
+          error instanceof Error ? error.message : 'Não foi possível baixar o relatório.',
+      });
+    }
+  };
+
+  const handleClearHistoryFilters = () => {
+    setHistoryType('all');
+    setHistoryStartDate('');
+    setHistoryEndDate('');
+    setHistoryStatus('all');
+    setHistoryLocal('all');
+    setHistorySearch('');
   };
 
   const handleSaveInvoice = async () => {
@@ -730,6 +894,85 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
         <ClientOrdersModalHeader clientName={client.clientName} onClose={onClose} />
 
         <ModalBody>
+          {isHistoryMode && (
+            <HistoryControls>
+              <HistoryTypeTabs aria-label="Tipo de pedido">
+                {historyTypeOptions.map((option) => (
+                  <HistoryTypeButton
+                    key={option.value}
+                    type="button"
+                    $active={historyType === option.value}
+                    onClick={() => setHistoryType(option.value)}
+                  >
+                    {option.label}
+                  </HistoryTypeButton>
+                ))}
+              </HistoryTypeTabs>
+
+              <HistoryFilterGrid>
+                <HistoryField>
+                  Início
+                  <HistoryInput
+                    type="date"
+                    value={historyStartDate}
+                    onChange={(event) => setHistoryStartDate(event.target.value)}
+                  />
+                </HistoryField>
+                <HistoryField>
+                  Fim
+                  <HistoryInput
+                    type="date"
+                    value={historyEndDate}
+                    onChange={(event) => setHistoryEndDate(event.target.value)}
+                  />
+                </HistoryField>
+                <HistoryField>
+                  Status
+                  <HistorySelect
+                    value={historyStatus}
+                    onChange={(event) =>
+                      setHistoryStatus(event.target.value as ClientOrdersHistoryStatus)
+                    }
+                  >
+                    <option value="all">Todos</option>
+                    <option value="pendente">Pendente</option>
+                    <option value="em_andamento">Em andamento</option>
+                    <option value="concluido">Concluído</option>
+                  </HistorySelect>
+                </HistoryField>
+                <HistoryField>
+                  Local
+                  <HistorySelect
+                    value={historyLocal}
+                    onChange={(event) =>
+                      setHistoryLocal(event.target.value as ClientOrdersHistoryLocal)
+                    }
+                  >
+                    <option value="all">Todos</option>
+                    <option value="via_publica">Via pública</option>
+                    <option value="canteiro_obra">Canteiro de obra</option>
+                  </HistorySelect>
+                </HistoryField>
+                <HistoryField>
+                  Busca
+                  <HistoryInput
+                    type="search"
+                    value={historySearch}
+                    onChange={(event) => setHistorySearch(event.target.value)}
+                    placeholder="Pedido ou caçamba"
+                  />
+                </HistoryField>
+                <ClearFiltersButton
+                  type="button"
+                  onClick={handleClearHistoryFilters}
+                  disabled={!hasHistoryFilters}
+                >
+                  Limpar filtros
+                </ClearFiltersButton>
+              </HistoryFilterGrid>
+            </HistoryControls>
+          )}
+
           {closureMode && !isGeneratedNotesView && !isMetadataPendingView && (
             <Stepper data-testid="closure-stepper">
               {stepItems.map((item, index) => (
@@ -785,7 +1028,17 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
           )}
 
           <StageBody>
-            {closureMode && !isGeneratedNotesView && step === 'select' ? (
+            {isHistoryMode ? (
+              <ClientOrdersList
+                orders={orders}
+                closureMode={false}
+                selectedCacambaIds={[]}
+                onToggleSelect={() => undefined}
+                onImageClick={setModalImage}
+                onEditPrice={() => undefined}
+                onEditContentType={() => undefined}
+              />
+            ) : closureMode && !isGeneratedNotesView && step === 'select' ? (
               <ClientOrdersList
                 orders={orders}
                 closureMode
@@ -836,7 +1089,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
             )}
           </StageBody>
 
-          {!isGeneratedNotesView && step === 'select' && !isMetadataPendingView && (
+          {closureMode && !isGeneratedNotesView && step === 'select' && !isMetadataPendingView && (
             <>
               <PaymentMethodRow aria-label="Forma de pagamento">
                 <PaymentMethodButton
@@ -864,6 +1117,15 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
                 actionLabel="Gerar fechamento"
               />
             </>
+          )}
+          {isHistoryMode && (
+            <ClientOrdersFooter
+              onDownload={handleHistoryDownload}
+              disabled={orders.length === 0}
+              isSubmittingPayment={false}
+              closureMode={false}
+              actionLabel="Baixar relatório"
+            />
           )}
         </ModalBody>
 

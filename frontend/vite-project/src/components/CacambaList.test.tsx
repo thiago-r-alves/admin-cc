@@ -62,6 +62,44 @@ describe('CacambaList', () => {
     expect(screen.getByText('Entrega')).toBeInTheDocument();
   });
 
+  it('exibe motorista e placa responsaveis pela caçamba', () => {
+    render(
+      <CacambaList
+        cacambas={[baseCacamba]}
+        showTitle={false}
+        responsibility={{ driverName: 'Joao Motorista', placa: 'abc1d23' }}
+      />,
+    );
+
+    expect(screen.getByText(/Joao Motorista/)).toBeInTheDocument();
+    expect(screen.getByText(/ABC1D23/)).toBeInTheDocument();
+  });
+
+  it('prioriza metadados da movimentacao da caçamba para motorista e placa', () => {
+    const retiradaCacamba: ICacamba = {
+      ...baseCacamba,
+      tipo: 'retirada',
+      closureWithdrawal: {
+        date: '2026-05-16T12:00:00.000Z',
+        driverName: 'Retirador Certo',
+        placa: 'ret1a23',
+        orderNumber: 20,
+      },
+    };
+
+    render(
+      <CacambaList
+        cacambas={[retiradaCacamba]}
+        showTitle={false}
+        responsibility={{ driverName: 'Motorista Fallback', placa: 'abc1d23' }}
+      />,
+    );
+
+    expect(screen.getByText(/Retirador Certo/)).toBeInTheDocument();
+    expect(screen.getByText(/RET1A23/)).toBeInTheDocument();
+    expect(screen.queryByText(/Motorista Fallback/)).not.toBeInTheDocument();
+  });
+
   it('usa label customizado na acao de edicao', () => {
     const onEdit = vi.fn();
     render(

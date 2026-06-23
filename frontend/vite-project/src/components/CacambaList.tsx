@@ -1,6 +1,6 @@
 ﻿import React from 'react';
 import styled from 'styled-components';
-import type { ICacamba } from '../interfaces';
+import type { DriverRef, ICacamba } from '../interfaces';
 
 const EmptyState = styled.div`
   color: #6b7280;
@@ -147,11 +147,21 @@ export type CacambaStatusBadge =
       tone?: CacambaStatusBadgeTone;
     };
 
+export interface CacambaResponsibility {
+  motorista?: DriverRef;
+  driverName?: string;
+  placa?: string;
+}
+
 const DateInfo = styled.p`
   font-size: 0.82rem;
-  color: #4b5563;
+  color: #374151;
   margin: 0.2rem 0 0 0;
   line-height: 1.35;
+
+  strong {
+    color: #111827;
+  }
 `;
 
 const LocalInfo = styled.span`
@@ -159,6 +169,10 @@ const LocalInfo = styled.span`
   font-size: 0.82rem;
   color: #374151;
   margin-top: 0.18rem;
+
+  strong {
+    color: #111827;
+  }
 `;
 
 const ServiceOrder = styled.p`
@@ -182,6 +196,19 @@ const ContentTypeInfo = styled.p`
 `;
 
 const PriceInfo = styled.p`
+  margin: 0.2rem 0 0;
+  font-size: 0.82rem;
+  color: #374151;
+
+  strong {
+    color: #111827;
+  }
+`;
+
+const ResponsibilityInfo = styled.p`
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
   margin: 0.2rem 0 0;
   font-size: 0.82rem;
   color: #374151;
@@ -260,6 +287,7 @@ interface CacambaListProps {
   onReturnToPending?: (cacamba: ICacamba) => void;
   showDeliveryDateForRetirada?: boolean;
   statusBadges?: Record<string, CacambaStatusBadge | CacambaStatusBadge[]>;
+  responsibility?: CacambaResponsibility;
 }
 
 const formatDateTime = (value?: string | null) => {
@@ -281,6 +309,30 @@ const normalizeStatusBadges = (badges?: CacambaStatusBadge | CacambaStatusBadge[
   );
 };
 
+const isObjectIdLike = (value: string) => /^[a-f0-9]{24}$/i.test(value);
+
+const getDriverName = (motorista?: DriverRef, explicitDriverName?: string) => {
+  const explicit = String(explicitDriverName || '').trim();
+  if (explicit) return explicit;
+  if (!motorista) return '';
+  if (typeof motorista === 'string') {
+    const value = motorista.trim();
+    return isObjectIdLike(value) ? '' : value;
+  }
+  return String(motorista.username || '').trim();
+};
+
+const getCacambaResponsibility = (
+  cacamba: ICacamba,
+  fallback?: CacambaResponsibility,
+) => {
+  const action =
+    cacamba.tipo === 'retirada' ? cacamba.closureWithdrawal : cacamba.closureDelivery;
+  const driverName = getDriverName(fallback?.motorista, action?.driverName || fallback?.driverName);
+  const placa = String(action?.placa || fallback?.placa || '').trim().toUpperCase();
+  return { driverName, placa };
+};
+
 const CacambaList: React.FC<CacambaListProps> = ({
   cacambas,
   onImageClick,
@@ -299,6 +351,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
   onReturnToPending,
   showDeliveryDateForRetirada = false,
   statusBadges,
+  responsibility,
 }) => {
   const apiUrl = import.meta.env.VITE_API_URL;
   const requestedThumbsRef = React.useRef<Set<string>>(new Set());
@@ -367,6 +420,8 @@ const CacambaList: React.FC<CacambaListProps> = ({
         const imageUrl = cacamba.imageUrl ? buildImageUrl(apiUrl, cacamba.imageUrl) : null;
         const thumbKey = cacamba.imageUrl ? `${cacamba._id}:${cacamba.imageUrl}` : '';
         const currentStatusBadges = normalizeStatusBadges(statusBadges?.[cacamba._id]);
+        const responsible = getCacambaResponsibility(cacamba, responsibility);
+        const hasResponsibleInfo = Boolean(responsible.driverName || responsible.placa);
 
         return (
           <CacambaCard key={cacamba._id}>
@@ -419,6 +474,17 @@ const CacambaList: React.FC<CacambaListProps> = ({
                   <ServiceOrder>
                     <strong>Ordem de serviço:</strong> {cacamba.horaServicoDigitos}
                   </ServiceOrder>
+                )}
+
+                {hasResponsibleInfo && (
+                  <ResponsibilityInfo>
+                    <span>
+                      <strong>Motorista:</strong> {responsible.driverName || '-'}
+                    </span>
+                    <span>
+                      <strong>Placa:</strong> {responsible.placa || '-'}
+                    </span>
+                  </ResponsibilityInfo>
                 )}
 
                 {cacamba.contentType && (

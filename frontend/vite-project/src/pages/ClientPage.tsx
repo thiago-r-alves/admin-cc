@@ -5,6 +5,7 @@ import ClientForm from '../components/ClientForm';
 import ActionConfirmModal from '../components/ActionConfirmModal';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import LoadingScreen from '../components/LoadingScreen';
+import ClientOrdersModal from '../components/ClientOrdersModal';
 import type { IClient } from '../interfaces';
 
 const Container = styled.div`
@@ -119,6 +120,7 @@ const ClientPage: React.FC = () => {
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [confirmDeleteClientId, setConfirmDeleteClientId] = useState<string | null>(null);
+  const [ordersClient, setOrdersClient] = useState<IClient | null>(null);
   const apiUrl = import.meta.env.VITE_API_URL;
 
   const fetchClients = async () => {
@@ -315,6 +317,14 @@ const ClientPage: React.FC = () => {
           clients={filteredClients}
           onEdit={handleEditButtonClick}
           onDelete={handleDeleteClient}
+          onViewOrders={setOrdersClient}
+        />
+      )}
+      {ordersClient && (
+        <ClientOrdersModal
+          client={ordersClient}
+          onClose={() => setOrdersClient(null)}
+          closureMode={false}
         />
       )}
       <ActionConfirmModal

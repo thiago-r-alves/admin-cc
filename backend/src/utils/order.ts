@@ -18,6 +18,6 @@ export const buildLocalDateRange = (startDate: string, endDate: string) => {
   const end = parseLocalDate(endDate);
   if (!start || !end) return null;
   end.setHours(23, 59, 59, 999);
+  if (start.getTime() > end.getTime()) return null;
   return { start, end };
 };
-

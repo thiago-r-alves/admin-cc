@@ -1,5 +1,4 @@
 import { ClientModel } from '../../models/Client';
-import { CacambaModel } from '../../models/Cacamba';
 import { ClosureGroupModel } from '../../models/ClosureGroup';
 import { OrderModel } from '../../models/Order';
 import { buildLocalDateRange } from '../../utils/order';
@@ -504,8 +503,56 @@ export const deleteClient = async (id: string) => {
   return { status: 200, body: { message: 'Cliente excluído com sucesso.' } };
 };
 
+const normalizeText = (value: unknown) =>
+  String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+const filterOperationalOrderCacambas = (
+  orders: any[],
+  filters: { local?: unknown; q?: unknown },
+) => {
+  const localFilter = typeof filters.local === 'string' ? filters.local : '';
+  const search = normalizeText(filters.q);
+
+  if (!localFilter && !search) return orders;
+
+  return orders
+    .map((order) => {
+      const orderMatchesSearch =
+        Boolean(search) && normalizeText(order?.orderNumber).includes(search);
+      let filteredCacambas = [...(order.cacambas || [])];
+
+      if (localFilter) {
+        filteredCacambas = filteredCacambas.filter((cacamba: any) => cacamba?.local === localFilter);
+      }
+
+      if (search && !orderMatchesSearch) {
+        filteredCacambas = filteredCacambas.filter((cacamba: any) =>
+          normalizeText(cacamba?.numero).includes(search),
+        );
+      }
+
+      return {
+        ...order,
+        cacambas: filteredCacambas,
+        __orderMatchesSearch: orderMatchesSearch,
+      };
+    })
+    .filter((order) => {
+      if (localFilter && (order.cacambas || []).length === 0) return false;
+      if (search && !order.__orderMatchesSearch && (order.cacambas || []).length === 0) {
+        return false;
+      }
+      return true;
+    })
+    .map(({ __orderMatchesSearch, ...order }) => order);
+};
+
 export const listClientOrders = async (clientId: string, query: Record<string, unknown>) => {
-  const { startDate, endDate, type, local, status, closure, paymentStatus } = query;
+  const { startDate, endDate, type, local, status, closure, paymentStatus, q } = query;
   const isClosureMode = String(closure || '').toLowerCase() === 'true';
   const closurePaymentFilter = parseClosurePaymentFilter(paymentStatus);
   const orderQuery: Record<string, unknown> = { clientId };
@@ -543,12 +590,6 @@ export const listClientOrders = async (clientId: string, query: Record<string, u
     if (status) {
       orderQuery.status = status;
     }
-  }
-
-  if (!isClosureMode && local) {
-    const cacambas = await CacambaModel.find({ local: local as string }).select('_id');
-    const cacambaIds = cacambas.map((cacamba) => cacamba._id);
-    orderQuery.cacambas = { $in: cacambaIds };
   }
 
   const foundOrders = await OrderModel.find(orderQuery)
@@ -593,6 +634,8 @@ export const listClientOrders = async (clientId: string, query: Record<string, u
         return order;
       })
       .filter((order: any) => (order.cacambas || []).length > 0);
+  } else {
+    orders = filterOperationalOrderCacambas(orders, { local, q });
   }
 
   return { status: 200, body: orders };

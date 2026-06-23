@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useClientOrdersModal } from './useClientOrdersModal';
 import { buildClientOrdersPdf, downloadClientOrdersPdf } from '../../utils/clientOrdersPdf';
+import type { ClientOrdersHistoryFilters } from './types';
 
 vi.mock('../../utils/clientOrdersPdf', () => ({
   buildClientOrdersPdf: vi.fn(async () => ({
@@ -89,6 +90,65 @@ describe('useClientOrdersModal', () => {
     expect(firstCallUrl).toContain('/clients/cli-1/orders?');
     expect(firstCallUrl).toContain('closure=true');
     expect(firstCallUrl).toContain('paymentStatus=pending');
+  });
+
+  it('usa filtros dinâmicos no modo histórico operacional', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => [],
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    const initialFilters: ClientOrdersHistoryFilters = {
+      type: 'retirada',
+      startDate: '2026-05-01',
+      endDate: '2026-05-31',
+      status: 'concluido',
+      local: 'via_publica',
+      q: '401',
+    };
+
+    const { rerender } = renderHook(
+      ({ filters }: { filters: ClientOrdersHistoryFilters }) =>
+        useClientOrdersModal({
+          client,
+          closureMode: false,
+          historyFilters: filters,
+        }),
+      {
+        initialProps: {
+          filters: initialFilters,
+        },
+      },
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const firstCallUrl = String((fetchMock as unknown as { mock: { calls: unknown[][] } }).mock.calls[0][0]);
+    expect(firstCallUrl).toContain('startDate=2026-05-01');
+    expect(firstCallUrl).toContain('endDate=2026-05-31');
+    expect(firstCallUrl).toContain('type=retirada');
+    expect(firstCallUrl).toContain('status=concluido');
+    expect(firstCallUrl).toContain('local=via_publica');
+    expect(firstCallUrl).toContain('q=401');
+
+    rerender({
+      filters: {
+        type: 'entrega',
+        startDate: '2026-06-01',
+        endDate: '2026-06-30',
+        status: 'all',
+        local: 'all',
+        q: 'CAC-9',
+      },
+    });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const secondCallUrl = String((fetchMock as unknown as { mock: { calls: unknown[][] } }).mock.calls[1][0]);
+    expect(secondCallUrl).toContain('startDate=2026-06-01');
+    expect(secondCallUrl).toContain('endDate=2026-06-30');
+    expect(secondCallUrl).toContain('type=entrega');
+    expect(secondCallUrl).toContain('q=CAC-9');
+    expect(secondCallUrl).not.toContain('status=');
+    expect(secondCallUrl).not.toContain('local=');
   });
 
   it('atualiza seleção sem duplicar ids', async () => {

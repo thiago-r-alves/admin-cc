@@ -797,6 +797,7 @@ const DriverPage: React.FC = () => {
                         onImageClick={setModalImage}
                         onEdit={(cacamba) => handleOpenEditModal(cacamba, order.type)}
                         onDelete={handleDeleteCacamba}
+                        responsibility={{ motorista: order.motorista, placa: order.placa }}
                       />
                     </CacambaSection>
                   )}

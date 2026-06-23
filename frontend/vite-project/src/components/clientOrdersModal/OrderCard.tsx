@@ -33,6 +33,16 @@ const OrderIdentifier = styled.strong`
   font-weight: 900;
 `;
 
+const isObjectIdLike = (value: string) => /^[a-f0-9]{24}$/i.test(value);
+
+const getDriverName = (order: IOrder) => {
+  if (!order.motorista) return '';
+  if (typeof order.motorista === 'string') {
+    return isObjectIdLike(order.motorista) ? '' : order.motorista;
+  }
+  return order.motorista.username || '';
+};
+
 interface OrderCardProps {
   order: IOrder;
   closureMode: boolean;
@@ -51,31 +61,39 @@ const OrderCard: React.FC<OrderCardProps> = ({
   onImageClick,
   onEditPrice,
   onEditContentType,
-}) => (
-  <StyledOrderCard>
-    <OrderCardHeader>
-      <OrderIdentifier>Pedido #{order.orderNumber ?? '-'}</OrderIdentifier>
-      <span>{new Date(order.createdAt || '').toLocaleDateString('pt-BR')}</span>
-    </OrderCardHeader>
+}) => {
+  const responsibility = {
+    driverName: getDriverName(order),
+    placa: order.placa || '',
+  };
 
-    <OrderCardBody>
-      {order.cacambas && order.cacambas.length > 0 && (
-        <CacambaList
-          cacambas={order.cacambas || []}
-          onImageClick={onImageClick}
-          showTitle={false}
-          selectable={closureMode}
-          canEditPrice={closureMode}
-          adminMetaActions={closureMode}
-          onEditPrice={onEditPrice}
-          onEditContentType={onEditContentType}
-          selectedCacambaIds={selectedCacambaIds}
-          onToggleSelect={onToggleSelect}
-          showDeliveryDateForRetirada
-        />
-      )}
-    </OrderCardBody>
-  </StyledOrderCard>
-);
+  return (
+    <StyledOrderCard>
+      <OrderCardHeader>
+        <OrderIdentifier>Pedido #{order.orderNumber ?? '-'}</OrderIdentifier>
+        <span>{new Date(order.createdAt || '').toLocaleDateString('pt-BR')}</span>
+      </OrderCardHeader>
+
+      <OrderCardBody>
+        {order.cacambas && order.cacambas.length > 0 && (
+          <CacambaList
+            cacambas={order.cacambas || []}
+            onImageClick={onImageClick}
+            showTitle={false}
+            selectable={closureMode}
+            canEditPrice={closureMode}
+            adminMetaActions={closureMode}
+            onEditPrice={onEditPrice}
+            onEditContentType={onEditContentType}
+            selectedCacambaIds={selectedCacambaIds}
+            onToggleSelect={onToggleSelect}
+            showDeliveryDateForRetirada
+            responsibility={responsibility}
+          />
+        )}
+      </OrderCardBody>
+    </StyledOrderCard>
+  );
+};
 
 export default OrderCard;

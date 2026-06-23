@@ -1426,7 +1426,7 @@ const AdminPage: React.FC = () => {
     cep: '',
   });
   const [acompanhamentoSortMode, setAcompanhamentoSortMode] = useState<AcompanhamentoSortMode>('default');
-  const PAGE_SIZE = 5;
+  const PAGE_SIZE = 10;
   const clearSessionAndRedirect = useCallback(() => {
     clearStoredSession();
     navigate('/', { replace: true });
@@ -1753,6 +1753,7 @@ const AdminPage: React.FC = () => {
       onEditPrice={(cacamba) => setCacambaMetaModal({ mode: 'price', cacamba })}
       showDeliveryDateForRetirada
       statusBadges={statusBadges}
+      responsibility={{ motorista: order.motorista, placa: order.placa }}
     />
   );
 
@@ -1818,6 +1819,7 @@ const AdminPage: React.FC = () => {
                   adminMetaActions={order.type === 'retirada'}
                   canEditPrice={false}
                   showDeliveryDateForRetirada
+                  responsibility={{ motorista: order.motorista, placa: order.placa }}
                 />
               )}
             </CacambaSection>

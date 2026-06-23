@@ -47,4 +47,25 @@ describe('OrderCard', () => {
 
     expect(getComputedStyle(screen.getByText('Pedido #4001')).color).toBe('rgb(227, 6, 19)');
   });
+
+  it('mostra motorista e placa do pedido no card da caçamba', () => {
+    render(
+      <OrderCard
+        order={{
+          ...baseOrder,
+          motorista: { _id: 'drv-1', username: 'Motorista Pedido' },
+          placa: 'ped1a23',
+        }}
+        closureMode={false}
+        selectedCacambaIds={[]}
+        onToggleSelect={vi.fn()}
+        onImageClick={vi.fn()}
+        onEditPrice={vi.fn()}
+        onEditContentType={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/Motorista Pedido/)).toBeInTheDocument();
+    expect(screen.getByText(/PED1A23/)).toBeInTheDocument();
+  });
 });

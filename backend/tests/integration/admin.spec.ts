@@ -927,7 +927,7 @@ describe('Admin APIs', () => {
       createdAt: new Date('2026-05-15T12:00:00Z'),
     });
     const cacamba = await CacambaModel.create({
-      numero: '100',
+      numero: 'CAC-77',
       tipo: 'retirada',
       contentType: 'Entulho limpo',
       imageUrl: '/files/507f1f77bcf86cd799439011',
@@ -935,15 +935,85 @@ describe('Admin APIs', () => {
       local: 'via_publica',
       horaServicoDigitos: '123',
     });
-    await OrderModel.findByIdAndUpdate(order._id, { $push: { cacambas: cacamba._id } });
+    const otherLocalCacamba = await CacambaModel.create({
+      numero: 'OUT-88',
+      tipo: 'retirada',
+      contentType: 'Entulho limpo',
+      imageUrl: '/files/507f1f77bcf86cd799439011',
+      orderId: order._id,
+      local: 'canteiro_obra',
+      horaServicoDigitos: '124',
+    });
+    await OrderModel.findByIdAndUpdate(order._id, {
+      $push: { cacambas: { $each: [cacamba._id, otherLocalCacamba._id] } },
+    });
+
+    const nonMatchingOrder = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: client._id,
+      clientName: client.clientName,
+      contactName: client.contactName,
+      contactNumber: client.contactNumber,
+      neighborhood: client.neighborhood,
+      address: client.address,
+      addressNumber: client.addressNumber,
+      type: 'retirada',
+      status: 'concluido',
+      createdAt: new Date('2026-05-15T13:00:00Z'),
+    });
+    const nonMatchingCacamba = await CacambaModel.create({
+      numero: 'OUT-99',
+      tipo: 'retirada',
+      contentType: 'Entulho limpo',
+      imageUrl: '/files/507f1f77bcf86cd799439011',
+      orderId: nonMatchingOrder._id,
+      local: 'via_publica',
+      horaServicoDigitos: '125',
+    });
+    await OrderModel.findByIdAndUpdate(nonMatchingOrder._id, { $push: { cacambas: nonMatchingCacamba._id } });
+
+    const wrongLocalOrder = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: client._id,
+      clientName: client.clientName,
+      contactName: client.contactName,
+      contactNumber: client.contactNumber,
+      neighborhood: client.neighborhood,
+      address: client.address,
+      addressNumber: client.addressNumber,
+      type: 'retirada',
+      status: 'concluido',
+      createdAt: new Date('2026-05-15T14:00:00Z'),
+    });
+    const wrongLocalCacamba = await CacambaModel.create({
+      numero: 'CAC-77',
+      tipo: 'retirada',
+      contentType: 'Entulho limpo',
+      imageUrl: '/files/507f1f77bcf86cd799439011',
+      orderId: wrongLocalOrder._id,
+      local: 'canteiro_obra',
+      horaServicoDigitos: '126',
+    });
+    await OrderModel.findByIdAndUpdate(wrongLocalOrder._id, { $push: { cacambas: wrongLocalCacamba._id } });
 
     const res = await request(app)
-      .get(`/clients/${client._id}/orders?startDate=2026-05-14&endDate=2026-05-16&type=retirada&local=via_publica&status=concluido`)
+      .get(`/clients/${client._id}/orders?startDate=2026-05-14&endDate=2026-05-16&type=retirada&local=via_publica&status=concluido&q=CAC-77`)
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(1);
     expect(res.body[0]._id).toBe(String(order._id));
+    expect(res.body[0].cacambas).toHaveLength(1);
+    expect(res.body[0].cacambas[0].numero).toBe('CAC-77');
+    expect(res.body[0].cacambas[0].local).toBe('via_publica');
+
+    const byOrderNumber = await request(app)
+      .get(`/clients/${client._id}/orders?type=retirada&status=concluido&q=${order.orderNumber}`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(byOrderNumber.status).toBe(200);
+    expect(byOrderNumber.body).toHaveLength(1);
+    expect(byOrderNumber.body[0]._id).toBe(String(order._id));
   });
 
   it('role incorreto retorna 403 em rota admin', async () => {

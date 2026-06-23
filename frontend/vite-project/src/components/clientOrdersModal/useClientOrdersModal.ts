@@ -13,7 +13,12 @@ import {
   getOrderTotal,
   hasPendingClosureMetadata,
 } from './helpers';
-import type { CacambaMetaState, CacambaMetaUpdates, ClientOrdersModalProps } from './types';
+import type {
+  CacambaMetaState,
+  CacambaMetaUpdates,
+  ClientOrdersHistoryFilters,
+  ClientOrdersModalProps,
+} from './types';
 
 type UseClientOrdersModalArgs = Pick<
   ClientOrdersModalProps,
@@ -25,7 +30,9 @@ type UseClientOrdersModalArgs = Pick<
   | 'viewMode'
   | 'paymentStatus'
   | 'onClosureStateChanged'
->;
+> & {
+  historyFilters?: ClientOrdersHistoryFilters;
+};
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -44,6 +51,7 @@ export const useClientOrdersModal = ({
   closureMode = false,
   viewMode = 'create_closure',
   paymentStatus = 'all',
+  historyFilters,
   onClosureStateChanged,
 }: UseClientOrdersModalArgs) => {
   const [eligibleOrders, setEligibleOrders] = useState<IOrder[]>([]);
@@ -81,16 +89,40 @@ export const useClientOrdersModal = ({
     }
 
     const query = new URLSearchParams();
-    if (startDate && endDate) {
-      query.append('startDate', startDate);
-      query.append('endDate', endDate);
-    }
-    if (type) query.append('type', type);
     if (closureMode) {
+      if (startDate && endDate) {
+        query.append('startDate', startDate);
+        query.append('endDate', endDate);
+      }
+      if (type) query.append('type', type);
       query.append('closure', 'true');
       query.append('paymentStatus', isMetadataPendingMode ? 'metadata_pending' : 'pending');
+    } else if (historyFilters) {
+      if (historyFilters.startDate && historyFilters.endDate) {
+        query.set('startDate', historyFilters.startDate);
+        query.set('endDate', historyFilters.endDate);
+      }
+      if (historyFilters.type !== 'all') query.append('type', historyFilters.type);
+      if (historyFilters.status !== 'all') query.append('status', historyFilters.status);
+      if (historyFilters.local !== 'all') query.append('local', historyFilters.local);
+      const trimmedSearch = historyFilters.q?.trim();
+      if (trimmedSearch) query.append('q', trimmedSearch);
     } else if (paymentStatus !== 'all') {
+      if (startDate && endDate) {
+        query.append('startDate', startDate);
+        query.append('endDate', endDate);
+      }
+      if (type) query.append('type', type);
       query.append('paymentStatus', paymentStatus);
+    } else if (type) {
+      if (startDate && endDate) {
+        query.append('startDate', startDate);
+        query.append('endDate', endDate);
+      }
+      query.append('type', type);
+    } else if (startDate && endDate) {
+      query.append('startDate', startDate);
+      query.append('endDate', endDate);
     }
 
     const response = await fetch(`${apiUrl}/clients/${client._id}/orders?${query.toString()}`, {
@@ -106,6 +138,7 @@ export const useClientOrdersModal = ({
     closureMode,
     endDate,
     filterOrdersForMetadataPending,
+    historyFilters,
     isMetadataPendingMode,
     paymentStatus,
     startDate,
@@ -168,6 +201,15 @@ export const useClientOrdersModal = ({
     () => selectedOrders.reduce((sum, order) => sum + getOrderTotal(order), 0),
     [selectedOrders],
   );
+
+  const reportStartDate = closureMode ? startDate : historyFilters?.startDate;
+  const reportEndDate = closureMode ? endDate : historyFilters?.endDate;
+  const reportType =
+    closureMode
+      ? type
+      : historyFilters?.type && historyFilters.type !== 'all'
+        ? historyFilters.type
+        : undefined;
 
   const selectedGroup = useMemo(
     () => existingClosureGroups.find((group) => group._id === selectedGroupId) || null,
@@ -276,9 +318,9 @@ export const useClientOrdersModal = ({
       await downloadClientOrdersPdf({
         client,
         orders: payloadOrders,
-        startDate,
-        endDate,
-        type,
+        startDate: reportStartDate,
+        endDate: reportEndDate,
+        type: reportType,
         clientTotal,
       });
       return null;
@@ -331,9 +373,9 @@ export const useClientOrdersModal = ({
       await downloadClientOrdersPdf({
         client,
         orders: payloadOrders,
-        startDate,
-        endDate,
-        type,
+        startDate: reportStartDate,
+        endDate: reportEndDate,
+        type: reportType,
         clientTotal: selectedTotal,
         paymentMethod: createdGroup.paymentMethod,
         pixCopyPaste: createdGroup.pixCopyPaste,
@@ -351,9 +393,9 @@ export const useClientOrdersModal = ({
     await downloadClientOrdersPdf({
       client,
       orders: buildOrdersFromGroup(group),
-      startDate,
-      endDate,
-      type,
+      startDate: reportStartDate,
+      endDate: reportEndDate,
+      type: reportType,
       clientTotal: getGroupTotal(group),
       paymentMethod: group.paymentMethod,
       pixCopyPaste: group.pixCopyPaste,
@@ -365,9 +407,9 @@ export const useClientOrdersModal = ({
       {
         client,
         orders: buildOrdersFromGroup(group),
-        startDate,
-        endDate,
-        type,
+        startDate: reportStartDate,
+        endDate: reportEndDate,
+        type: reportType,
         clientTotal: totalAmount,
         paymentMethod: group.paymentMethod,
         pixCopyPaste: group.pixCopyPaste,
