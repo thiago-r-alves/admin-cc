@@ -654,7 +654,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
     setForm(prev => ({
       ...prev,
       type,
-      cacambaPrice: type === 'retirada' ? prev.cacambaPrice : '',
+      cacambaPrice: type === 'entrega' ? prev.cacambaPrice : '',
     }));
     setError('');
   };
@@ -673,8 +673,8 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
     }
     const orderType = form.type;
     const parsedCacambaPrice = Number(form.cacambaPrice.replace(',', '.'));
-    if (orderType === 'retirada' && (!Number.isFinite(parsedCacambaPrice) || parsedCacambaPrice <= 0)) {
-      setError('Informe o valor da caçamba para pedidos de retirada.');
+    if (orderType === 'entrega' && (!Number.isFinite(parsedCacambaPrice) || parsedCacambaPrice <= 0)) {
+      setError('Informe o valor da caçamba para pedidos de entrega.');
       return;
     }
 
@@ -700,7 +700,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
         priority: 0,
         placa: form.placa,
         motorista: form.motorista || undefined,
-        ...(orderType === 'retirada' ? { cacambaPrice: parsedCacambaPrice } : {}),
+        ...(orderType === 'entrega' ? { cacambaPrice: parsedCacambaPrice } : {}),
         ...(isPresetWithdrawal ? { plannedWithdrawalCacambaIds: initialPreset?.plannedWithdrawalCacambaIds || [] } : {}),
       }),
     });
@@ -829,7 +829,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
             {isPresetWithdrawal && (
               <PresetNotice data-testid="withdrawal-preset-notice">
                 Pedido aberto a partir de caçamba(s) vencida(s): <strong>{plannedCacambaText}</strong>.
-                Confira os dados da entrega e informe valor, motorista e placa.
+                Confira os dados da entrega e informe motorista e placa.
               </PresetNotice>
             )}
 
@@ -929,7 +929,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                       </Field>
                     )}
 
-                    {form.type === 'retirada' && (
+                    {form.type === 'entrega' && (
                       <Field>
                         <Label>Valor da Caçamba (R$)</Label>
                         <Input

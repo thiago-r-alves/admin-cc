@@ -19,22 +19,15 @@ const parseCacambaPrice = (value: unknown) => {
 };
 
 const validateCacambaPriceForType = (type: unknown, value: unknown) => {
-  if (type === 'retirada') {
+  if (type === 'entrega') {
     const parsed = parseCacambaPrice(value);
     if (parsed === null || parsed <= 0) {
       return {
         ok: false as const,
-        body: { message: 'Valor da caçamba é obrigatório para pedidos de retirada.' },
+        body: { message: 'Valor da caçamba é obrigatório para pedidos de entrega.' },
       };
     }
     return { ok: true as const, value: parsed };
-  }
-
-  if (value !== undefined && value !== null && String(value).trim() !== '') {
-    return {
-      ok: false as const,
-      body: { message: 'Valor da caçamba é permitido apenas para pedidos de retirada.' },
-    };
   }
 
   return { ok: true as const, value: undefined };
@@ -224,7 +217,7 @@ export const createOrder = async (payload: Record<string, unknown>) => {
     motorista: motorista || null,
     orderNumber: nextOrderNumber,
     placa: placa || '',
-    ...(type === 'retirada' ? { cacambaPrice: priceValidation.value } : {}),
+    ...(typeof priceValidation.value === 'number' ? { cacambaPrice: priceValidation.value } : {}),
     ...(plannedWithdrawalValidation.ids.length
       ? { plannedWithdrawalCacambaIds: plannedWithdrawalValidation.ids }
       : {}),
@@ -431,7 +424,7 @@ export const correctPendingOrder = async (id: string, payload: Record<string, un
       type,
       motorista: normalizedMotorista,
       updatedAt: Date.now(),
-      ...(type === 'retirada' ? { cacambaPrice: priceValidation.value } : { $unset: { cacambaPrice: '' } }),
+      ...(type === 'entrega' ? { cacambaPrice: priceValidation.value } : { $unset: { cacambaPrice: '' } }),
     },
     { new: true },
   )
@@ -461,15 +454,16 @@ export const updateOrder = async (id: string, payload: Record<string, unknown>) 
       payload.cacambaPrice !== undefined ? payload.cacambaPrice : existingOrder.cacambaPrice;
     const priceValidation = validateCacambaPriceForType(typeForValidation, priceForValidation);
     if (!priceValidation.ok) return { status: 400, body: priceValidation.body };
-    if (typeForValidation === 'retirada') updates.cacambaPrice = priceValidation.value;
+    if (typeForValidation === 'entrega') {
+      updates.cacambaPrice = priceValidation.value;
+    } else {
+      updates.$unset = { ...(updates.$unset as Record<string, unknown> | undefined), cacambaPrice: '' };
+    }
   }
 
   const fields = [...ORDER_CLIENT_SNAPSHOT_FIELDS, 'type', 'status', 'motorista'];
   for (const field of fields) {
     if (payload[field] !== undefined) updates[field] = payload[field];
-  }
-  if (payload.type === 'entrega') {
-    updates.$unset = { cacambaPrice: '' };
   }
   if (payload.priority !== undefined) updates.priority = mapPriority(payload.priority);
 

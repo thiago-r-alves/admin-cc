@@ -237,8 +237,8 @@ const CorrectOrderModal: React.FC<CorrectOrderModalProps> = ({
       return;
     }
     const parsedCacambaPrice = Number(cacambaPrice.replace(',', '.'));
-    if (type === 'retirada' && (!Number.isFinite(parsedCacambaPrice) || parsedCacambaPrice <= 0)) {
-      setError('Informe o valor da caçamba para pedidos de retirada.');
+    if (type === 'entrega' && (!Number.isFinite(parsedCacambaPrice) || parsedCacambaPrice <= 0)) {
+      setError('Informe o valor da caçamba para pedidos de entrega.');
       return;
     }
 
@@ -255,7 +255,7 @@ const CorrectOrderModal: React.FC<CorrectOrderModalProps> = ({
         body: JSON.stringify({
           type,
           motorista: driverId,
-          ...(type === 'retirada' ? { cacambaPrice: parsedCacambaPrice } : {}),
+          ...(type === 'entrega' ? { cacambaPrice: parsedCacambaPrice } : {}),
         }),
       });
       const data = await response.json();
@@ -301,7 +301,7 @@ const CorrectOrderModal: React.FC<CorrectOrderModalProps> = ({
                   value={type}
                   onChange={(event) => {
                     setType(event.target.value as OrderType);
-                    if (event.target.value === 'entrega') setCacambaPrice('');
+                    if (event.target.value === 'retirada') setCacambaPrice('');
                     setError('');
                   }}
                 >
@@ -310,7 +310,7 @@ const CorrectOrderModal: React.FC<CorrectOrderModalProps> = ({
                 </Select>
               </div>
 
-              {type === 'retirada' && (
+              {type === 'entrega' && (
                 <div>
                   <Label htmlFor="correct-order-cacamba-price">Valor da caçamba (R$)</Label>
                   <Input

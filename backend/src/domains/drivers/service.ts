@@ -13,6 +13,18 @@ const hideDriverCacambaPrice = (cacamba: any) => {
   return plain;
 };
 
+const findLatestDeliveryPriceForWithdrawal = async (numero: string, clientId: unknown) => {
+  const deliveries = await CacambaModel.find({ numero, tipo: 'entrega' })
+    .sort({ createdAt: -1, _id: -1 })
+    .populate('orderId', 'clientId')
+    .select('price orderId')
+    .lean();
+
+  const delivery = deliveries.find((item: any) => String(item?.orderId?.clientId || '') === String(clientId || ''));
+  const price = delivery?.price;
+  return typeof price === 'number' && Number.isFinite(price) ? price : undefined;
+};
+
 export const createDriver = async (payload: { username?: string; password?: string }) => {
   const existingUser = await UserModel.findOne({ username: payload.username });
   if (existingUser) {
@@ -124,6 +136,11 @@ export const createDriverOrderCacamba = async (
     return { status: 400, body: { message: 'Imagem é obrigatória.' } };
   }
 
+  const inheritedPrice =
+    finalTipo === 'entrega'
+      ? order.cacambaPrice
+      : await findLatestDeliveryPriceForWithdrawal(normalizedNumero, order.clientId);
+
   const { buffer: outBuf, contentType: imageContentType, filename } = await compressImage(
     file.buffer,
     file.originalname,
@@ -136,7 +153,7 @@ export const createDriverOrderCacamba = async (
     numero: normalizedNumero,
     tipo: finalTipo,
     ...(finalTipo === 'retirada' ? { contentType: normalizedContentType } : {}),
-    ...(finalTipo === 'retirada' && typeof order.cacambaPrice === 'number' ? { price: order.cacambaPrice } : {}),
+    ...(typeof inheritedPrice === 'number' && Number.isFinite(inheritedPrice) ? { price: inheritedPrice } : {}),
     local,
     horaServicoDigitos,
     orderId: order._id,

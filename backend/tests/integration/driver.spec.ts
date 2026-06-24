@@ -40,7 +40,7 @@ describe('Driver APIs', () => {
       type,
       status: 'pendente',
       motorista: driverId,
-      ...(type === 'retirada' ? { cacambaPrice: 180 } : {}),
+      ...(type === 'entrega' ? { cacambaPrice: 180 } : {}),
     });
   };
 
@@ -53,7 +53,8 @@ describe('Driver APIs', () => {
     const cacamba = await CacambaModel.create({
       numero,
       tipo,
-      ...(tipo === 'retirada' ? { contentType: 'Entulho limpo', price: 180 } : {}),
+      ...(tipo === 'retirada' ? { contentType: 'Entulho limpo' } : {}),
+      ...(tipo === 'entrega' && typeof order.cacambaPrice === 'number' ? { price: order.cacambaPrice } : {}),
       imageUrl: '/files/507f1f77bcf86cd799439011',
       orderId: order._id,
       local: 'via_publica',
@@ -160,6 +161,29 @@ describe('Driver APIs', () => {
     const secondCacamba = await CacambaModel.findById(second.body.cacamba._id).lean();
     expect(secondCacamba?.price).toBe(180);
 
+    const unpricedDelivery = await CacambaModel.create({
+      numero: '003',
+      tipo: 'entrega',
+      imageUrl: '/files/507f1f77bcf86cd799439011',
+      orderId: deliveryOrder._id,
+      local: 'via_publica',
+      horaServicoDigitos: '125',
+      createdAt: new Date('2026-01-01T10:02:00.000Z'),
+    });
+    await OrderModel.findByIdAndUpdate(deliveryOrder._id, { $push: { cacambas: unpricedDelivery._id } });
+
+    const unpricedWithdrawal = await request(app)
+      .post(`/driver/orders/${order._id}/cacambas`)
+      .set('Authorization', `Bearer ${token}`)
+      .field('numero', '003')
+      .field('horaServicoDigitos', '125')
+      .field('local', 'via_publica')
+      .field('contentType', 'Entulho limpo')
+      .attach('image', tinyPng, 'img.png');
+    expect(unpricedWithdrawal.status).toBe(201);
+    const unpricedWithdrawalCacamba = await CacambaModel.findById(unpricedWithdrawal.body.cacamba._id).lean();
+    expect(unpricedWithdrawalCacamba?.price).toBeUndefined();
+
     const duplicate = await request(app)
       .post(`/driver/orders/${order._id}/cacambas`)
       .set('Authorization', `Bearer ${token}`)
@@ -201,6 +225,9 @@ describe('Driver APIs', () => {
 
       expect(valid.status).toBe(201);
       expect(valid.body.cacamba.numero).toBe(numero);
+      expect(valid.body.cacamba.price).toBeUndefined();
+      const created = await CacambaModel.findById(valid.body.cacamba._id).lean();
+      expect(created?.price).toBe(180);
     }
   });
 
