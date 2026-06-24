@@ -48,6 +48,10 @@ const FaturamentoPage = React.lazy(() => import('./FaturamentoPage'));
 // ==========================================================
 const AdminContainer = styled.div`
   min-height: 100vh;
+  width: 100%;
+  max-width: 100vw;
+  box-sizing: border-box;
+  overflow-x: hidden;
   background-color: #f6f7fb;
   font-family: Arial, sans-serif;
   color: #111827;
@@ -56,6 +60,8 @@ const AdminContainer = styled.div`
 const AdminShell = styled.div`
   min-height: 100vh;
   display: flex;
+  min-width: 0;
+  max-width: 100%;
 `;
 
 const Sidebar = styled.aside<{ $open: boolean }>`
@@ -165,6 +171,10 @@ const MobileTopBar = styled.div`
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
@@ -172,8 +182,11 @@ const MobileTopBar = styled.div`
   margin-bottom: 1rem;
 
   h2 {
+    min-width: 0;
     margin: 0;
     font-size: 0.95rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
     color: #111827;
   }
 
@@ -186,6 +199,9 @@ const MobilePendingIndicator = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 50%;
   min-height: 32px;
   padding: 0.35rem 0.65rem;
   border: 1px solid #fecaca;
@@ -196,6 +212,8 @@ const MobilePendingIndicator = styled.button`
   font-size: 0.72rem;
   font-weight: 900;
   text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 `;
 
@@ -228,6 +246,10 @@ const Backdrop = styled.button<{ $open: boolean }>`
 `;
 
 const ContentContainer = styled.div`
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
   background-color: white;
   padding: 1.5rem;
   border-radius: 8px;

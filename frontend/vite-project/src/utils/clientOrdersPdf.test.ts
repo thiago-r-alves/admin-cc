@@ -130,7 +130,15 @@ describe('buildClientOrdersPdf', () => {
   it('gera PDF de fechamento com campos de entrega/retirada e sem labels removidas', async () => {
     await buildClientOrdersPdf(
       {
-        client: { _id: 'cli-1', clientName: 'Cliente Teste' },
+        client: {
+          _id: 'cli-1',
+          clientName: 'Cliente Teste',
+          address: 'Rua Central',
+          addressNumber: '123',
+          neighborhood: 'Centro',
+          city: 'Sao Jose dos Campos',
+          cep: '12200-000',
+        },
         startDate: '2026-05-01',
         endDate: '2026-05-31',
         type: 'retirada',
@@ -147,6 +155,10 @@ describe('buildClientOrdersPdf', () => {
     const allPdfText = JSON.stringify([summary.head, summary.body, details.head, details.body]);
 
     expect(summary.head).toEqual([['Resumo do Relatorio', '']]);
+    expect(summary.body).toContainEqual([
+      'Endereco',
+      'Rua Central, 123 - Centro - Sao Jose dos Campos - CEP 12200-000',
+    ]);
     expect(summary.headStyles?.fillColor).toEqual([227, 6, 19]);
     expect(details.headStyles?.fillColor).toEqual([227, 6, 19]);
     expect(details.tableWidth).toBe(277);
@@ -238,6 +250,7 @@ describe('buildClientOrdersPdf', () => {
     const summary = autoTableMock.mock.calls[0]?.[1];
     if (!summary) throw new Error('Summary table was not rendered.');
     expect(summary.body?.some((row) => row[0] === 'Periodo')).toBe(false);
+    expect(summary.body).toContainEqual(['Endereco', '-']);
   });
 
   it('desenha o cabecalho uma unica vez em cada pagina do PDF', async () => {

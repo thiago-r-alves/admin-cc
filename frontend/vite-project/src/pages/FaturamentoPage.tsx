@@ -26,6 +26,8 @@ const Page = styled.div`
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;
 `;
 
 const SectionCard = styled.section`
@@ -246,16 +248,19 @@ const CardSubtitle = styled.p`
 const TrendChartWrap = styled.div`
   display: grid;
   gap: 0.9rem;
+  width: 100%;
   min-width: 0;
   max-width: 100%;
+  box-sizing: border-box;
   overflow-x: auto;
   overflow-y: hidden;
+  contain: inline-size;
   -webkit-overflow-scrolling: touch;
 `;
 
 const TrendChartSvg = styled.svg`
   display: block;
-  width: 100%;
+  width: auto;
   height: 280px;
   flex: 0 0 auto;
 `;
@@ -351,8 +356,12 @@ const TableCard = styled(SectionCard)`
 `;
 
 const TableWrap = styled.div`
+  width: 100%;
+  min-width: 0;
   max-width: 100%;
+  box-sizing: border-box;
   overflow: auto;
+  contain: inline-size;
   -webkit-overflow-scrolling: touch;
 `;
 
@@ -439,10 +448,11 @@ const TrendChart = ({ items }: { items: IBillingSummaryResponse['timeseries'] })
   return (
     <TrendChartWrap data-testid="billing-trend-chart">
       <TrendChartSvg
+        width={width}
+        height={height}
         viewBox={`0 0 ${width} ${height}`}
         role="img"
         aria-label="Evolução do faturamento"
-        style={{ minWidth: `${width}px` }}
       >
         <defs>
           <linearGradient id="billing-bar-gradient" x1="0" x2="0" y1="0" y2="1">

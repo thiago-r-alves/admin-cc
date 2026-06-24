@@ -31,6 +31,23 @@ const formatDateTime = (value?: string) => (value ? new Date(value).toLocaleStri
 const formatCurrency = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
+const formatClientAddress = (client: IClient) => {
+  const streetLine = [client.address, client.addressNumber]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+    .join(', ');
+  const addressParts = [
+    streetLine,
+    client.neighborhood,
+    client.city,
+    client.cep ? `CEP ${client.cep}` : '',
+  ]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean);
+
+  return addressParts.join(' - ') || '-';
+};
+
 const projectRed: [number, number, number] = [227, 6, 19];
 const detailsIdentifierColumns = new Set([0, 7, 11]);
 const companyLogoUrl = '/logo-central-cacambas-pdf.png';
@@ -226,6 +243,7 @@ export async function buildClientOrdersPdf(
   const totalCacambas = orders.reduce((sum, order) => sum + (order.cacambas?.length || 0), 0);
   const summaryBody = [
     ['Cliente', client.clientName || '-'],
+    ['Endereco', formatClientAddress(client)],
     ...(periodText ? [['Periodo', periodText]] : []),
     ['Total do cliente', formatCurrency(clientTotal)],
     ['Pedidos no relatorio', String(orders.length)],
