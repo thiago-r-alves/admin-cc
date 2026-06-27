@@ -1,144 +1,10 @@
 import React from 'react';
-import styled from 'styled-components';
 import type { IClient } from '../interfaces';
+import { cn } from '../utils/cn';
 
-const ListContainer = styled.div`
-  width: 100%;
-  overflow: hidden;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
-  background: #ffffff;
-`;
-
-const ClientCard = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.25rem;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid #fee2e2;
-  background: #ffffff;
-
-  &:last-child {
-    border-bottom: 0;
-  }
-
-  @media (max-width: 760px) {
-    align-items: stretch;
-    flex-direction: column;
-    gap: 1rem;
-    padding: 1rem;
-  }
-`;
-
-const ClientInfo = styled.div`
-  min-width: 0;
-  flex: 1 1 auto;
-`;
-
-const ClientName = styled.h3`
-  margin: 0 0 0.25rem;
-  color: #1f2937;
-  font-size: 1rem;
-  font-weight: 900;
-  line-height: 1.25;
-  text-transform: uppercase;
-  overflow-wrap: anywhere;
-`;
-
-const DocumentLine = styled.p`
-  margin: 0 0 0.45rem;
-  color: #4b5563;
-  font-size: 0.78rem;
-  font-weight: 800;
-  line-height: 1.35;
-
-  strong {
-    color: #111827;
-  }
-`;
-
-const MetaRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
-  flex-wrap: wrap;
-  margin-top: 0.28rem;
-`;
-
-const MetaItem = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 0.42rem;
-  min-width: 0;
-  color: #6b7280;
-  font-size: 0.82rem;
-  font-weight: 700;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-
-  svg {
-    flex: 0 0 auto;
-    color: #6b7280;
-  }
-`;
-
-const AddressItem = styled(MetaItem)`
-  max-width: 100%;
-`;
-
-const ActionContainer = styled.div`
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.6rem;
-
-  @media (max-width: 760px) {
-    justify-content: stretch;
-    flex-wrap: wrap;
-  }
-`;
-
-const ActionButton = styled.button<{ $variant?: 'success' | 'danger' }>`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.42rem;
-  min-height: 38px;
-  padding: 0.6rem 0.85rem;
-  border: 1px solid ${({ $variant }) => ($variant === 'danger' ? 'transparent' : '#d8b4b4')};
-  border-radius: 4px;
-  background: ${({ $variant }) =>
-    $variant === 'danger' ? '#dc2626' :
-    $variant === 'success' ? '#ffffff' :
-    '#ffffff'};
-  color: ${({ $variant }) => ($variant === 'danger' ? '#ffffff' : '#374151')};
-  cursor: pointer;
-  font-size: 0.78rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
-
-  &:hover {
-    background: ${({ $variant }) =>
-      $variant === 'danger' ? '#b91c1c' :
-      $variant === 'success' ? '#fff1f2' :
-      '#fff1f2'};
-    border-color: ${({ $variant }) => ($variant === 'danger' ? 'transparent' : '#e30613')};
-    color: ${({ $variant }) => ($variant === 'danger' ? '#ffffff' : '#e30613')};
-  }
-
-  @media (max-width: 760px) {
-    flex: 1 1 120px;
-  }
-`;
-
-const EmptyState = styled.div`
-  padding: 1.2rem;
-  color: #6b7280;
-  background: #fffafa;
-`;
+const metaItemClass = 'inline-flex min-w-0 items-center gap-[0.42rem] text-[0.82rem] font-bold leading-[1.35] text-gray-500 [overflow-wrap:anywhere] [&_svg]:flex-none [&_svg]:text-gray-500';
+const actionButtonClass =
+  'inline-flex min-h-[38px] cursor-pointer items-center justify-center gap-[0.42rem] rounded-ui-md px-[0.85rem] py-[0.6rem] text-[0.78rem] font-black uppercase transition-[background,border-color,color] duration-[180ms] max-[760px]:flex-[1_1_120px]';
 
 interface ClientListProps {
   clients: IClient[];
@@ -205,71 +71,71 @@ const formatAddress = (client: IClient) => {
 const ClientList: React.FC<ClientListProps> = ({ clients, onEdit, onDelete, onViewOrders }) => {
   if (!clients.length) {
     return (
-      <ListContainer>
-        <EmptyState>Nenhum cliente encontrado.</EmptyState>
-      </ListContainer>
+      <div className="w-full overflow-hidden rounded-ui-lg border border-red-200 bg-white">
+        <div className="bg-[#fffafa] p-[1.2rem] text-gray-500">Nenhum cliente encontrado.</div>
+      </div>
     );
   }
 
   return (
-    <ListContainer>
+    <div className="w-full overflow-hidden rounded-ui-lg border border-red-200 bg-white">
       {clients.map((client) => (
-        <ClientCard key={client._id}>
-          <ClientInfo>
-            <ClientName>{client.clientName}</ClientName>
-            <DocumentLine>
+        <div key={client._id} className="flex items-center justify-between gap-5 border-b border-red-100 bg-white px-5 py-4 last:border-b-0 max-[760px]:flex-col max-[760px]:items-stretch max-[760px]:gap-4 max-[760px]:p-4">
+          <div className="min-w-0 flex-auto">
+            <h3 className="m-0 mb-1 text-base font-black uppercase leading-tight text-gray-800 [overflow-wrap:anywhere]">{client.clientName}</h3>
+            <p className="m-0 mb-[0.45rem] text-[0.78rem] font-extrabold leading-[1.35] text-gray-600 [&_strong]:text-gray-950">
               <strong>CNPJ:</strong> {client.cnpjCpf || '-'}
-            </DocumentLine>
-            <DocumentLine>
+            </p>
+            <p className="m-0 mb-[0.45rem] text-[0.78rem] font-extrabold leading-[1.35] text-gray-600 [&_strong]:text-gray-950">
               <strong>RG/IE:</strong> {client.rgInscricaoEstadual || '-'}
-            </DocumentLine>
+            </p>
 
-            <MetaRow>
-              <MetaItem>
+            <div className="mt-[0.28rem] flex flex-wrap items-center gap-5">
+              <span className={metaItemClass}>
                 <UserIcon />
                 {client.contactName || '-'}
-              </MetaItem>
-              <MetaItem>
+              </span>
+              <span className={metaItemClass}>
                 <PhoneIcon />
                 {client.contactNumber || '-'}
-              </MetaItem>
-              <MetaItem>
+              </span>
+              <span className={metaItemClass}>
                 <MailIcon />
                 {client.email || '-'}
-              </MetaItem>
-            </MetaRow>
+              </span>
+            </div>
 
-            <MetaRow>
-              <AddressItem>
+            <div className="mt-[0.28rem] flex flex-wrap items-center gap-5">
+              <span className={cn(metaItemClass, 'max-w-full')}>
                 <PinIcon />
                 {formatAddress(client)}
-              </AddressItem>
-              <MetaItem>
+              </span>
+              <span className={metaItemClass}>
                 <MailIcon />
                 CEP {client.cep || '-'}
-              </MetaItem>
-            </MetaRow>
-          </ClientInfo>
+              </span>
+            </div>
+          </div>
 
-          <ActionContainer>
-            <ActionButton type="button" onClick={() => onEdit(client)}>
+          <div className="flex flex-none items-center justify-end gap-[0.6rem] max-[760px]:flex-wrap max-[760px]:justify-stretch">
+            <button type="button" onClick={() => onEdit(client)} className={cn(actionButtonClass, 'border border-brand-border bg-white text-gray-700 hover:border-brand hover:bg-brand-soft hover:text-brand')}>
               <EditIcon />
               Editar
-            </ActionButton>
+            </button>
             {onViewOrders && (
-              <ActionButton type="button" $variant="success" onClick={() => onViewOrders(client)}>
+              <button type="button" onClick={() => onViewOrders(client)} className={cn(actionButtonClass, 'border border-brand-border bg-white text-gray-700 hover:border-brand hover:bg-brand-soft hover:text-brand')}>
                 <ClipboardIcon />
                 Pedidos
-              </ActionButton>
+              </button>
             )}
-            <ActionButton type="button" $variant="danger" onClick={() => onDelete(client._id)}>
+            <button type="button" onClick={() => onDelete(client._id)} className={cn(actionButtonClass, 'border border-transparent bg-red-600 text-white hover:bg-red-800')}>
               <TrashIcon />
               Excluir
-            </ActionButton>
-          </ActionContainer>
-        </ClientCard>
+            </button>
+          </div>
+        </div>
       ))}
-    </ListContainer>
+    </div>
   );
 };
 

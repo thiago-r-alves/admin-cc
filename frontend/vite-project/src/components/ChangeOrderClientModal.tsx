@@ -1,226 +1,30 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import styled from 'styled-components';
 import type { IClient, IOrder } from '../interfaces';
 import type { Props as ReactSelectProps, SingleValue, StylesConfig } from 'react-select';
+import { twComponent } from '../utils/twComponent';
 
-const Overlay = styled.div`
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(17, 24, 39, 0.62);
-`;
+const footerButtonClass = 'min-h-[42px] min-w-[150px] cursor-pointer rounded-ui-md px-4 py-[0.7rem] text-[0.82rem] font-black uppercase max-[560px]:w-full';
 
-const Modal = styled.div`
-  width: min(760px, 96vw);
-  max-height: min(90dvh, 820px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid #fecaca;
-  border-radius: 10px;
-  background: #ffffff;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
-
-  @media (max-width: 768px) {
-    width: 100vw;
-    height: 100dvh;
-    max-height: 100dvh;
-    border-radius: 0;
-  }
-`;
-
-const Header = styled.div`
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid #fee2e2;
-`;
-
-const Title = styled.h2`
-  margin: 0;
-  color: #111827;
-  font-size: 1.1rem;
-  font-weight: 900;
-`;
-
-const CloseButton = styled.button`
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: #6b7280;
-  cursor: pointer;
-  font-size: 1.55rem;
-  line-height: 1;
-
-  &:hover {
-    background: #fff1f2;
-    color: #e30613;
-  }
-`;
-
-const Form = styled.form`
-  min-height: 0;
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-`;
-
-const Body = styled.div`
-  min-height: 0;
-  flex: 1 1 auto;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 1.25rem;
-`;
-
-const Intro = styled.p`
-  margin: 0 0 1rem;
-  color: #4b5563;
-  line-height: 1.5;
-`;
-
-const WarningBox = styled.div`
-  margin-bottom: 1rem;
-  border: 1px solid #fca5a5;
-  border-radius: 8px;
-  background: #fff1f2;
-  padding: 0.9rem 1rem;
-  color: #9f1239;
-  font-size: 0.88rem;
-  font-weight: 700;
-  line-height: 1.5;
-`;
-
-const Section = styled.section`
-  display: grid;
-  gap: 0.85rem;
-`;
-
-const Label = styled.label`
-  display: block;
-  margin-bottom: 0.35rem;
-  color: #4b5563;
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-`;
-
-const NativeSelect = styled.select`
-  width: 100%;
-  min-height: 40px;
-  padding: 0.55rem 0.65rem;
-  border: 1px solid #d8b4b4;
-  border-radius: 4px;
-  background: #fff;
-  color: #374151;
-  font-size: 0.9rem;
-
-  &:focus {
-    outline: none;
-    border-color: #e30613;
-    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
-  }
-`;
-
-const SummaryGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-
-  @media (max-width: 700px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const SummaryCard = styled.div`
-  border: 1px solid #fee2e2;
-  border-radius: 8px;
-  padding: 1rem;
-  background: #fffafa;
-`;
-
-const SummaryTitle = styled.h3`
-  margin: 0 0 0.7rem;
-  color: #6b1f1f;
-  font-size: 0.82rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-`;
-
-const SummaryLine = styled.div`
-  color: #374151;
-  font-size: 0.88rem;
-  line-height: 1.55;
-
-  strong {
-    color: #111827;
-  }
-`;
-
-const Footer = styled.div`
-  flex: 0 0 auto;
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 1rem 1.25rem;
-  border-top: 1px solid #fee2e2;
-  background: #fffafa;
-
-  @media (max-width: 560px) {
-    flex-direction: column-reverse;
-  }
-`;
-
-const FooterButton = styled.button`
-  min-width: 150px;
-  min-height: 42px;
-  padding: 0.7rem 1rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 900;
-  text-transform: uppercase;
-
-  @media (max-width: 560px) {
-    width: 100%;
-  }
-`;
-
-const CancelButton = styled(FooterButton)`
-  border: 1px solid #d8b4b4;
-  background: #ffffff;
-  color: #6b1f1f;
-`;
-
-const SubmitButton = styled(FooterButton)`
-  border: 1px solid #e30613;
-  background: #e30613;
-  color: #ffffff;
-
-  &:disabled {
-    background: #f39aa0;
-    border-color: #f39aa0;
-    cursor: not-allowed;
-  }
-`;
-
-const ErrorMessage = styled.p`
-  margin: 1rem 0 0;
-  color: #ef4444;
-  font-size: 0.875rem;
-  font-weight: 700;
-`;
+const Overlay = twComponent('div', 'fixed inset-0 z-[1000] flex items-center justify-center bg-[rgba(17,24,39,0.62)] p-4');
+const Modal = twComponent('div', 'flex max-h-[min(90dvh,820px)] w-[min(760px,96vw)] flex-col overflow-hidden rounded-[10px] border border-red-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] max-[768px]:h-[100dvh] max-[768px]:max-h-[100dvh] max-[768px]:w-screen max-[768px]:rounded-none');
+const Header = twComponent('div', 'flex flex-none items-center justify-between gap-4 border-b border-red-100 px-5 py-4');
+const Title = twComponent('h2', 'm-0 text-[1.1rem] font-black text-gray-950');
+const CloseButton = twComponent('button', 'h-[34px] w-[34px] cursor-pointer rounded-ui-lg border-0 bg-transparent text-[1.55rem] leading-none text-gray-500 hover:bg-brand-soft hover:text-brand');
+const Form = twComponent('form', 'flex min-h-0 flex-auto flex-col');
+const Body = twComponent('div', 'min-h-0 flex-auto overflow-y-auto p-5 [-webkit-overflow-scrolling:touch]');
+const Intro = twComponent('p', 'm-0 mb-4 leading-normal text-gray-600');
+const WarningBox = twComponent('div', 'mb-4 rounded-lg border border-red-300 bg-brand-soft px-4 py-[0.9rem] text-[0.88rem] font-bold leading-normal text-rose-800');
+const Section = twComponent('section', 'grid gap-[0.85rem]');
+const Label = twComponent('label', 'mb-[0.35rem] block text-[0.72rem] font-black uppercase tracking-[0.02em] text-gray-600');
+const NativeSelect = twComponent('select', 'min-h-10 w-full rounded-ui-md border border-brand-border bg-white px-[0.65rem] py-[0.55rem] text-[0.9rem] text-gray-700 focus:border-brand focus:outline-none focus:ring-[3px] focus:ring-brand-focus');
+const SummaryGrid = twComponent('div', 'grid grid-cols-2 gap-4 max-[700px]:grid-cols-1');
+const SummaryCard = twComponent('div', 'rounded-lg border border-red-100 bg-[#fffafa] p-4');
+const SummaryTitle = twComponent('h3', 'm-0 mb-[0.7rem] text-[0.82rem] font-black uppercase tracking-[0.04em] text-[#6b1f1f]');
+const SummaryLine = twComponent('div', 'text-[0.88rem] leading-[1.55] text-gray-700 [&_strong]:text-gray-950');
+const Footer = twComponent('div', 'flex flex-none justify-end gap-3 border-t border-red-100 bg-[#fffafa] px-5 py-4 max-[560px]:flex-col-reverse');
+const CancelButton = twComponent('button', `${footerButtonClass} border border-brand-border bg-white text-[#6b1f1f]`);
+const SubmitButton = twComponent('button', `${footerButtonClass} border border-brand bg-brand text-white disabled:cursor-not-allowed disabled:border-[#f39aa0] disabled:bg-[#f39aa0]`);
+const ErrorMessage = twComponent('p', 'm-0 mt-4 text-sm font-bold text-red-500');
 
 type ClientOption = { value: string; label: string; clientName: string };
 type ClientSelectComponent = React.ComponentType<ReactSelectProps<ClientOption, false>>;

@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import styled from 'styled-components';
 import type { IDriver, IClient, OrderType } from '../interfaces';
 import type {
   FilterOptionOption,
@@ -7,426 +6,60 @@ import type {
   SingleValue,
   StylesConfig,
 } from 'react-select';
+import { twComponent } from '../utils/twComponent';
 
-const ModalOverlay = styled.div`
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
-    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-  background: rgba(17, 24, 39, 0.62);
+const fieldClass = 'box-border min-h-[38px] w-full rounded-ui-md border border-brand-border bg-white px-[0.65rem] py-[0.55rem] text-[0.9rem] text-gray-700 focus:border-brand focus:outline-none focus:ring-[3px] focus:ring-brand-focus';
+const footerButtonClass = 'min-h-[42px] min-w-[150px] cursor-pointer rounded-ui-md px-4 py-[0.7rem] text-[0.82rem] font-black uppercase tracking-[0.04em] transition-colors duration-[180ms] max-[560px]:w-full';
 
-  @media (max-width: 768px) {
-    align-items: stretch;
-    padding: 0;
-  }
-`;
-
-const ModalContent = styled.div`
-  width: min(960px, 94vw);
-  max-height: min(90dvh, 820px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
-
-  @media (max-width: 768px) {
-    width: 100vw;
-    height: 100dvh;
-    max-height: 100dvh;
-    border-radius: 0;
-  }
-`;
-
-const ModalHeader = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex: 0 0 auto;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid #fee2e2;
-  background: #ffffff;
-`;
-
-const TitleWrap = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-`;
-
-const TitleAccent = styled.span`
-  width: 4px;
-  height: 28px;
-  border-radius: 999px;
-  background: #e30613;
-`;
-
-const Title = styled.h2`
-  margin: 0;
-  color: #111827;
-  font-size: 1.2rem;
-  font-weight: 900;
-`;
-
-const CloseButton = styled.button`
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: #6b7280;
-  cursor: pointer;
-  font-size: 1.55rem;
-  line-height: 1;
-  transition: background 0.18s ease, color 0.18s ease;
-
-  &:hover {
-    background: #fff1f2;
-    color: #e30613;
-  }
-`;
-
-const Form = styled.form`
-  min-height: 0;
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-`;
-
-const ModalBody = styled.div`
-  flex: 1 1 auto;
-  overflow-y: auto;
-  padding: 1.25rem;
-  -webkit-overflow-scrolling: touch;
-`;
-
-const IntroText = styled.p`
-  margin: 0 0 1rem;
-  color: #6b7280;
-  font-size: 0.88rem;
-`;
-
-const PresetNotice = styled.div`
-  margin: 0 0 1rem;
-  padding: 0.85rem 1rem;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
-  background: #fffafa;
-  color: #374151;
-  font-size: 0.88rem;
-  line-height: 1.45;
-
-  strong {
-    color: #991b1b;
-  }
-`;
-
-const FormGrid = styled.div`
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 1.25rem;
-
-  @media (max-width: 860px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const FormSection = styled.section`
-  min-width: 0;
-`;
-
-const SectionTitle = styled.h3`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0 0 1rem;
-  color: #374151;
-  font-size: 0.82rem;
-  font-weight: 900;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-`;
-
-const SectionIcon = styled.span`
-  display: inline-flex;
-  align-items: center;
-  color: #e30613;
-`;
-
-const FieldGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
-
-  @media (max-width: 560px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const Field = styled.div<{ $span?: 1 | 2 }>`
-  min-width: 0;
-  grid-column: span ${({ $span }) => $span || 1};
-
-  @media (max-width: 560px) {
-    grid-column: span 1;
-  }
-`;
-
-const Label = styled.label`
-  display: block;
-  margin-bottom: 0.35rem;
-  color: #4b5563;
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.02em;
-`;
-
-const Input = styled.input`
-  width: 100%;
-  min-height: 38px;
-  box-sizing: border-box;
-  padding: 0.55rem 0.65rem;
-  border: 1px solid #d8b4b4;
-  border-radius: 4px;
-  background: #fff;
-  color: #374151;
-  font-size: 0.9rem;
-
-  &:focus {
-    outline: none;
-    border-color: #e30613;
-    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
-  }
-`;
-
-const Select = styled.select`
-  width: 100%;
-  min-height: 38px;
-  box-sizing: border-box;
-  padding: 0.55rem 0.65rem;
-  border: 1px solid #d8b4b4;
-  border-radius: 4px;
-  background: #fff;
-  color: #374151;
-  font-size: 0.9rem;
-
-  &:focus {
-    outline: none;
-    border-color: #e30613;
-    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
-  }
-`;
-
-const ServiceTypeGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.65rem;
-
-  @media (max-width: 560px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const ServiceTypeOption = styled.button<{ $tone: OrderType; $selected: boolean }>`
-  width: 100%;
-  min-height: 94px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.7rem;
-  padding: 0.75rem;
-  border: 1px solid
-    ${({ $selected, $tone }) => {
-      if (!$selected) return '#d8b4b4';
-      return $tone === 'entrega' ? '#22c55e' : '#ef4444';
-    }};
-  border-radius: 6px;
-  background: ${({ $selected, $tone }) => {
-    if (!$selected) return '#ffffff';
-    return $tone === 'entrega' ? '#f0fdf4' : '#fff1f2';
-  }};
-  color: ${({ $selected, $tone }) => {
-    if (!$selected) return '#374151';
-    return $tone === 'entrega' ? '#14532d' : '#7f1d1d';
-  }};
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
-
-  &:hover {
-    border-color: ${({ $tone }) => ($tone === 'entrega' ? '#22c55e' : '#ef4444')};
-    background: ${({ $tone }) => ($tone === 'entrega' ? '#f0fdf4' : '#fff1f2')};
+const ModalOverlay = twComponent('div', 'fixed inset-0 z-[1000] flex items-center justify-center bg-[rgba(17,24,39,0.62)] p-[max(16px,env(safe-area-inset-top))_max(16px,env(safe-area-inset-right))_max(16px,env(safe-area-inset-bottom))_max(16px,env(safe-area-inset-left))] max-[768px]:items-stretch max-[768px]:p-0');
+const ModalContent = twComponent('div', 'flex max-h-[min(90dvh,820px)] w-[min(960px,94vw)] flex-col overflow-hidden rounded-lg border border-red-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] max-[768px]:h-[100dvh] max-[768px]:max-h-[100dvh] max-[768px]:w-screen max-[768px]:rounded-none');
+const ModalHeader = twComponent('div', 'flex flex-none items-center justify-between gap-4 border-b border-red-100 bg-white px-5 py-4');
+const TitleWrap = twComponent('div', 'flex items-center gap-3');
+const TitleAccent = twComponent('span', 'h-7 w-1 rounded-full bg-brand');
+const Title = twComponent('h2', 'm-0 text-[1.2rem] font-black text-gray-950');
+const CloseButton = twComponent('button', 'h-[34px] w-[34px] cursor-pointer rounded-ui-lg border-0 bg-transparent text-[1.55rem] leading-none text-gray-500 transition-colors duration-[180ms] hover:bg-brand-soft hover:text-brand');
+const Form = twComponent('form', 'flex min-h-0 flex-auto flex-col');
+const ModalBody = twComponent('div', 'flex-auto overflow-y-auto p-5 [-webkit-overflow-scrolling:touch]');
+const IntroText = twComponent('p', 'm-0 mb-4 text-[0.88rem] text-gray-500');
+const PresetNotice = twComponent('div', 'm-0 mb-4 rounded-ui-lg border border-red-200 bg-[#fffafa] px-4 py-[0.85rem] text-[0.88rem] leading-[1.45] text-gray-700 [&_strong]:text-red-900');
+const FormGrid = twComponent('div', 'grid grid-cols-2 gap-5 max-[860px]:grid-cols-1');
+const FormSection = twComponent('section', 'min-w-0');
+const SectionTitle = twComponent('h3', 'm-0 mb-4 flex items-center gap-2 text-[0.82rem] font-black uppercase tracking-[0.02em] text-gray-700');
+const SectionIcon = twComponent('span', 'inline-flex items-center text-brand');
+const FieldGrid = twComponent('div', 'grid grid-cols-2 gap-[0.9rem] max-[560px]:grid-cols-1');
+const Field = twComponent<'div', { $span?: 1 | 2 }>('div', 'min-w-0 max-[560px]:col-span-1', ({ $span }) => ($span === 2 ? 'col-span-2' : 'col-span-1'));
+const Label = twComponent('label', 'mb-[0.35rem] block text-[0.72rem] font-black tracking-[0.02em] text-gray-600');
+const Input = twComponent('input', fieldClass);
+const Select = twComponent('select', fieldClass);
+const ServiceTypeGrid = twComponent('div', 'grid grid-cols-2 gap-[0.65rem] max-[560px]:grid-cols-1');
+const ServiceTypeOption = twComponent<'button', { $tone: OrderType; $selected: boolean }>('button', 'flex min-h-[94px] w-full cursor-pointer flex-col items-start justify-between gap-[0.7rem] rounded-ui-lg border p-3 text-left transition-[background,border-color,box-shadow,color] duration-[180ms] focus-visible:outline-none', ({ $tone, $selected }) => {
+  if (!$selected) {
+    return $tone === 'entrega'
+      ? 'border-brand-border bg-white text-gray-700 hover:border-green-500 hover:bg-green-50 focus-visible:border-green-500 focus-visible:ring-[3px] focus-visible:ring-green-200'
+      : 'border-brand-border bg-white text-gray-700 hover:border-red-500 hover:bg-brand-soft focus-visible:border-red-500 focus-visible:ring-[3px] focus-visible:ring-red-200';
   }
 
-  &:focus-visible {
-    outline: none;
-    border-color: ${({ $tone }) => ($tone === 'entrega' ? '#22c55e' : '#ef4444')};
-    box-shadow: 0 0 0 3px
-      ${({ $tone }) => ($tone === 'entrega' ? 'rgba(34, 197, 94, 0.18)' : 'rgba(239, 68, 68, 0.18)')};
-  }
-`;
-
-const ServiceTypeHeader = styled.span`
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-`;
-
-const ServiceTypeName = styled.span<{ $tone: OrderType }>`
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 0.2rem 0.5rem;
-  border: 1px solid ${({ $tone }) => ($tone === 'entrega' ? '#bbf7d0' : '#fecaca')};
-  border-radius: 4px;
-  background: ${({ $tone }) => ($tone === 'entrega' ? '#dcfce7' : '#fee2e2')};
-  color: ${({ $tone }) => ($tone === 'entrega' ? '#166534' : '#b91c1c')};
-  font-size: 0.78rem;
-  font-weight: 900;
-  text-transform: uppercase;
-`;
-
-const ServiceTypeDot = styled.span<{ $tone: OrderType }>`
-  width: 10px;
-  height: 10px;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: ${({ $tone }) => ($tone === 'entrega' ? '#22c55e' : '#ef4444')};
-  box-shadow: 0 0 0 3px ${({ $tone }) => ($tone === 'entrega' ? '#dcfce7' : '#fee2e2')};
-`;
-
-const ServiceTypeDescription = styled.span`
-  color: #4b5563;
-  font-size: 0.82rem;
-  font-weight: 700;
-  line-height: 1.35;
-`;
-
-const FetchingHint = styled.small`
-  display: block;
-  margin-top: 0.35rem;
-  color: #6b7280;
-  font-size: 0.75rem;
-`;
-
-const MapFrameWrap = styled.div`
-  position: relative;
-  min-height: 170px;
-  overflow: hidden;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  background: #eef0f3;
-`;
-
-const MapFrame = styled.iframe`
-  width: 100%;
-  height: 190px;
-  display: block;
-  border: 0;
-`;
-
-const MapPlaceholder = styled.div`
-  min-height: 170px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  color: #6b7280;
-  text-align: center;
-  font-size: 0.88rem;
-`;
-
-const MapBadge = styled.a`
-  position: absolute;
-  left: 50%;
-  bottom: 18px;
-  transform: translateX(-50%);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.55rem 0.8rem;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #374151;
-  font-size: 0.78rem;
-  font-weight: 900;
-  text-decoration: none;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
-
-  span {
-    color: #e30613;
-  }
-`;
-
-const ModalFooter = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  flex: 0 0 auto;
-  padding: 1rem 1.25rem;
-  border-top: 1px solid #fee2e2;
-  background: #fffafa;
-
-  @media (max-width: 560px) {
-    flex-direction: column-reverse;
-  }
-`;
-
-const FooterButton = styled.button`
-  min-width: 150px;
-  min-height: 42px;
-  padding: 0.7rem 1rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
-
-  @media (max-width: 560px) {
-    width: 100%;
-  }
-`;
-
-const SubmitButton = styled(FooterButton)`
-  border: 1px solid #e30613;
-  background: #e30613;
-  color: #ffffff;
-
-  &:hover {
-    background: #c9000b;
-    border-color: #c9000b;
-  }
-`;
-
-const CancelButton = styled(FooterButton)`
-  border: 1px solid #d8b4b4;
-  background: #ffffff;
-  color: #6b1f1f;
-
-  &:hover {
-    border-color: #e30613;
-    color: #e30613;
-  }
-`;
-
-const ErrorMessage = styled.p`
-  margin: 1rem 0 0;
-  color: #ef4444;
-  font-size: 0.875rem;
-  font-weight: 700;
-`;
+  return $tone === 'entrega'
+    ? 'border-green-500 bg-green-50 text-green-950 focus-visible:ring-[3px] focus-visible:ring-green-200'
+    : 'border-red-500 bg-brand-soft text-red-950 focus-visible:ring-[3px] focus-visible:ring-red-200';
+});
+const ServiceTypeHeader = twComponent('span', 'flex w-full items-center justify-between gap-2');
+const ServiceTypeName = twComponent<'span', { $tone: OrderType }>('span', 'inline-flex min-h-6 items-center rounded-ui-md border px-2 py-[0.2rem] text-[0.78rem] font-black uppercase', ({ $tone }) =>
+  $tone === 'entrega' ? 'border-green-200 bg-green-100 text-green-700' : 'border-red-200 bg-red-100 text-red-700',
+);
+const ServiceTypeDot = twComponent<'span', { $tone: OrderType }>('span', 'h-2.5 w-2.5 flex-none rounded-full', ({ $tone }) =>
+  $tone === 'entrega' ? 'bg-green-500 shadow-[0_0_0_3px_#dcfce7]' : 'bg-red-500 shadow-[0_0_0_3px_#fee2e2]',
+);
+const ServiceTypeDescription = twComponent('span', 'text-[0.82rem] font-bold leading-[1.35] text-gray-600');
+const FetchingHint = twComponent('small', 'mt-[0.35rem] block text-xs text-gray-500');
+const MapFrameWrap = twComponent('div', 'relative min-h-[170px] overflow-hidden rounded-ui-md border border-gray-200 bg-[#eef0f3]');
+const MapFrame = twComponent('iframe', 'block h-[190px] w-full border-0');
+const MapPlaceholder = twComponent('div', 'flex min-h-[170px] items-center justify-center p-4 text-center text-[0.88rem] text-gray-500');
+const MapBadge = twComponent('a', 'absolute bottom-[18px] left-1/2 inline-flex -translate-x-1/2 items-center gap-[0.4rem] rounded-full bg-white px-[0.8rem] py-[0.55rem] text-[0.78rem] font-black text-gray-700 no-underline shadow-[0_8px_18px_rgba(15,23,42,0.16)] [&_span]:text-brand');
+const ModalFooter = twComponent('div', 'flex flex-none justify-end gap-3 border-t border-red-100 bg-[#fffafa] px-5 py-4 max-[560px]:flex-col-reverse');
+const SubmitButton = twComponent('button', `${footerButtonClass} border border-brand bg-brand text-white hover:border-brand-hover hover:bg-brand-hover`);
+const CancelButton = twComponent('button', `${footerButtonClass} border border-brand-border bg-white text-[#6b1f1f] hover:border-brand hover:text-brand`);
+const ErrorMessage = twComponent('p', 'm-0 mt-4 text-sm font-bold text-red-500');
 
 export type CreateOrderPreset = {
   mode: 'withdrawal';
@@ -901,7 +534,12 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
 
                     {!isPresetWithdrawal && (
                       <Field $span={2}>
-                        <Label as="div" id="order-type-label">Tipo de Serviço</Label>
+                        <div
+                          className="mb-[0.35rem] block text-[0.72rem] font-black tracking-[0.02em] text-gray-600"
+                          id="order-type-label"
+                        >
+                          Tipo de Serviço
+                        </div>
                         <ServiceTypeGrid role="radiogroup" aria-labelledby="order-type-label">
                           {serviceTypeOptions.map(option => {
                             const selected = form.type === option.value;

@@ -1,34 +1,25 @@
 import React from 'react';
-import styled from 'styled-components';
-import { uiTokens } from './tokens';
+import { cn } from '../../utils/cn';
 
 export interface SelectInputProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   invalid?: boolean;
 }
 
-const SelectEl = styled.select<{ $invalid: boolean }>`
-  width: 100%;
-  min-height: 43px;
-  box-sizing: border-box;
-  padding: 0.65rem ${uiTokens.space.md};
-  border: 1px solid ${({ $invalid }) => ($invalid ? uiTokens.color.danger : uiTokens.color.border)};
-  border-radius: ${uiTokens.radius.sm};
-  background: ${uiTokens.color.bg};
-  color: ${uiTokens.color.text};
-  font-size: 0.9rem;
-
-  &:focus {
-    outline: none;
-    border-color: ${uiTokens.color.primary};
-    box-shadow: 0 0 0 3px ${uiTokens.color.focusRing};
-  }
-`;
-
 const SelectInput = React.forwardRef<HTMLSelectElement, SelectInputProps>(function SelectInput(
-  { invalid = false, ...props },
+  { invalid = false, className, ...props },
   ref
 ) {
-  return <SelectEl ref={ref} $invalid={invalid} {...props} />;
+  return (
+    <select
+      ref={ref}
+      className={cn(
+        'box-border min-h-[43px] w-full rounded-ui-sm border bg-white px-[0.8rem] py-[0.65rem] text-[0.9rem] text-gray-700 focus:border-brand focus:outline-none focus:ring-[3px] focus:ring-brand-focus',
+        invalid ? 'border-red-600' : 'border-gray-300',
+        className,
+      )}
+      {...props}
+    />
+  );
 });
 
 export default SelectInput;

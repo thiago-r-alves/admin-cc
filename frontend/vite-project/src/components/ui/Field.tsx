@@ -1,6 +1,4 @@
 import React from 'react';
-import styled from 'styled-components';
-import { uiTokens } from './tokens';
 
 export interface FieldProps {
   label?: React.ReactNode;
@@ -11,45 +9,21 @@ export interface FieldProps {
   children: React.ReactNode;
 }
 
-const Root = styled.div`
-  min-width: 0;
-`;
-
-const Label = styled.label`
-  display: block;
-  margin-bottom: 0.4rem;
-  color: #4b5563;
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.02em;
-`;
-
-const Hint = styled.small`
-  display: block;
-  margin-top: 0.35rem;
-  color: ${uiTokens.color.textMuted};
-  font-size: 0.75rem;
-`;
-
-const Error = styled.small`
-  display: block;
-  margin-top: 0.35rem;
-  color: ${uiTokens.color.danger};
-  font-size: 0.75rem;
-  font-weight: 700;
-`;
-
 const Field: React.FC<FieldProps> = ({ label, htmlFor, error, hint, required, children }) => (
-  <Root>
+  <div className="min-w-0">
     {label ? (
-      <Label htmlFor={htmlFor}>
+      <label htmlFor={htmlFor} className="mb-[0.4rem] block text-[0.72rem] font-black tracking-[0.02em] text-gray-600">
         {label}
         {required ? ' *' : ''}
-      </Label>
+      </label>
     ) : null}
     {children}
-    {error ? <Error>{error}</Error> : hint ? <Hint>{hint}</Hint> : null}
-  </Root>
+    {error ? (
+      <small className="mt-[0.35rem] block text-xs font-bold text-red-600">{error}</small>
+    ) : hint ? (
+      <small className="mt-[0.35rem] block text-xs text-gray-500">{hint}</small>
+    ) : null}
+  </div>
 );
 
 export default Field;

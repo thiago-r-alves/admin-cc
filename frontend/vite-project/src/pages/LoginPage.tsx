@@ -1,23 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import styled from 'styled-components';
 import { jwtDecode } from 'jwt-decode';
 import { useNavigate } from 'react-router-dom';
 import LoginForm from '../components/LoginForm';
-
-const Container = styled.div`
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  min-height:100vh;
-  background:#f3f4f6;
-`;
-
-const ErrorMessage = styled.p`
-  color:#ef4444;
-  text-align:center;
-  margin-top:1rem;
-`;
 
 interface JwtPayload {
   userId: string;
@@ -133,7 +117,7 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <Container>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100">
       <LoginForm
         username={username}
         password={password}
@@ -142,8 +126,8 @@ const LoginPage: React.FC = () => {
         onSubmit={handleSubmit}
         loading={loading}
       />
-      {error && <ErrorMessage>{error}</ErrorMessage>}
-    </Container>
+      {error && <p className="mt-4 text-center text-red-500">{error}</p>}
+    </div>
   );
 };
 

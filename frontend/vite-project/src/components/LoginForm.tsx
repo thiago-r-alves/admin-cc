@@ -1,164 +1,4 @@
 import React from 'react';
-import styled from 'styled-components';
-import { Button as UIButton, TextInput } from '../components/ui';
-
-const FormWrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 356px;
-  background: #ffffff;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
-  overflow: hidden;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
-  position: relative;
-  font-family: Arial, sans-serif;
-
-  @media (max-width: 420px) {
-    max-width: calc(100vw - 2rem);
-  }
-`;
-
-const LogoPanel = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 96px;
-  background: #f3f4f6;
-  border-bottom: 1px solid #e5e7eb;
-`;
-
-const Logo = styled.img`
-  display: block;
-  width: 128px;
-  height: auto;
-`;
-
-const Form = styled.form`
-  padding: 40px;
-
-  @media (max-width: 420px) {
-    padding: 34px 28px;
-  }
-`;
-
-const FormGroup = styled.div`
-  margin-bottom: 1.15rem;
-`;
-
-const Label = styled.label`
-  display: block;
-  margin-bottom: 0.5rem;
-  color: #374151;
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0;
-  text-transform: uppercase;
-`;
-
-const InputShell = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  min-height: 40px;
-  padding: 0 0.75rem;
-  border: 1px solid #c89d9d;
-  border-radius: 0.25rem;
-  background: #ffffff;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
-
-  &:focus-within {
-    border-color: #e30613;
-    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
-  }
-`;
-
-const FieldIcon = styled.span`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  color: #4b5563;
-`;
-
-const PasswordToggle = styled(UIButton)`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: #4b5563;
-  cursor: pointer;
-  transition: color 0.18s ease, background 0.18s ease;
-
-  &:hover {
-    color: #e30613;
-    background: #fff1f2;
-  }
-
-  &:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(227, 6, 19, 0.18);
-  }
-`;
-
-const Input = styled(TextInput)`
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  color: #4b5563;
-  font-family: inherit;
-  font-size: 0.92rem;
-  line-height: 1.25;
-
-  &::placeholder {
-    color: #6b7280;
-    opacity: 1;
-  }
-
-  &:focus {
-    outline: none;
-  }
-`;
-
-const Button = styled(UIButton)`
-  width: 100%;
-  min-height: 46px;
-  margin-top: 0.35rem;
-  border: 0;
-  border-radius: 0.25rem;
-  background: #e30613;
-  color: #ffffff;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 0.86rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  box-shadow: 0 8px 14px rgba(227, 6, 19, 0.22);
-  transition: background 0.18s ease, opacity 0.18s ease;
-
-  &:hover {
-    background: #c9000b;
-  }
-
-  &:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.2), 0 8px 14px rgba(227, 6, 19, 0.22);
-  }
-
-  &:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-  }
-`;
 
 const UserIcon = () => (
   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -211,61 +51,71 @@ const LoginForm: React.FC<LoginFormProps> = ({
   const [showPassword, setShowPassword] = React.useState(false);
 
   return (
-    <FormWrapper>
-      <LogoPanel>
-        <Logo src="/logo-central-cacambas.webp" alt="Central Caçambas" />
-      </LogoPanel>
+    <div className="relative flex w-full max-w-[356px] flex-col overflow-hidden rounded-ui-lg border border-red-200 bg-white font-sans shadow-[0_18px_45px_rgba(15,23,42,0.12)] max-[420px]:max-w-[calc(100vw-2rem)]">
+      <div className="flex min-h-24 items-center justify-center border-b border-gray-200 bg-gray-100">
+        <img src="/logo-central-cacambas.webp" alt="Central Caçambas" className="block h-auto w-32" />
+      </div>
 
-      <Form onSubmit={onSubmit}>
-        <FormGroup>
-          <Label htmlFor="username">Usuário</Label>
-          <InputShell>
-            <FieldIcon>
+      <form onSubmit={onSubmit} className="p-10 max-[420px]:px-7 max-[420px]:py-[34px]">
+        <div className="mb-[1.15rem]">
+          <label htmlFor="username" className="mb-2 block text-[0.72rem] font-black uppercase text-gray-700">
+            Usuário
+          </label>
+          <div className="flex min-h-10 items-center gap-[0.55rem] rounded border border-[#c89d9d] bg-white px-3 transition-[border-color,box-shadow] duration-[180ms] focus-within:border-brand focus-within:ring-[3px] focus-within:ring-brand-focus">
+            <span className="inline-flex flex-none items-center justify-center text-gray-600">
               <UserIcon />
-            </FieldIcon>
-            <Input
+            </span>
+            <input
               type="text"
               id="username"
               placeholder="Seu nome de usuário"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
+              className="w-full min-w-0 border-0 bg-transparent text-[0.92rem] leading-tight text-gray-600 placeholder:text-gray-500 focus:outline-none"
             />
-          </InputShell>
-        </FormGroup>
+          </div>
+        </div>
 
-        <FormGroup>
-          <Label htmlFor="password">Senha</Label>
-          <InputShell>
-            <FieldIcon>
+        <div className="mb-[1.15rem]">
+          <label htmlFor="password" className="mb-2 block text-[0.72rem] font-black uppercase text-gray-700">
+            Senha
+          </label>
+          <div className="flex min-h-10 items-center gap-[0.55rem] rounded border border-[#c89d9d] bg-white px-3 transition-[border-color,box-shadow] duration-[180ms] focus-within:border-brand focus-within:ring-[3px] focus-within:ring-brand-focus">
+            <span className="inline-flex flex-none items-center justify-center text-gray-600">
               <LockIcon />
-            </FieldIcon>
-            <Input
+            </span>
+            <input
               type={showPassword ? 'text' : 'password'}
               id="password"
               placeholder="************"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              className="w-full min-w-0 border-0 bg-transparent text-[0.92rem] leading-tight text-gray-600 placeholder:text-gray-500 focus:outline-none"
             />
-            <PasswordToggle
+            <button
               type="button"
               aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
               aria-pressed={showPassword}
               onClick={() => setShowPassword((current) => !current)}
+              className="inline-flex h-7 w-7 flex-none cursor-pointer items-center justify-center rounded-ui-md border-0 bg-transparent p-0 text-gray-600 transition-colors duration-[180ms] hover:bg-brand-soft hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand-focus-strong"
             >
               {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-            </PasswordToggle>
-          </InputShell>
-        </FormGroup>
+            </button>
+          </div>
+        </div>
 
-        <Button type="submit" disabled={loading}>
+        <button
+          type="submit"
+          disabled={loading}
+          className="mt-[0.35rem] min-h-[46px] w-full cursor-pointer rounded border-0 bg-brand text-[0.86rem] font-black uppercase tracking-[0.08em] text-white shadow-[0_8px_14px_rgba(227,6,19,0.22)] transition-[background,opacity] duration-[180ms] hover:bg-brand-hover focus:outline-none focus:ring-[3px] focus:ring-brand-focus-strong disabled:cursor-not-allowed disabled:opacity-70"
+        >
           {loading ? 'Entrando...' : 'Entrar'}
-        </Button>
-      </Form>
-    </FormWrapper>
+        </button>
+      </form>
+    </div>
   );
 };
 
 export default LoginForm;
-

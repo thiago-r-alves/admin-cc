@@ -1,28 +1,33 @@
 import React, { useEffect, useRef, useState } from 'react';
-import styled from 'styled-components';
 import { CACAMBA_CONTENT_TYPES, type CacambaContentType, type ICacamba, type OrderType } from '../interfaces';
 import { Button as UIButton, Field as UIField, SelectInput, TextInput } from '../components/ui';
+import { twComponent } from '../utils/twComponent';
+import { cn } from '../utils/cn';
 
-const ModalOverlay = styled.div`position: fixed; inset: 0; z-index: 1000; display:flex; align-items:center; justify-content:center; padding:max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); background: rgba(17, 24, 39, 0.62); @media (max-width: 768px) { align-items: stretch; padding: 0; }`;
-const ModalContent = styled.div`width:min(720px,94vw); max-height:min(90dvh,760px); display:flex; flex-direction:column; overflow:hidden; border:1px solid #fecaca; border-radius:6px; background:#fff; box-shadow:0 24px 70px rgba(15,23,42,.28); @media (max-width:768px){ width:100vw; height:100dvh; max-height:100dvh; border-radius:0; }`;
-const ModalHeader = styled.div`display:flex; align-items:center; justify-content:space-between; gap:1rem; flex:0 0 auto; padding:1rem 1.25rem; border-bottom:1px solid #fee2e2;`;
-const TitleWrap = styled.div`display:flex; align-items:center; gap:.75rem;`;
-const TitleAccent = styled.span`width:4px; height:28px; border-radius:999px; background:#e30613;`;
-const Title = styled.h2`margin:0; color:#111827; font-size:1.2rem; font-weight:900;`;
-const CloseButton = styled(UIButton)`width:34px; height:34px; min-height:34px; min-width:34px; padding:0; font-size:1.55rem; line-height:1;`;
-const Form = styled.form`min-height:0; display:flex; flex:1 1 auto; flex-direction:column;`;
-const ModalBody = styled.div`flex:1 1 auto; overflow-y:auto; padding:1.25rem;`;
-const Section = styled.section`padding-bottom:1.25rem; margin-bottom:1.25rem; border-bottom:1px solid #f3f4f6; &:last-child{margin-bottom:0;}`;
-const SectionTitle = styled.h3`display:flex; align-items:center; gap:.5rem; margin:0 0 1rem; color:#e30613; font-size:.78rem; font-weight:900; letter-spacing:.04em; text-transform:uppercase;`;
-const FieldGrid = styled.div`display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; @media (max-width:640px){grid-template-columns:1fr;}`;
-const GridField = styled.div<{ $span?: 1 | 2 }>`min-width:0; grid-column:span ${({ $span }) => $span || 1}; @media (max-width:640px){grid-column:span 1;}`;
-const TypeBadge = styled.div`min-height:43px; display:inline-flex; align-items:center; width:100%; box-sizing:border-box; padding:.65rem .8rem; border:1px solid #fecaca; border-radius:2px; background:#fff5f5; color:#e30613; font-size:.82rem; font-weight:900; letter-spacing:.04em; text-transform:uppercase;`;
-const FileInputWrap = styled.div`display:grid; gap:.55rem;`;
-const FileHint = styled.small`color:#6b7280; font-size:.78rem;`;
-const EmptyHint = styled.small`display:block; margin-top:.45rem; color:#991b1b; font-size:.8rem; font-weight:700;`;
-const ErrorMessage = styled.div`position:sticky; top:0; z-index:2; margin-bottom:1rem; color:#991b1b; font-size:.9rem; font-weight:700; line-height:1.45; background:#fef2f2; padding:.85rem; border-radius:4px; border:1px solid #fca5a5; box-shadow:0 4px 12px rgba(153,27,27,.08);`;
-const ModalFooter = styled.div`display:flex; justify-content:flex-end; gap:.75rem; flex:0 0 auto; padding:1rem 1.25rem; border-top:1px solid #fee2e2; @media (max-width:560px){flex-direction:column-reverse;}`;
-const FooterButton = styled(UIButton)`min-width:150px; @media (max-width:560px){width:100%;}`;
+const ModalOverlay = twComponent('div', 'fixed inset-0 z-[1000] flex items-center justify-center bg-[rgba(17,24,39,0.62)] p-[max(16px,env(safe-area-inset-top))_max(16px,env(safe-area-inset-right))_max(16px,env(safe-area-inset-bottom))_max(16px,env(safe-area-inset-left))] max-[768px]:items-stretch max-[768px]:p-0');
+const ModalContent = twComponent('div', 'flex max-h-[min(90dvh,760px)] w-[min(720px,94vw)] flex-col overflow-hidden rounded-ui-lg border border-red-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] max-[768px]:h-[100dvh] max-[768px]:max-h-[100dvh] max-[768px]:w-screen max-[768px]:rounded-none');
+const ModalHeader = twComponent('div', 'flex flex-none items-center justify-between gap-4 border-b border-red-100 px-5 py-4');
+const TitleWrap = twComponent('div', 'flex items-center gap-3');
+const TitleAccent = twComponent('span', 'h-7 w-1 rounded-full bg-brand');
+const Title = twComponent('h2', 'm-0 text-[1.2rem] font-black text-gray-950');
+const CloseButton: React.FC<React.ComponentProps<typeof UIButton>> = ({ className, ...props }) => (
+  <UIButton className={cn('h-[34px] min-h-[34px] w-[34px] min-w-[34px] p-0 text-[1.55rem] leading-none', className)} {...props} />
+);
+const Form = twComponent('form', 'flex min-h-0 flex-auto flex-col');
+const ModalBody = twComponent('div', 'flex-auto overflow-y-auto p-5');
+const Section = twComponent('section', 'mb-5 border-b border-gray-100 pb-5 last:mb-0');
+const SectionTitle = twComponent('h3', 'm-0 mb-4 flex items-center gap-2 text-[0.78rem] font-black uppercase tracking-[0.04em] text-brand');
+const FieldGrid = twComponent('div', 'grid grid-cols-2 gap-4 max-[640px]:grid-cols-1');
+const GridField = twComponent<'div', { $span?: 1 | 2 }>('div', 'min-w-0 max-[640px]:col-span-1', ({ $span }) => ($span === 2 ? 'col-span-2' : 'col-span-1'));
+const TypeBadge = twComponent('div', 'box-border inline-flex min-h-[43px] w-full items-center rounded-ui-sm border border-red-200 bg-[#fff5f5] px-[0.8rem] py-[0.65rem] text-[0.82rem] font-black uppercase tracking-[0.04em] text-brand');
+const FileInputWrap = twComponent('div', 'grid gap-[0.55rem]');
+const FileHint = twComponent('small', 'text-[0.78rem] text-gray-500');
+const EmptyHint = twComponent('small', 'mt-[0.45rem] block text-[0.8rem] font-bold text-red-900');
+const ErrorMessage = twComponent('div', 'sticky top-0 z-[2] mb-4 rounded-ui-md border border-red-300 bg-red-50 p-[0.85rem] text-[0.9rem] font-bold leading-[1.45] text-red-900 shadow-[0_4px_12px_rgba(153,27,27,0.08)]');
+const ModalFooter = twComponent('div', 'flex flex-none justify-end gap-3 border-t border-red-100 px-5 py-4 max-[560px]:flex-col-reverse');
+const FooterButton: React.FC<React.ComponentProps<typeof UIButton>> = ({ className, ...props }) => (
+  <UIButton className={cn('min-w-[150px] max-[560px]:w-full', className)} {...props} />
+);
 
 interface CacambaFormProps { orderId: string; orderType: OrderType; onCacambaAdded: (c: ICacamba) => void; onClose: () => void; beforeUploadFiles?: (files: File[]) => Promise<{ allowed: File[]; error?: string }>; }
 

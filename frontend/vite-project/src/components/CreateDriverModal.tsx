@@ -1,190 +1,9 @@
 import React, { useEffect, useState, type FormEvent } from 'react';
-import styled from 'styled-components';
 import type { IDriver } from '../interfaces';
+import { cn } from '../utils/cn';
 
-const ModalOverlay = styled.div`
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
-    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-  background: rgba(17, 24, 39, 0.62);
-
-  @media (max-width: 768px) {
-    align-items: stretch;
-    padding: 0;
-  }
-`;
-
-const ModalContent = styled.div`
-  width: min(560px, 94vw);
-  max-height: min(90dvh, 720px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
-  background: #ffffff;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
-
-  @media (max-width: 768px) {
-    width: 100vw;
-    height: 100dvh;
-    max-height: 100dvh;
-    border-radius: 0;
-  }
-`;
-
-const ModalHeader = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex: 0 0 auto;
-  padding: 1.15rem 1.5rem;
-  border-bottom: 1px solid #fecaca;
-  background: #ffffff;
-`;
-
-const Title = styled.h2`
-  margin: 0;
-  color: #1f2937;
-  font-size: 1.25rem;
-  font-weight: 900;
-`;
-
-const CloseButton = styled.button`
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: #6b7280;
-  cursor: pointer;
-  font-size: 1.55rem;
-  line-height: 1;
-  transition: background 0.18s ease, color 0.18s ease;
-
-  &:hover {
-    background: #fff1f2;
-    color: #e30613;
-  }
-`;
-
-const Form = styled.form`
-  min-height: 0;
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-`;
-
-const ModalBody = styled.div`
-  flex: 1 1 auto;
-  overflow-y: auto;
-  padding: 1.5rem;
-  -webkit-overflow-scrolling: touch;
-`;
-
-const FieldGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
-`;
-
-const Field = styled.div`
-  min-width: 0;
-`;
-
-const Label = styled.label`
-  display: block;
-  margin-bottom: 0.4rem;
-  color: #4b5563;
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.02em;
-`;
-
-const Input = styled.input`
-  width: 100%;
-  min-height: 43px;
-  box-sizing: border-box;
-  padding: 0.65rem 0.8rem;
-  border: 1px solid #d1d5db;
-  border-radius: 2px;
-  background: #ffffff;
-  color: #374151;
-  font-size: 0.9rem;
-
-  &::placeholder {
-    color: #9ca3af;
-  }
-
-  &:focus {
-    outline: none;
-    border-color: #e30613;
-    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
-  }
-`;
-
-const FieldHint = styled.p`
-  margin: 0.4rem 0 0;
-  color: #6b7280;
-  font-size: 0.75rem;
-`;
-
-const Feedback = styled.div<{ $tone: 'success' | 'error' }>`
-  margin: 0 1.5rem;
-  padding: 0.65rem 0.75rem;
-  border-radius: 6px;
-  border: 1px solid ${({ $tone }) => ($tone === 'success' ? '#86efac' : '#fecaca')};
-  background: ${({ $tone }) => ($tone === 'success' ? '#f0fdf4' : '#fff1f2')};
-  color: ${({ $tone }) => ($tone === 'success' ? '#166534' : '#b91c1c')};
-  font-size: 0.85rem;
-  font-weight: 800;
-`;
-
-const ModalFooter = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  flex: 0 0 auto;
-  padding: 1rem 1.5rem;
-  border-top: 1px solid #fecaca;
-  background: #ffffff;
-
-  @media (max-width: 560px) {
-    flex-direction: column-reverse;
-  }
-`;
-
-const Button = styled.button<{ $variant?: 'primary' | 'secondary' }>`
-  min-width: 150px;
-  min-height: 42px;
-  padding: 0.75rem 1rem;
-  border: 1px solid ${({ $variant }) => ($variant === 'primary' ? '#e30613' : '#d8b4b4')};
-  border-radius: 2px;
-  background: ${({ $variant }) => ($variant === 'primary' ? '#e30613' : '#ffffff')};
-  color: ${({ $variant }) => ($variant === 'primary' ? '#ffffff' : '#6b1f1f')};
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
-
-  &:hover {
-    background: ${({ $variant }) => ($variant === 'primary' ? '#c9000b' : '#fff1f2')};
-    border-color: #e30613;
-    color: ${({ $variant }) => ($variant === 'primary' ? '#ffffff' : '#e30613')};
-  }
-
-  @media (max-width: 560px) {
-    width: 100%;
-  }
-`;
+const inputClass =
+  'box-border min-h-[43px] w-full rounded-ui-sm border border-gray-300 bg-white px-[0.8rem] py-[0.65rem] text-[0.9rem] text-gray-700 placeholder:text-gray-400 focus:border-brand focus:outline-none focus:ring-[3px] focus:ring-brand-focus';
 
 interface CreateDriverModalProps {
   onClose: () => void;
@@ -279,58 +98,64 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ onClose, onDriver
   };
 
   return (
-    <ModalOverlay onClick={onClose}>
-      <ModalContent onClick={(e) => e.stopPropagation()}>
-        <ModalHeader>
-          <Title>{editingDriver ? 'Editar Motorista' : 'Adicionar Motorista'}</Title>
-          <CloseButton type="button" aria-label="Fechar modal" onClick={onClose}>
+    <div onClick={onClose} className="fixed inset-0 z-[1000] flex items-center justify-center bg-[rgba(17,24,39,0.62)] p-[max(16px,env(safe-area-inset-top))_max(16px,env(safe-area-inset-right))_max(16px,env(safe-area-inset-bottom))_max(16px,env(safe-area-inset-left))] max-[768px]:items-stretch max-[768px]:p-0">
+      <div onClick={(e) => e.stopPropagation()} className="flex max-h-[min(90dvh,720px)] w-[min(560px,94vw)] flex-col overflow-hidden rounded-ui-lg border border-red-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] max-[768px]:h-[100dvh] max-[768px]:max-h-[100dvh] max-[768px]:w-screen max-[768px]:rounded-none">
+        <div className="flex flex-none items-center justify-between gap-4 border-b border-red-200 bg-white px-6 py-[1.15rem]">
+          <h2 className="m-0 text-xl font-black text-gray-800">{editingDriver ? 'Editar Motorista' : 'Adicionar Motorista'}</h2>
+          <button type="button" aria-label="Fechar modal" onClick={onClose} className="h-[34px] w-[34px] cursor-pointer rounded-ui-lg border-0 bg-transparent text-[1.55rem] leading-none text-gray-500 transition-colors duration-[180ms] hover:bg-brand-soft hover:text-brand">
             ×
-          </CloseButton>
-        </ModalHeader>
-        {feedback && <Feedback $tone={feedback.tone}>{feedback.message}</Feedback>}
+          </button>
+        </div>
+        {feedback && (
+          <div className={cn('mx-6 rounded-ui-lg border px-3 py-[0.65rem] text-[0.85rem] font-extrabold', feedback.tone === 'success' ? 'border-green-300 bg-green-50 text-green-700' : 'border-red-200 bg-brand-soft text-red-700')}>
+            {feedback.message}
+          </div>
+        )}
 
-        <Form onSubmit={handleSubmit}>
-          <ModalBody>
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-auto flex-col">
+          <div className="flex-auto overflow-y-auto p-6 [-webkit-overflow-scrolling:touch]">
 
-            <FieldGrid>
-              <Field>
-                <Label htmlFor="driver-username">Usuário</Label>
-                <Input
+            <div className="grid grid-cols-1 gap-4">
+              <div className="min-w-0">
+                <label htmlFor="driver-username" className="mb-[0.4rem] block text-[0.72rem] font-black tracking-[0.02em] text-gray-600">Usuário</label>
+                <input
                   id="driver-username"
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Nome de usuário"
                   required
+                  className={inputClass}
                 />
-              </Field>
+              </div>
 
-              <Field>
-                <Label htmlFor="driver-password">Senha</Label>
-                <Input
+              <div className="min-w-0">
+                <label htmlFor="driver-password" className="mb-[0.4rem] block text-[0.72rem] font-black tracking-[0.02em] text-gray-600">Senha</label>
+                <input
                   id="driver-password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={editingDriver ? 'Deixe vazio para manter a senha atual' : 'Senha de acesso'}
                   required={!editingDriver}
+                  className={inputClass}
                 />
-                {editingDriver && <FieldHint>Deixe vazio para não alterar a senha.</FieldHint>}
-              </Field>
-            </FieldGrid>
-          </ModalBody>
+                {editingDriver && <p className="m-0 mt-[0.4rem] text-xs text-gray-500">Deixe vazio para não alterar a senha.</p>}
+              </div>
+            </div>
+          </div>
 
-          <ModalFooter>
-            <Button type="button" $variant="secondary" onClick={onClose}>
+          <div className="flex flex-none justify-end gap-3 border-t border-red-200 bg-white px-6 py-4 max-[560px]:flex-col-reverse">
+            <button type="button" onClick={onClose} className="min-h-[42px] min-w-[150px] cursor-pointer rounded-ui-sm border border-brand-border bg-white px-4 py-3 text-[0.82rem] font-black uppercase tracking-[0.04em] text-[#6b1f1f] transition-colors duration-[180ms] hover:border-brand hover:bg-brand-soft hover:text-brand max-[560px]:w-full">
               Cancelar
-            </Button>
-            <Button type="submit" $variant="primary">
+            </button>
+            <button type="submit" className="min-h-[42px] min-w-[150px] cursor-pointer rounded-ui-sm border border-brand bg-brand px-4 py-3 text-[0.82rem] font-black uppercase tracking-[0.04em] text-white transition-colors duration-[180ms] hover:border-brand hover:bg-brand-hover max-[560px]:w-full">
               {editingDriver ? 'Atualizar' : 'Cadastrar'}
-            </Button>
-          </ModalFooter>
-        </Form>
-      </ModalContent>
-    </ModalOverlay>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 };
 

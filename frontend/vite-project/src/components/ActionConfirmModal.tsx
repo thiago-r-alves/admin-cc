@@ -1,78 +1,19 @@
 import React from 'react';
-import styled from 'styled-components';
+import { cn } from '../utils/cn';
 
 type Variant = 'danger' | 'warning' | 'info';
 
-const Overlay = styled.div`
-  position: fixed;
-  inset: 0;
-  z-index: 1300;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(17, 24, 39, 0.62);
-`;
+const accentClasses: Record<Variant, string> = {
+  danger: 'border-l-red-600',
+  warning: 'border-l-gray-700',
+  info: 'border-l-gray-700',
+};
 
-const Modal = styled.div`
-  width: min(460px, 96vw);
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
-`;
-
-const Header = styled.div<{ $variant: Variant }>`
-  padding: 1rem 1.15rem;
-  border-bottom: 1px solid #fee2e2;
-  border-left: 4px solid
-    ${({ $variant }) =>
-      $variant === 'danger' ? '#dc2626' : $variant === 'warning' ? '#374151' : '#374151'};
-`;
-
-const Title = styled.h3`
-  margin: 0;
-  color: #111827;
-  font-size: 1.05rem;
-  font-weight: 900;
-`;
-
-const Body = styled.div`
-  padding: 1rem 1.15rem;
-  color: #374151;
-  font-size: 0.92rem;
-  line-height: 1.45;
-`;
-
-const Footer = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.65rem;
-  padding: 0.9rem 1.15rem 1rem;
-  border-top: 1px solid #fee2e2;
-`;
-
-const Button = styled.button<{ $variant?: Variant }>`
-  min-height: 38px;
-  min-width: 120px;
-  padding: 0.6rem 0.85rem;
-  border: 1px solid
-    ${({ $variant }) =>
-      $variant === 'danger' ? '#dc2626' : $variant === 'warning' ? '#374151' : '#d1d5db'};
-  border-radius: 4px;
-  background: ${({ $variant }) =>
-    $variant === 'danger' ? '#dc2626' : $variant === 'warning' ? '#374151' : '#ffffff'};
-  color: ${({ $variant }) => ($variant ? '#ffffff' : '#374151')};
-  cursor: pointer;
-  font-size: 0.8rem;
-  font-weight: 900;
-  text-transform: uppercase;
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-`;
+const confirmClasses: Record<Variant, string> = {
+  danger: 'border-red-600 bg-red-600 text-white',
+  warning: 'border-gray-700 bg-gray-700 text-white',
+  info: 'border-gray-700 bg-gray-700 text-white',
+};
 
 export interface ActionConfirmModalProps {
   open: boolean;
@@ -103,28 +44,33 @@ const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
   if (!open) return null;
 
   return (
-    <Overlay onClick={onClose}>
-      <Modal
+    <div onClick={onClose} className="fixed inset-0 z-[1300] flex items-center justify-center bg-[rgba(17,24,39,0.62)] p-4">
+      <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
         onClick={(e) => e.stopPropagation()}
+        className="w-[min(460px,96vw)] rounded-lg border border-red-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.28)]"
       >
-        <Header $variant={variant}>
-          <Title id={titleId}>{title}</Title>
-        </Header>
-        <Body id={descriptionId}>{description}</Body>
-        <Footer>
-          <Button type="button" onClick={onClose} disabled={loading}>
+        <div className={cn('border-b border-l-4 border-b-red-100 px-[1.15rem] py-4', accentClasses[variant])}>
+          <h3 id={titleId} className="m-0 text-[1.05rem] font-black text-gray-950">
+            {title}
+          </h3>
+        </div>
+        <div id={descriptionId} className="px-[1.15rem] py-4 text-[0.92rem] leading-[1.45] text-gray-700">
+          {description}
+        </div>
+        <div className="flex justify-end gap-[0.65rem] border-t border-red-100 px-[1.15rem] pb-4 pt-[0.9rem]">
+          <button type="button" onClick={onClose} disabled={loading} className="min-h-[38px] min-w-[120px] cursor-pointer rounded-ui-md border border-gray-300 bg-white px-[0.85rem] py-[0.6rem] text-[0.8rem] font-black uppercase text-gray-700 disabled:cursor-not-allowed disabled:opacity-60">
             {cancelLabel}
-          </Button>
-          <Button type="button" $variant={variant} onClick={() => void onConfirm()} disabled={loading}>
+          </button>
+          <button type="button" className={cn('min-h-[38px] min-w-[120px] cursor-pointer rounded-ui-md border px-[0.85rem] py-[0.6rem] text-[0.8rem] font-black uppercase disabled:cursor-not-allowed disabled:opacity-60', confirmClasses[variant])} onClick={() => void onConfirm()} disabled={loading}>
             {loading ? 'Aguarde...' : confirmLabel}
-          </Button>
-        </Footer>
-      </Modal>
-    </Overlay>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 

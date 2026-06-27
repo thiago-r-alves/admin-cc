@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { visualizer } from 'rollup-plugin-visualizer'
 import type { MinifyOptions } from 'terser'
 
@@ -18,6 +19,7 @@ const terserOptions: MinifyOptions = {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
+    tailwindcss(),
     react(),
     // Generate bundle visualization (dist/stats.html)
     visualizer({

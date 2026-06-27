@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import styled from 'styled-components';
 import ImageModal from './ImageModal';
 import CacambaMetaModal from './CacambaMetaModal';
 import ActionConfirmModal from './ActionConfirmModal';
@@ -18,370 +17,164 @@ import type {
 import CacambaList from './CacambaList';
 import ToastPopup from './ToastPopup';
 import type { ICacamba, IClosureGroup } from '../interfaces';
+import { cn } from '../utils/cn';
+import { twComponent } from '../utils/twComponent';
 import { normalizeBrazilianWhatsAppNumber, normalizeEmailAddress } from '../utils/whatsapp';
 
-const ModalOverlay = styled.div`
-  position: fixed;
-  inset: 0;
-  z-index: 1100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(17, 24, 39, 0.68);
+const ModalOverlay = twComponent('div', 'fixed inset-0 z-[1100] flex items-center justify-center bg-gray-900/70 p-4 max-md:p-0');
 
-  @media (max-width: 768px) {
-    padding: 0;
-  }
-`;
+const ModalContent = twComponent(
+  'div',
+  'flex max-h-[min(90dvh,820px)] w-[min(980px,94vw)] flex-col overflow-hidden rounded-lg border border-red-200 bg-white max-md:h-dvh max-md:max-h-dvh max-md:w-screen max-md:rounded-none',
+);
 
-const ModalContent = styled.div`
-  width: min(980px, 94vw);
-  max-height: min(90dvh, 820px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  background: #ffffff;
+const ModalBody = twComponent('div', 'flex min-h-0 flex-1 flex-col overflow-hidden');
 
-  @media (max-width: 768px) {
-    width: 100vw;
-    max-height: 100dvh;
-    height: 100dvh;
-    border-radius: 0;
-  }
-`;
+const Stepper = twComponent('div', 'mb-4 grid grid-cols-3 gap-[0.65rem] px-5 pt-4 max-sm:grid-cols-1');
 
-const ModalBody = styled.div`
-  min-height: 0;
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  overflow: hidden;
-`;
+const StepItem = twComponent<'div', { $active: boolean; $done: boolean }>(
+  'div',
+  '',
+  ({ $active, $done }) =>
+    cn(
+      'rounded-lg border px-[0.8rem] py-[0.7rem]',
+      $active && 'border-[#e30613] bg-rose-50 text-red-800',
+      !$active && $done && 'border-green-300 bg-green-50 text-green-800',
+      !$active && !$done && 'border-red-200 bg-[#fffafa] text-gray-500',
+    ),
+);
 
-const Stepper = styled.div`
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.65rem;
-  padding: 1rem 1.25rem 0;
-  margin-bottom: 1rem;
+const StepLabel = twComponent('div', 'text-[0.72rem] font-black uppercase tracking-[0.05em]');
 
-  @media (max-width: 640px) {
-    grid-template-columns: 1fr;
-  }
-`;
+const StepTitle = twComponent('div', 'mt-[0.2rem] text-[0.95rem] font-black');
 
-const StepItem = styled.div<{ $active: boolean; $done: boolean }>`
-  border: 1px solid
-    ${({ $active, $done }) => ($active ? '#e30613' : $done ? '#86efac' : '#fecaca')};
-  border-radius: 8px;
-  padding: 0.7rem 0.8rem;
-  background: ${({ $active, $done }) => ($active ? '#fff1f2' : $done ? '#f0fdf4' : '#fffafa')};
-  color: ${({ $active, $done }) => ($active ? '#991b1b' : $done ? '#166534' : '#6b7280')};
-`;
+const SecondaryButton = twComponent(
+  'button',
+  'min-h-[38px] cursor-pointer rounded-lg border border-gray-300 bg-white px-[0.9rem] py-[0.55rem] text-[0.78rem] font-black text-gray-700 hover:border-[#e30613] hover:bg-rose-50 hover:text-[#e30613]',
+);
 
-const StepLabel = styled.div`
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-`;
+const StageBody = twComponent('div', 'flex min-h-0 flex-1 flex-col overflow-hidden');
 
-const StepTitle = styled.div`
-  margin-top: 0.2rem;
-  font-size: 0.95rem;
-  font-weight: 900;
-`;
+const GroupsLayout = twComponent(
+  'div',
+  'grid min-h-0 flex-1 grid-cols-[280px_minmax(0,1fr)] gap-3 px-5 pb-5 pt-4 max-[900px]:grid-cols-1',
+);
 
-const SecondaryButton = styled.button`
-  min-height: 38px;
-  padding: 0.55rem 0.9rem;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #374151;
-  font-size: 0.78rem;
-  font-weight: 900;
-  cursor: pointer;
+const GroupList = twComponent('div', 'min-h-0 overflow-auto rounded-lg border border-red-100');
 
-  &:hover {
-    border-color: #e30613;
-    color: #e30613;
-    background: #fff1f2;
-  }
-`;
+const GroupItem = twComponent<'button', { $active: boolean }>(
+  'button',
+  '',
+  ({ $active }) =>
+    cn(
+      'w-full cursor-pointer border-0 border-b border-red-100 px-3 py-[0.7rem] text-left',
+      $active ? 'bg-rose-50' : 'bg-white',
+    ),
+);
 
-const StageBody = styled.div`
-  min-height: 0;
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-`;
+const GroupDetail = twComponent(
+  'div',
+  'flex min-h-0 flex-col gap-[0.8rem] overflow-y-auto rounded-lg border border-red-100 p-[0.9rem]',
+);
 
-const GroupsLayout = styled.div`
-  min-height: 0;
-  flex: 1 1 auto;
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 0.75rem;
-  padding: 1rem 1.25rem 1.25rem;
+const MetaRow = twComponent('div', 'flex flex-wrap items-center justify-between gap-4');
 
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
-  }
-`;
+const ValueHighlight = twComponent(
+  'div',
+  'rounded-lg border border-red-200 bg-[#fffafa] px-[0.9rem] py-[0.8rem] font-black text-red-800',
+);
 
-const GroupList = styled.div`
-  border: 1px solid #fee2e2;
-  border-radius: 8px;
-  overflow: auto;
-  min-height: 0;
-`;
+const InvoiceRow = twComponent('div', 'flex flex-wrap gap-[0.6rem] max-sm:flex-col');
 
-const GroupItem = styled.button<{ $active: boolean }>`
-  width: 100%;
-  text-align: left;
-  border: 0;
-  border-bottom: 1px solid #fee2e2;
-  background: ${({ $active }) => ($active ? '#fff1f2' : '#fff')};
-  padding: 0.7rem 0.75rem;
-  cursor: pointer;
-`;
+const InvoiceInput = twComponent(
+  'input',
+  'min-h-10 flex-1 rounded-md border border-red-200 px-[0.65rem] py-[0.55rem]',
+);
 
-const GroupDetail = styled.div`
-  border: 1px solid #fee2e2;
-  border-radius: 8px;
-  padding: 0.9rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-  min-height: 0;
-  overflow-y: auto;
-`;
+const SaveInvoiceButton = twComponent(
+  'button',
+  'min-h-10 cursor-pointer rounded-md border border-[#e30613] bg-[#e30613] px-[0.8rem] font-extrabold text-white',
+);
 
-const MetaRow = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-`;
+const HighlightButton = twComponent(
+  'button',
+  'min-h-10 cursor-pointer rounded-lg border border-[#e30613] bg-[#e30613] px-[0.9rem] py-[0.55rem] text-[0.78rem] font-black text-white hover:border-red-700 hover:bg-red-700',
+);
 
-const ValueHighlight = styled.div`
-  padding: 0.8rem 0.9rem;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  background: #fffafa;
-  color: #991b1b;
-  font-weight: 900;
-`;
+const ActionButtonsRow = twComponent('div', 'flex flex-wrap gap-[0.6rem]');
 
-const InvoiceRow = styled.div`
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
+const PaymentMethodRow = twComponent('div', 'grid grid-cols-2 gap-[0.6rem] px-5 pb-4');
 
-  @media (max-width: 640px) {
-    flex-direction: column;
-  }
-`;
+const PaymentMethodButton = twComponent<'button', { $active: boolean }>(
+  'button',
+  '',
+  ({ $active }) =>
+    cn(
+      'min-h-[42px] cursor-pointer rounded-lg border font-black',
+      $active ? 'border-[#e30613] bg-rose-50 text-red-800' : 'border-red-200 bg-white text-gray-600',
+    ),
+);
 
-const InvoiceInput = styled.input`
-  min-height: 40px;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
-  padding: 0.55rem 0.65rem;
-  flex: 1;
-`;
+const HistoryControls = twComponent('div', 'flex flex-col gap-3 px-5 pt-4');
 
-const SaveInvoiceButton = styled.button`
-  min-height: 40px;
-  border: 1px solid #e30613;
-  border-radius: 6px;
-  background: #e30613;
-  color: #fff;
-  font-weight: 800;
-  padding: 0 0.8rem;
-  cursor: pointer;
-`;
+const HistoryTypeTabs = twComponent('div', 'grid grid-cols-3 gap-2 max-sm:grid-cols-1');
 
-const HighlightButton = styled.button`
-  min-height: 40px;
-  border: 1px solid #e30613;
-  border-radius: 8px;
-  background: #e30613;
-  color: #fff;
-  font-size: 0.78rem;
-  font-weight: 900;
-  padding: 0.55rem 0.9rem;
-  cursor: pointer;
+const HistoryTypeButton = twComponent<'button', { $active: boolean }>(
+  'button',
+  '',
+  ({ $active }) =>
+    cn(
+      'min-h-10 cursor-pointer rounded-md border text-[0.78rem] font-black uppercase',
+      $active ? 'border-[#e30613] bg-rose-50 text-red-800' : 'border-red-200 bg-white text-gray-700',
+    ),
+);
 
-  &:hover {
-    background: #b91c1c;
-    border-color: #b91c1c;
-  }
-`;
+const HistoryFilterGrid = twComponent(
+  'div',
+  'grid grid-cols-[repeat(5,minmax(130px,1fr))_auto] items-end gap-[0.65rem] max-[980px]:grid-cols-2 max-sm:grid-cols-1',
+);
 
-const ActionButtonsRow = styled.div`
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-`;
+const HistoryField = twComponent(
+  'label',
+  'flex min-w-0 flex-col gap-[0.3rem] text-[0.72rem] font-black uppercase text-gray-600',
+);
 
-const PaymentMethodRow = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
-  padding: 0 1.25rem 1rem;
-`;
+const HistoryInput = twComponent(
+  'input',
+  'box-border min-h-[38px] w-full rounded-md border border-red-200 bg-white px-[0.65rem] py-2 text-[0.85rem] text-gray-900 focus:border-[#e30613] focus:outline-none focus:ring-3 focus:ring-red-600/10',
+);
 
-const PaymentMethodButton = styled.button<{ $active: boolean }>`
-  min-height: 42px;
-  border: 1px solid ${({ $active }) => ($active ? '#e30613' : '#fecaca')};
-  border-radius: 8px;
-  background: ${({ $active }) => ($active ? '#fff1f2' : '#ffffff')};
-  color: ${({ $active }) => ($active ? '#991b1b' : '#4b5563')};
-  font-weight: 900;
-  cursor: pointer;
-`;
+const HistorySelect = twComponent(
+  'select',
+  'box-border min-h-[38px] w-full rounded-md border border-red-200 bg-white px-[0.65rem] py-2 text-[0.85rem] text-gray-900 focus:border-[#e30613] focus:outline-none focus:ring-3 focus:ring-red-600/10',
+);
 
-const HistoryControls = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem 1.25rem 0;
-`;
+const ClearFiltersButton = twComponent(
+  'button',
+  'min-h-[38px] cursor-pointer whitespace-nowrap rounded-md border border-gray-300 bg-white px-[0.9rem] py-[0.55rem] text-[0.78rem] font-black text-gray-700 hover:border-[#e30613] hover:bg-rose-50 hover:text-[#e30613] max-[980px]:w-full',
+);
 
-const HistoryTypeTabs = styled.div`
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem;
+const PixCode = twComponent(
+  'textarea',
+  'box-border min-h-[110px] w-full resize-y rounded-lg border border-red-200 bg-[#fffafa] p-3 text-[0.78rem] text-gray-700 [overflow-wrap:anywhere]',
+);
 
-  @media (max-width: 640px) {
-    grid-template-columns: 1fr;
-  }
-`;
+const EmptyState = twComponent(
+  'div',
+  'rounded-md border border-dashed border-red-200 bg-[#fffafa] p-4 text-[0.92rem] text-gray-500',
+);
 
-const HistoryTypeButton = styled.button<{ $active: boolean }>`
-  min-height: 40px;
-  border: 1px solid ${({ $active }) => ($active ? '#e30613' : '#fecaca')};
-  border-radius: 6px;
-  background: ${({ $active }) => ($active ? '#fff1f2' : '#ffffff')};
-  color: ${({ $active }) => ($active ? '#991b1b' : '#374151')};
-  cursor: pointer;
-  font-size: 0.78rem;
-  font-weight: 900;
-  text-transform: uppercase;
-`;
-
-const HistoryFilterGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(5, minmax(130px, 1fr)) auto;
-  gap: 0.65rem;
-  align-items: end;
-
-  @media (max-width: 980px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  @media (max-width: 640px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const HistoryField = styled.label`
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 0.3rem;
-  color: #4b5563;
-  font-size: 0.72rem;
-  font-weight: 900;
-  text-transform: uppercase;
-`;
-
-const HistoryInput = styled.input`
-  min-height: 38px;
-  box-sizing: border-box;
-  width: 100%;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
-  padding: 0.5rem 0.65rem;
-  color: #111827;
-  background: #ffffff;
-  font-size: 0.85rem;
-
-  &:focus {
-    outline: none;
-    border-color: #e30613;
-    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
-  }
-`;
-
-const HistorySelect = styled.select`
-  min-height: 38px;
-  box-sizing: border-box;
-  width: 100%;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
-  padding: 0.5rem 0.65rem;
-  color: #111827;
-  background: #ffffff;
-  font-size: 0.85rem;
-
-  &:focus {
-    outline: none;
-    border-color: #e30613;
-    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
-  }
-`;
-
-const ClearFiltersButton = styled(SecondaryButton)`
-  min-height: 38px;
-  border-radius: 6px;
-  white-space: nowrap;
-
-  @media (max-width: 980px) {
-    width: 100%;
-  }
-`;
-
-const PixCode = styled.textarea`
-  width: 100%;
-  min-height: 110px;
-  box-sizing: border-box;
-  resize: vertical;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  padding: 0.75rem;
-  color: #374151;
-  background: #fffafa;
-  font-size: 0.78rem;
-  overflow-wrap: anywhere;
-`;
-
-const EmptyState = styled.div`
-  padding: 1rem;
-  border: 1px dashed #fecaca;
-  border-radius: 6px;
-  background: #fffafa;
-  color: #6b7280;
-  font-size: 0.92rem;
-`;
-
-const InlineFeedback = styled.div<{ $tone: 'success' | 'error' }>`
-  margin: 0 1.25rem;
-  padding: 0.75rem 0.9rem;
-  border-radius: 8px;
-  border: 1px solid ${({ $tone }) => ($tone === 'success' ? '#86efac' : '#fca5a5')};
-  background: ${({ $tone }) => ($tone === 'success' ? '#f0fdf4' : '#fef2f2')};
-  color: ${({ $tone }) => ($tone === 'success' ? '#166534' : '#991b1b')};
-  font-size: 0.88rem;
-  font-weight: 800;
-`;
+const InlineFeedback = twComponent<'div', { $tone: 'success' | 'error' }>(
+  'div',
+  '',
+  ({ $tone }) =>
+    cn(
+      'mx-5 rounded-lg border px-[0.9rem] py-3 text-[0.88rem] font-extrabold',
+      $tone === 'success'
+        ? 'border-green-300 bg-green-50 text-green-800'
+        : 'border-red-300 bg-red-50 text-red-800',
+    ),
+);
 
 type ClosureStep = 'select' | 'invoice' | 'paid';
 
@@ -777,6 +570,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
           <HighlightButton
             type="button"
             data-testid="closure-group-download"
+            style={{ background: 'rgb(227, 6, 19)', color: 'rgb(255, 255, 255)' }}
             onClick={() => downloadExistingClosureGroup(group)}
           >
             Baixar nota

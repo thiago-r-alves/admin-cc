@@ -1,119 +1,8 @@
 import React, { useRef, useState } from 'react';
-import styled from 'styled-components';
 import { CACAMBA_CONTENT_TYPES, type CacambaContentType, type ICacamba } from '../interfaces';
+import { cn } from '../utils/cn';
 
-const Overlay = styled.div`
-  position: fixed;
-  inset: 0;
-  z-index: 1200;
-  background: rgba(17, 24, 39, 0.62);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-`;
-
-const Modal = styled.div`
-  width: min(460px, 96vw);
-  max-width: 100%;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.3);
-`;
-
-const Header = styled.div`
-  padding: 1rem 1.1rem;
-  border-bottom: 1px solid #fee2e2;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-`;
-
-const Title = styled.h3`
-  margin: 0;
-  color: #111827;
-  font-size: 1rem;
-  font-weight: 900;
-`;
-
-const CloseButton = styled.button`
-  border: 0;
-  background: transparent;
-  color: #6b7280;
-  font-size: 1.4rem;
-  line-height: 1;
-  cursor: pointer;
-`;
-
-const Body = styled.div`
-  padding: 1rem 1.1rem;
-  display: grid;
-  gap: 0.75rem;
-`;
-
-const Label = styled.label`
-  color: #4b5563;
-  font-size: 0.76rem;
-  font-weight: 900;
-  text-transform: uppercase;
-`;
-
-const Select = styled.select`
-  width: 100%;
-  max-width: 100%;
-  min-height: 40px;
-  box-sizing: border-box;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  padding: 0.5rem 0.6rem;
-`;
-
-const Input = styled.input`
-  width: 100%;
-  max-width: 100%;
-  min-height: 40px;
-  box-sizing: border-box;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  padding: 0.5rem 0.6rem;
-`;
-
-const ErrorMessage = styled.div`
-  color: #b91c1c;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 4px;
-  padding: 0.6rem 0.7rem;
-  font-size: 0.82rem;
-`;
-
-const Footer = styled.div`
-  padding: 0.9rem 1.1rem;
-  border-top: 1px solid #fee2e2;
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.6rem;
-`;
-
-const Button = styled.button<{ $primary?: boolean }>`
-  min-height: 38px;
-  padding: 0.55rem 0.85rem;
-  box-sizing: border-box;
-  border-radius: 4px;
-  border: 1px solid ${({ $primary }) => ($primary ? '#e30613' : '#d1d5db')};
-  background: ${({ $primary }) => ($primary ? '#e30613' : '#fff')};
-  color: ${({ $primary }) => ($primary ? '#fff' : '#374151')};
-  font-size: 0.8rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  cursor: pointer;
-`;
-
-const Form = styled.form`
-  width: 100%;
-  max-width: 100%;
-`;
+const fieldClass = 'box-border min-h-10 w-full max-w-full rounded-ui-md border border-gray-300 px-[0.6rem] py-2';
 
 interface CacambaMetaModalProps {
   mode: 'contentType' | 'price';
@@ -180,43 +69,45 @@ const CacambaMetaModal: React.FC<CacambaMetaModalProps> = ({ mode, cacamba, onCl
   };
 
   return (
-    <Overlay onMouseDown={handleOverlayMouseDown} onMouseUp={handleOverlayMouseUp}>
-      <Modal
+    <div onMouseDown={handleOverlayMouseDown} onMouseUp={handleOverlayMouseUp} className="fixed inset-0 z-[1200] flex items-center justify-center bg-[rgba(17,24,39,0.62)] p-4">
+      <div
         onMouseDown={() => {
           shouldCloseOnMouseUpRef.current = false;
         }}
         onMouseUp={(e) => e.stopPropagation()}
+        className="w-[min(460px,96vw)] max-w-full rounded-lg border border-red-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.3)]"
       >
-        <Header>
-          <Title>
+        <div className="flex items-center justify-between border-b border-red-100 px-[1.1rem] py-4">
+          <h3 className="m-0 text-base font-black text-gray-950">
             {mode === 'contentType' ? 'Editar tipo de conteúdo' : (cacamba.price ? 'Editar valor da caçamba' : 'Adicionar valor da caçamba')}
-          </Title>
-          <CloseButton type="button" onClick={onClose} aria-label="Fechar">
+          </h3>
+          <button type="button" onClick={onClose} aria-label="Fechar" className="cursor-pointer border-0 bg-transparent text-[1.4rem] leading-none text-gray-500">
             ×
-          </CloseButton>
-        </Header>
+          </button>
+        </div>
 
-        <Form onSubmit={handleSubmit} onClick={(event) => event.stopPropagation()}>
-          <Body>
+        <form onSubmit={handleSubmit} onClick={(event) => event.stopPropagation()} className="w-full max-w-full">
+          <div className="grid gap-3 px-[1.1rem] py-4">
             {mode === 'contentType' ? (
               <>
-                <Label htmlFor="cacamba-content-type">Tipo de conteúdo</Label>
-                <Select
+                <label htmlFor="cacamba-content-type" className="text-[0.76rem] font-black uppercase text-gray-600">Tipo de conteúdo</label>
+                <select
                   id="cacamba-content-type"
                   value={contentType}
                   onChange={(e) => setContentType(e.target.value as CacambaContentType | '')}
                   required
+                  className={fieldClass}
                 >
                   <option value="">Selecione...</option>
                   {CACAMBA_CONTENT_TYPES.map((option) => (
                     <option key={option} value={option}>{option}</option>
                   ))}
-                </Select>
+                </select>
               </>
             ) : (
               <>
-                <Label htmlFor="cacamba-price">Valor (R$)</Label>
-                <Input
+                <label htmlFor="cacamba-price" className="text-[0.76rem] font-black uppercase text-gray-600">Valor (R$)</label>
+                <input
                   id="cacamba-price"
                   type="number"
                   min="0"
@@ -224,26 +115,27 @@ const CacambaMetaModal: React.FC<CacambaMetaModalProps> = ({ mode, cacamba, onCl
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   required
+                  className={fieldClass}
                 />
               </>
             )}
-            {error && <ErrorMessage>{error}</ErrorMessage>}
-          </Body>
+            {error && <div className="rounded-ui-md border border-red-200 bg-red-50 px-[0.7rem] py-[0.6rem] text-[0.82rem] text-red-700">{error}</div>}
+          </div>
 
-          <Footer>
-            <Button type="button" onClick={onClose} disabled={saving}>Cancelar</Button>
-            <Button
+          <div className="flex justify-end gap-[0.6rem] border-t border-red-100 px-[1.1rem] py-[0.9rem]">
+            <button type="button" onClick={onClose} disabled={saving} className="box-border min-h-[38px] cursor-pointer rounded-ui-md border border-gray-300 bg-white px-[0.85rem] py-[0.55rem] text-[0.8rem] font-black uppercase text-gray-700">Cancelar</button>
+            <button
               type="submit"
-              $primary
               disabled={saving}
               onClick={(event) => event.stopPropagation()}
+              className={cn('box-border min-h-[38px] cursor-pointer rounded-ui-md border px-[0.85rem] py-[0.55rem] text-[0.8rem] font-black uppercase', 'border-brand bg-brand text-white')}
             >
               {saving ? 'Salvando...' : 'Salvar'}
-            </Button>
-          </Footer>
-        </Form>
-      </Modal>
-    </Overlay>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 };
 

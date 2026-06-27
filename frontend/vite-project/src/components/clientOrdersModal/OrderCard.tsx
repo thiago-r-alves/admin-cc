@@ -1,37 +1,6 @@
 import React from 'react';
-import styled from 'styled-components';
 import type { ICacamba, IOrder } from '../../interfaces';
 import CacambaList from '../CacambaList';
-
-const StyledOrderCard = styled.article`
-  overflow: hidden;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
-  background: #ffffff;
-
-  & + & {
-    margin-top: 1rem;
-  }
-`;
-
-const OrderCardHeader = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.95rem 1rem;
-  border-bottom: 1px solid #fee2e2;
-  background: #f8fafc;
-`;
-
-const OrderCardBody = styled.div`
-  padding: 1rem;
-`;
-
-const OrderIdentifier = styled.strong`
-  color: #e30613;
-  font-weight: 900;
-`;
 
 const isObjectIdLike = (value: string) => /^[a-f0-9]{24}$/i.test(value);
 
@@ -68,13 +37,15 @@ const OrderCard: React.FC<OrderCardProps> = ({
   };
 
   return (
-    <StyledOrderCard>
-      <OrderCardHeader>
-        <OrderIdentifier>Pedido #{order.orderNumber ?? '-'}</OrderIdentifier>
+    <article className="overflow-hidden rounded-ui-lg border border-red-200 bg-white [&+&]:mt-4">
+      <div className="flex items-center justify-between gap-4 border-b border-red-100 bg-slate-50 px-4 py-[0.95rem]">
+        <strong className="font-black text-brand" style={{ color: 'rgb(227, 6, 19)' }}>
+          Pedido #{order.orderNumber ?? '-'}
+        </strong>
         <span>{new Date(order.createdAt || '').toLocaleDateString('pt-BR')}</span>
-      </OrderCardHeader>
+      </div>
 
-      <OrderCardBody>
+      <div className="p-4">
         {order.cacambas && order.cacambas.length > 0 && (
           <CacambaList
             cacambas={order.cacambas || []}
@@ -91,8 +62,8 @@ const OrderCard: React.FC<OrderCardProps> = ({
             responsibility={responsibility}
           />
         )}
-      </OrderCardBody>
-    </StyledOrderCard>
+      </div>
+    </article>
   );
 };
 

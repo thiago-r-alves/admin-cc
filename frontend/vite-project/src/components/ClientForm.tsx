@@ -1,232 +1,37 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import styled from 'styled-components';
 import type { ICity, IClient } from '../interfaces';
 import { Button as UIButton, Field as UIField, SelectInput, TextInput } from '../components/ui';
+import { twComponent } from '../utils/twComponent';
+import { cn } from '../utils/cn';
 
-const ModalOverlay = styled.div`
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
-    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-  background: rgba(17, 24, 39, 0.62);
-
-  @media (max-width: 768px) {
-    align-items: stretch;
-    padding: 0;
-  }
-`;
-
-const ModalContent = styled.div`
-  width: min(860px, 94vw);
-  max-height: min(90dvh, 820px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
-  background: #ffffff;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
-
-  @media (max-width: 768px) {
-    width: 100vw;
-    height: 100dvh;
-    max-height: 100dvh;
-    border-radius: 0;
-  }
-`;
-
-const ModalHeader = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex: 0 0 auto;
-  padding: 1.15rem 2rem;
-  border-bottom: 1px solid #fecaca;
-  background: #ffffff;
-
-  @media (max-width: 560px) {
-    padding: 1rem 1.25rem;
-  }
-`;
-
-const Title = styled.h2`
-  margin: 0;
-  color: #1f2937;
-  font-size: 1.3rem;
-  font-weight: 900;
-`;
-
-const CloseButton = styled(UIButton)`
-  width: 34px;
-  height: 34px;
-  min-height: 34px;
-  min-width: 34px;
-  padding: 0;
-  border-radius: 6px;
-  font-size: 1.55rem;
-  line-height: 1;
-`;
-
-const Form = styled.form`
-  min-height: 0;
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-`;
-
-const ModalBody = styled.div`
-  flex: 1 1 auto;
-  overflow-y: auto;
-  padding: 1.75rem 2rem;
-  -webkit-overflow-scrolling: touch;
-
-  @media (max-width: 560px) {
-    padding: 1.25rem;
-  }
-`;
-
-const Section = styled.section`
-  padding-bottom: 1.35rem;
-  margin-bottom: 1.35rem;
-  border-bottom: 1px solid #f3f4f6;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-`;
-
-const SectionTitle = styled.h3`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0 0 1.1rem;
-  color: #e30613;
-  font-size: 0.78rem;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-`;
-
-const FieldGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem 1.25rem;
-
-  @media (max-width: 680px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const GridField = styled.div<{ $span?: 1 | 2 }>`
-  min-width: 0;
-  grid-column: span ${({ $span }) => $span || 1};
-
-  @media (max-width: 680px) {
-    grid-column: span 1;
-  }
-`;
-
-const FetchingHint = styled.small`
-  display: block;
-  margin-top: 0.35rem;
-  color: #6b7280;
-  font-size: 0.75rem;
-`;
-
-const InlineActions = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin-top: 0.45rem;
-  flex-wrap: wrap;
-`;
-
-const InlineLinkButton = styled.button`
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: #b91c1c;
-  font-size: 0.78rem;
-  font-weight: 800;
-  cursor: pointer;
-  text-decoration: underline;
-`;
-
-const ResultOverlay = styled.div`
-  position: fixed;
-  inset: 0;
-  z-index: 1400;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  background: rgba(17, 24, 39, 0.55);
-`;
-
-const ResultModal = styled.div`
-  width: min(440px, 94vw);
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  background: #fff;
-  overflow: hidden;
-`;
-
-const ResultHeader = styled.div<{ $tone: 'success' | 'error' | 'info' }>`
-  padding: 0.9rem 1rem;
-  border-bottom: 1px solid #fee2e2;
-  border-left: 4px solid
-    ${({ $tone }) => ($tone === 'success' ? '#16a34a' : $tone === 'error' ? '#dc2626' : '#2563eb')};
-  font-weight: 800;
-`;
-
-const ResultBody = styled.div`
-  padding: 1rem;
-  color: #334155;
-`;
-
-const ResultFooter = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  padding: 0.8rem 1rem 1rem;
-`;
-
-const ResultOkButton = styled.button`
-  min-height: 38px;
-  min-width: 92px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  background: #fff;
-  font-weight: 700;
-  cursor: pointer;
-`;
-
-const ModalFooter = styled.div`
-  display: flex;
-  justify-content: flex-start;
-  gap: 0.75rem;
-  flex: 0 0 auto;
-  padding: 1rem 2rem;
-  border-top: 1px solid #fecaca;
-  background: #ffffff;
-
-  @media (max-width: 560px) {
-    flex-direction: column;
-    padding: 1rem 1.25rem;
-  }
-`;
-
-const FooterButton = styled(UIButton)`
-  min-width: 150px;
-
-  @media (max-width: 560px) {
-    width: 100%;
-  }
-`;
+const ModalOverlay = twComponent('div', 'fixed inset-0 z-[1000] flex items-center justify-center bg-[rgba(17,24,39,0.62)] p-[max(16px,env(safe-area-inset-top))_max(16px,env(safe-area-inset-right))_max(16px,env(safe-area-inset-bottom))_max(16px,env(safe-area-inset-left))] max-[768px]:items-stretch max-[768px]:p-0');
+const ModalContent = twComponent('div', 'flex max-h-[min(90dvh,820px)] w-[min(860px,94vw)] flex-col overflow-hidden rounded-ui-lg border border-red-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.28)] max-[768px]:h-[100dvh] max-[768px]:max-h-[100dvh] max-[768px]:w-screen max-[768px]:rounded-none');
+const ModalHeader = twComponent('div', 'flex flex-none items-center justify-between gap-4 border-b border-red-200 bg-white px-8 py-[1.15rem] max-[560px]:px-5 max-[560px]:py-4');
+const Title = twComponent('h2', 'm-0 text-[1.3rem] font-black text-gray-800');
+const CloseButton: React.FC<React.ComponentProps<typeof UIButton>> = ({ className, ...props }) => (
+  <UIButton className={cn('h-[34px] min-h-[34px] w-[34px] min-w-[34px] rounded-ui-lg p-0 text-[1.55rem] leading-none', className)} {...props} />
+);
+const Form = twComponent('form', 'flex min-h-0 flex-auto flex-col');
+const ModalBody = twComponent('div', 'flex-auto overflow-y-auto px-8 py-7 [-webkit-overflow-scrolling:touch] max-[560px]:p-5');
+const Section = twComponent('section', 'mb-[1.35rem] border-b border-gray-100 pb-[1.35rem] last:mb-0');
+const SectionTitle = twComponent('h3', 'm-0 mb-[1.1rem] flex items-center gap-2 text-[0.78rem] font-black uppercase tracking-[0.04em] text-brand');
+const FieldGrid = twComponent('div', 'grid grid-cols-2 gap-x-5 gap-y-4 max-[680px]:grid-cols-1');
+const GridField = twComponent<'div', { $span?: 1 | 2 }>('div', 'min-w-0 max-[680px]:col-span-1', ({ $span }) => ($span === 2 ? 'col-span-2' : 'col-span-1'));
+const FetchingHint = twComponent('small', 'mt-[0.35rem] block text-xs text-gray-500');
+const InlineActions = twComponent('div', 'mt-[0.45rem] flex flex-wrap items-center gap-[0.6rem]');
+const InlineLinkButton = twComponent('button', 'cursor-pointer border-0 bg-transparent p-0 text-[0.78rem] font-extrabold text-red-700 underline');
+const ResultOverlay = twComponent('div', 'fixed inset-0 z-[1400] flex items-center justify-center bg-[rgba(17,24,39,0.55)] p-4');
+const ResultModal = twComponent('div', 'w-[min(440px,94vw)] overflow-hidden rounded-lg border border-red-200 bg-white');
+const ResultHeader = twComponent<'div', { $tone: 'success' | 'error' | 'info' }>('div', 'border-b border-l-4 border-b-red-100 px-4 py-[0.9rem] font-extrabold', ({ $tone }) =>
+  $tone === 'success' ? 'border-l-green-600' : $tone === 'error' ? 'border-l-red-600' : 'border-l-blue-600',
+);
+const ResultBody = twComponent('div', 'p-4 text-slate-700');
+const ResultFooter = twComponent('div', 'flex justify-end px-4 pb-4 pt-[0.8rem]');
+const ResultOkButton = twComponent('button', 'min-h-[38px] min-w-[92px] cursor-pointer rounded-ui-lg border border-gray-300 bg-white font-bold');
+const ModalFooter = twComponent('div', 'flex flex-none justify-start gap-3 border-t border-red-200 bg-white px-8 py-4 max-[560px]:flex-col max-[560px]:px-5');
+const FooterButton: React.FC<React.ComponentProps<typeof UIButton>> = ({ className, ...props }) => (
+  <UIButton className={cn('min-w-[150px] max-[560px]:w-full', className)} {...props} />
+);
 
 const SectionIcon = ({ name }: { name: 'client' | 'pin' | 'contact' }) => {
   if (name === 'pin') {

@@ -1,23 +1,6 @@
 import React from 'react';
-import styled from 'styled-components';
 import type { ICacamba, IOrder } from '../../interfaces';
 import OrderCard from './OrderCard';
-
-const OrdersList = styled.div`
-  min-height: 0;
-  flex: 1 1 auto;
-  overflow-y: auto;
-  padding: 1rem 1.25rem 1.25rem;
-`;
-
-const EmptyState = styled.div`
-  padding: 1rem;
-  border: 1px dashed #fecaca;
-  border-radius: 6px;
-  background: #fffafa;
-  color: #6b7280;
-  font-size: 0.92rem;
-`;
 
 interface ClientOrdersListProps {
   orders: IOrder[];
@@ -40,7 +23,7 @@ const ClientOrdersList: React.FC<ClientOrdersListProps> = ({
   onEditPrice,
   onEditContentType,
 }) => (
-  <OrdersList>
+  <div className="min-h-0 flex-auto overflow-y-auto px-5 pb-5 pt-4">
     {orders.length > 0 ? (
       orders.map((order) => (
         <OrderCard
@@ -55,9 +38,9 @@ const ClientOrdersList: React.FC<ClientOrdersListProps> = ({
         />
       ))
     ) : (
-      <EmptyState>{emptyMessage}</EmptyState>
+      <div className="rounded-ui-lg border border-dashed border-red-200 bg-[#fffafa] p-4 text-[0.92rem] text-gray-500">{emptyMessage}</div>
     )}
-  </OrdersList>
+  </div>
 );
 
 export default ClientOrdersList;

@@ -1,92 +1,7 @@
 import React, { useState } from 'react';
-import styled from 'styled-components';
 import { CACAMBA_CONTENT_TYPES, type CacambaContentType, type ICacamba, type OrderType } from '../interfaces';
 
-const ModalOverlay = styled.div`
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: rgba(0, 0, 0, 0.7);
-`;
-
-const ModalContent = styled.div`
-  width: 90%;
-  max-width: 500px;
-  padding: 1.5rem 2rem;
-  border-radius: 8px;
-  background-color: white;
-`;
-
-const Title = styled.h2`
-  margin: 0 0 1.5rem 0;
-`;
-
-const Form = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-`;
-
-const FormGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-`;
-
-const Label = styled.label`
-  margin-bottom: 0.25rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-`;
-
-const Input = styled.input`
-  padding: 0.5rem;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-`;
-
-const Select = styled.select`
-  padding: 0.5rem;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-`;
-
-const ButtonGroup = styled.div`
-  display: flex;
-  gap: 1rem;
-  margin-top: 1.5rem;
-`;
-
-const Button = styled.button`
-  flex: 1;
-  padding: 0.75rem;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 1rem;
-
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.6;
-  }
-`;
-
-const SubmitButton = styled(Button)`
-  background-color: #e30613;
-  color: white;
-`;
-
-const CancelButton = styled(Button)`
-  background-color: #e5e7eb;
-`;
-
-const ErrorText = styled.p`
-  margin: 0.5rem 0 0;
-  color: #ef4444;
-  font-size: 0.875rem;
-`;
+const fieldClass = 'rounded-ui-md border border-gray-300 p-2';
 
 type UploadGuardResult = { allowed: File[]; error?: string };
 
@@ -183,97 +98,68 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
   };
 
   return (
-    <ModalOverlay>
-      <ModalContent>
-        <Title>Editar Caçamba #{props.cacamba.numero}</Title>
-        <Form onSubmit={handleSubmit}>
-          <FormGroup>
-            <Label>Número da Caçamba</Label>
-            <Input
-              type="text"
-              value={numero}
-              onChange={(event) => setNumero(event.target.value)}
-              placeholder="Ex: 501"
-              required
-            />
-          </FormGroup>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70">
+      <div className="w-[90%] max-w-[500px] rounded-lg bg-white px-8 py-6">
+        <h2 className="m-0 mb-6 text-2xl font-bold">Editar Caçamba #{props.cacamba.numero}</h2>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col">
+            <label className="mb-1 text-sm font-medium">Número da Caçamba</label>
+            <input type="text" value={numero} onChange={(event) => setNumero(event.target.value)} placeholder="Ex: 501" required className={fieldClass} />
+          </div>
 
-          <FormGroup>
-            <Label>3 Últimos Dígitos da Ordem de serviço</Label>
-            <Input
-              type="text"
-              value={horaServicoDigitos}
-              onChange={(event) => setHoraServicoDigitos(event.target.value)}
-              placeholder="Ex: 123"
-              maxLength={3}
-              inputMode="numeric"
-              pattern="[0-9]{3}"
-              required
-            />
-          </FormGroup>
+          <div className="flex flex-col">
+            <label className="mb-1 text-sm font-medium">3 Últimos Dígitos da Ordem de serviço</label>
+            <input type="text" value={horaServicoDigitos} onChange={(event) => setHoraServicoDigitos(event.target.value)} placeholder="Ex: 123" maxLength={3} inputMode="numeric" pattern="[0-9]{3}" required className={fieldClass} />
+          </div>
 
-          <FormGroup>
-            <Label>Tipo</Label>
-            <Select
-              value={tipo}
-              onChange={(event) => setTipo(event.target.value as OrderType)}
-              required
-              disabled={lockSelect}
-            >
+          <div className="flex flex-col">
+            <label className="mb-1 text-sm font-medium">Tipo</label>
+            <select value={tipo} onChange={(event) => setTipo(event.target.value as OrderType)} required disabled={lockSelect} className={fieldClass}>
               {showEntrega && <option value="entrega">Entrega</option>}
               {showRetirada && <option value="retirada">Retirada</option>}
-            </Select>
-          </FormGroup>
+            </select>
+          </div>
 
           {forcedTipo === 'retirada' && (
-            <FormGroup>
-              <Label>Tipo de conteúdo</Label>
-              <Select
-                value={contentType}
-                onChange={(event) => setContentType(event.target.value as CacambaContentType | '')}
-                required
-              >
+            <div className="flex flex-col">
+              <label className="mb-1 text-sm font-medium">Tipo de conteúdo</label>
+              <select value={contentType} onChange={(event) => setContentType(event.target.value as CacambaContentType | '')} required className={fieldClass}>
                 <option value="">Selecione...</option>
                 {CACAMBA_CONTENT_TYPES.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
                 ))}
-              </Select>
-            </FormGroup>
+              </select>
+            </div>
           )}
 
-          <FormGroup>
-            <Label>Local</Label>
-            <Select value={local} onChange={(event) => setLocal(event.target.value)}>
+          <div className="flex flex-col">
+            <label className="mb-1 text-sm font-medium">Local</label>
+            <select value={local} onChange={(event) => setLocal(event.target.value)} className={fieldClass}>
               <option value="via_publica">Via Pública</option>
               <option value="canteiro_obra">Canteiro de Obra</option>
-            </Select>
-          </FormGroup>
+            </select>
+          </div>
 
-          <FormGroup>
-            <Label>Trocar Imagem (Opcional)</Label>
-            <Input
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              onClick={() => setImgError(null)}
-            />
-            {imgError && <ErrorText>{imgError}</ErrorText>}
-          </FormGroup>
+          <div className="flex flex-col">
+            <label className="mb-1 text-sm font-medium">Trocar Imagem (Opcional)</label>
+            <input type="file" accept="image/*" onChange={handleFileChange} onClick={() => setImgError(null)} className={fieldClass} />
+            {imgError && <p className="m-0 mt-2 text-sm text-red-500">{imgError}</p>}
+          </div>
 
-          <ButtonGroup>
-            <SubmitButton type="submit" disabled={saving}>
+          <div className="mt-6 flex gap-4">
+            <button type="submit" disabled={saving} className="flex-1 cursor-pointer rounded-ui-lg border-0 bg-brand p-3 text-base text-white disabled:cursor-not-allowed disabled:opacity-60">
               {saving ? 'Salvando...' : 'Salvar Alterações'}
-            </SubmitButton>
-            <CancelButton type="button" onClick={props.onClose} disabled={saving}>
+            </button>
+            <button type="button" onClick={props.onClose} disabled={saving} className="flex-1 cursor-pointer rounded-ui-lg border-0 bg-gray-200 p-3 text-base disabled:cursor-not-allowed disabled:opacity-60">
               Cancelar
-            </CancelButton>
-          </ButtonGroup>
-          {formError && <ErrorText>{formError}</ErrorText>}
-        </Form>
-      </ModalContent>
-    </ModalOverlay>
+            </button>
+          </div>
+          {formError && <p className="m-0 mt-2 text-sm text-red-500">{formError}</p>}
+        </form>
+      </div>
+    </div>
   );
 };
 

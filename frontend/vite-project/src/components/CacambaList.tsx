@@ -1,144 +1,43 @@
 ﻿import React from 'react';
-import styled from 'styled-components';
 import type { DriverRef, ICacamba } from '../interfaces';
+import { twComponent } from '../utils/twComponent';
+import { cn } from '../utils/cn';
 
-const EmptyState = styled.div`
-  color: #6b7280;
-  text-align: center;
-  padding: 1rem 0;
-`;
-
-const Container = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-`;
-
-const Title = styled.h3`
-  font-size: 1.05rem;
-  font-weight: 900;
-  color: #111827;
-  margin: 0;
-`;
-
-const CacambaCard = styled.div`
-  background-color: #f8fafc;
-  padding: 0.78rem 0.85rem;
-  border-radius: 8px;
-  border: 1px solid #fecaca;
-`;
-
-const CardContent = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.75rem;
-  margin-bottom: 0.72rem;
-`;
-
-const InfoSection = styled.div`
-  flex: 1 1 auto;
-  min-width: 0;
-`;
-
-const HeaderInfo = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  min-width: 0;
-`;
-
-const SelectionLabel = styled.label`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 36px;
-  padding: 0.42rem 0.9rem;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  background: #ffffff;
-  color: #374151;
-  font-size: 0.9rem;
-  font-weight: 800;
-  cursor: pointer;
-`;
-
-const SelectionInput = styled.input.attrs({ type: 'checkbox' })`
-  width: 16px;
-  height: 16px;
-  cursor: pointer;
-`;
-
-const CacambaNumber = styled.span`
-  font-weight: 900;
-  color: #e30613;
-  font-size: 1.02rem;
-`;
-
-const TypeBadge = styled.span<{ tipo: 'entrega' | 'retirada' }>`
-  padding: 0.15rem 0.45rem;
-  font-size: 0.66rem;
-  border-radius: 9999px;
-  background-color: ${(props) => (props.tipo === 'entrega' ? '#dcfce7' : '#fee2e2')};
-  color: ${(props) => (props.tipo === 'entrega' ? '#166534' : '#b91c1c')};
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-`;
-
-const PaymentBadge = styled.span`
-  padding: 0.15rem 0.45rem;
-  font-size: 0.66rem;
-  border-radius: 9999px;
-  background-color: #dcfce7;
-  color: #166534;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-`;
-
-const statusBadgeToneStyles = {
-  warning: {
-    border: '#f59e0b',
-    background: '#fffbeb',
-    color: '#92400e',
-  },
-  danger: {
-    border: '#ef4444',
-    background: '#fef2f2',
-    color: '#991b1b',
-  },
-};
-
-const StatusBadge = styled.span<{ $tone: CacambaStatusBadgeTone }>`
-  display: inline-flex;
-  align-items: center;
-  max-width: 100%;
-  min-width: 0;
-  padding: 0.15rem 0.45rem;
-  font-size: 0.66rem;
-  border-radius: 9999px;
-  border: 1px solid ${({ $tone }) => statusBadgeToneStyles[$tone].border};
-  background-color: ${({ $tone }) => statusBadgeToneStyles[$tone].background};
-  color: ${({ $tone }) => statusBadgeToneStyles[$tone].color};
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  line-height: 1.25;
-  white-space: normal;
-  overflow-wrap: anywhere;
-
-  @media (max-width: 640px) {
-    flex-basis: 100%;
-    justify-content: center;
-    border-radius: 6px;
-    padding: 0.38rem 0.55rem;
-    text-align: center;
-  }
-`;
+const EmptyState = twComponent('div', 'py-4 text-center text-gray-500');
+const Container = twComponent('div', 'flex flex-col gap-3');
+const Title = twComponent('h3', 'm-0 text-[1.05rem] font-black text-gray-950');
+const CacambaCard = twComponent('div', 'rounded-lg border border-red-200 bg-slate-50 px-[0.85rem] py-[0.78rem]');
+const CardContent = twComponent('div', 'mb-[0.72rem] flex items-start justify-between gap-3');
+const InfoSection = twComponent('div', 'min-w-0 flex-auto');
+const HeaderInfo = twComponent('div', 'flex min-w-0 flex-wrap items-center gap-2');
+const SelectionLabel = twComponent('label', 'flex min-h-9 cursor-pointer items-center gap-2 rounded-ui-md border border-gray-300 bg-white px-[0.9rem] py-[0.42rem] text-[0.9rem] font-extrabold text-gray-700');
+const SelectionInput: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = ({ className, ...props }) => (
+  <input type="checkbox" className={cn('h-4 w-4 cursor-pointer', className)} {...props} />
+);
+const CacambaNumber: React.FC<React.HTMLAttributes<HTMLSpanElement>> = ({ className, style, ...props }) => (
+  <span
+    className={cn('text-[1.02rem] font-black text-brand', className)}
+    style={{ color: 'rgb(227, 6, 19)', ...style }}
+    {...props}
+  />
+);
+const TypeBadge = twComponent<'span', { tipo: 'entrega' | 'retirada' }>('span', 'rounded-full px-[0.45rem] py-[0.15rem] text-[0.66rem] font-black uppercase tracking-[0.04em]', ({ tipo }) =>
+  tipo === 'entrega' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700',
+);
+const PaymentBadge = twComponent('span', 'rounded-full bg-green-100 px-[0.45rem] py-[0.15rem] text-[0.66rem] font-black uppercase tracking-[0.04em] text-green-700');
 
 export type CacambaStatusBadgeTone = 'warning' | 'danger';
+
+const statusBadgeToneClasses: Record<CacambaStatusBadgeTone, string> = {
+  warning: 'border-[#f59e0b] bg-[#fffbeb] text-[#92400e]',
+  danger: 'border-[#ef4444] bg-[#fef2f2] text-[#991b1b]',
+};
+
+const StatusBadge = twComponent<'span', { $tone: CacambaStatusBadgeTone }>(
+  'span',
+  'inline-flex max-w-full min-w-0 items-center whitespace-normal rounded-full border px-[0.45rem] py-[0.15rem] text-[0.66rem] font-black uppercase leading-tight tracking-[0.04em] [overflow-wrap:anywhere] max-[640px]:basis-full max-[640px]:justify-center max-[640px]:rounded-ui-lg max-[640px]:px-[0.55rem] max-[640px]:py-[0.38rem] max-[640px]:text-center',
+  ({ $tone }) => statusBadgeToneClasses[$tone],
+);
 
 export type CacambaStatusBadge =
   | string
@@ -153,121 +52,22 @@ export interface CacambaResponsibility {
   placa?: string;
 }
 
-const DateInfo = styled.p`
-  font-size: 0.82rem;
-  color: #374151;
-  margin: 0.2rem 0 0 0;
-  line-height: 1.35;
-
-  strong {
-    color: #111827;
-  }
-`;
-
-const LocalInfo = styled.span`
-  display: block;
-  font-size: 0.82rem;
-  color: #374151;
-  margin-top: 0.18rem;
-
-  strong {
-    color: #111827;
-  }
-`;
-
-const ServiceOrder = styled.p`
-  margin: 0.2rem 0 0;
-  font-size: 0.82rem;
-  color: #374151;
-
-  strong {
-    color: #111827;
-  }
-`;
-
-const ContentTypeInfo = styled.p`
-  margin: 0.2rem 0 0;
-  font-size: 0.82rem;
-  color: #374151;
-
-  strong {
-    color: #111827;
-  }
-`;
-
-const PriceInfo = styled.p`
-  margin: 0.2rem 0 0;
-  font-size: 0.82rem;
-  color: #374151;
-
-  strong {
-    color: #111827;
-  }
-`;
-
-const ResponsibilityInfo = styled.p`
-  display: flex;
-  gap: 0.55rem;
-  flex-wrap: wrap;
-  margin: 0.2rem 0 0;
-  font-size: 0.82rem;
-  color: #374151;
-
-  strong {
-    color: #111827;
-  }
-`;
-
-const BlockedWarning = styled.div`
-  margin-top: 0.5rem;
-  border: 1px solid #fca5a5;
-  border-radius: 6px;
-  background: #fef2f2;
-  color: #991b1b;
-  font-size: 0.9rem;
-  font-weight: 700;
-  padding: 0.55rem 0.7rem;
-  white-space: pre-line;
-`;
-
-const ImageContainer = styled.div`
-  margin-left: 0.35rem;
-  flex: 0 0 auto;
-`;
-
-const CacambaImage = styled.img`
-  width: 66px;
-  height: 66px;
-  object-fit: cover;
-  border-radius: 4px;
-  border: 1px solid #d1d5db;
-  background: #fff;
-`;
-
-const ActionRow = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-`;
-
-const ActionButton = styled.button<{ $variant?: 'danger' | 'secondary' }>`
-  background-color: ${({ $variant }) => ($variant === 'danger' ? '#e30613' : '#ffffff')};
-  color: ${({ $variant }) => ($variant === 'danger' ? '#ffffff' : '#374151')};
-  border: 1px solid ${({ $variant }) => ($variant === 'danger' ? '#e30613' : '#d1d5db')};
-  border-radius: 4px;
-  padding: 0.42rem 0.9rem;
-  font-size: 0.9rem;
-  font-weight: 800;
-  cursor: pointer;
-  transition: background 0.2s, box-shadow 0.2s;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-
-  &:hover {
-    background-color: ${({ $variant }) => ($variant === 'danger' ? '#c9000b' : '#fff1f2')};
-    border-color: ${({ $variant }) => ($variant === 'danger' ? '#c9000b' : '#e30613')};
-    color: ${({ $variant }) => ($variant === 'danger' ? '#ffffff' : '#e30613')};
-  }
-`;
+const infoTextClass = 'm-0 mt-[0.2rem] text-[0.82rem] leading-[1.35] text-gray-700 [&_strong]:text-gray-950';
+const DateInfo = twComponent('p', infoTextClass);
+const LocalInfo = twComponent('span', 'mt-[0.18rem] block text-[0.82rem] text-gray-700 [&_strong]:text-gray-950');
+const ServiceOrder = twComponent('p', infoTextClass);
+const ContentTypeInfo = twComponent('p', infoTextClass);
+const PriceInfo = twComponent('p', infoTextClass);
+const ResponsibilityInfo = twComponent('p', `${infoTextClass} flex flex-wrap gap-[0.55rem]`);
+const BlockedWarning = twComponent('div', 'mt-2 whitespace-pre-line rounded-ui-lg border border-red-300 bg-red-50 px-[0.7rem] py-[0.55rem] text-[0.9rem] font-bold text-red-900');
+const ImageContainer = twComponent('div', 'ml-[0.35rem] flex-none');
+const CacambaImage = twComponent('img', 'h-[66px] w-[66px] rounded-ui-md border border-gray-300 bg-white object-cover');
+const ActionRow = twComponent('div', 'flex flex-wrap gap-2');
+const ActionButton = twComponent<'button', { $variant?: 'danger' | 'secondary' }>('button', 'cursor-pointer rounded-ui-md border px-[0.9rem] py-[0.42rem] text-[0.9rem] font-extrabold shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background,box-shadow] duration-200', ({ $variant }) =>
+  $variant === 'danger'
+    ? 'border-brand bg-brand text-white hover:border-brand-hover hover:bg-brand-hover'
+    : 'border-gray-300 bg-white text-gray-700 hover:border-brand hover:bg-brand-soft hover:text-brand',
+);
 
 interface CacambaListProps {
   cacambas: ICacamba[];

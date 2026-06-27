@@ -1,16 +1,4 @@
 import React from 'react';
-import styled from 'styled-components';
-
-const ReportSummary = styled.div`
-  margin: 0 1.25rem;
-  padding: 0.8rem 0.9rem;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
-  background: #fffafa;
-  color: #111827;
-  font-size: 0.92rem;
-  font-weight: 800;
-`;
 
 const formatCurrency = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -32,7 +20,7 @@ const ClientOrdersSummary: React.FC<ClientOrdersSummaryProps> = ({
   selectedCount,
   compactOnlyTotal = false,
 }) => (
-  <ReportSummary>
+  <div className="mx-5 rounded-ui-lg border border-red-200 bg-[#fffafa] px-[0.9rem] py-[0.8rem] text-[0.92rem] font-extrabold text-gray-950">
     <div>Total do cliente (Retiradas): {formatCurrency(clientTotal)}</div>
     {!compactOnlyTotal && (
       <>
@@ -41,7 +29,7 @@ const ClientOrdersSummary: React.FC<ClientOrdersSummaryProps> = ({
         {closureMode && <div>Caçambas selecionadas: {selectedCount}</div>}
       </>
     )}
-  </ReportSummary>
+  </div>
 );
 
 export default ClientOrdersSummary;

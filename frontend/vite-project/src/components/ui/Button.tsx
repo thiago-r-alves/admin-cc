@@ -1,6 +1,5 @@
 import React from 'react';
-import styled, { css } from 'styled-components';
-import { uiTokens } from './tokens';
+import { cn } from '../../utils/cn';
 
 type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'quiet' | 'ghost';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -14,109 +13,21 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   iconRight?: React.ReactNode;
 }
 
-const sizeStyles = {
-  sm: css`
-    min-height: 36px;
-    padding: 0.55rem 0.8rem;
-    font-size: 0.78rem;
-  `,
-  md: css`
-    min-height: 42px;
-    padding: 0.7rem 1rem;
-    font-size: 0.82rem;
-  `,
-  lg: css`
-    min-height: 46px;
-    padding: 0.8rem 1.2rem;
-    font-size: 0.9rem;
-  `,
+const sizeClasses: Record<ButtonSize, string> = {
+  sm: 'min-h-9 px-[0.8rem] py-[0.55rem] text-[0.78rem]',
+  md: 'min-h-[42px] px-4 py-[0.7rem] text-[0.82rem]',
+  lg: 'min-h-[46px] px-[1.2rem] py-[0.8rem] text-[0.9rem]',
 };
 
-const variantStyles = {
-  primary: css`
-    border: 1px solid ${uiTokens.color.primary};
-    background: ${uiTokens.color.primary};
-    color: ${uiTokens.color.onPrimary};
-
-    &:hover:not(:disabled) {
-      background: ${uiTokens.color.primaryHover};
-      border-color: ${uiTokens.color.primaryHover};
-    }
-  `,
-  secondary: css`
-    border: 1px solid ${uiTokens.color.borderSoft};
-    background: ${uiTokens.color.bg};
-    color: #6b1f1f;
-
-    &:hover:not(:disabled) {
-      background: ${uiTokens.color.bgSoft};
-      border-color: ${uiTokens.color.primary};
-      color: ${uiTokens.color.primary};
-    }
-  `,
-  danger: css`
-    border: 1px solid transparent;
-    background: ${uiTokens.color.danger};
-    color: ${uiTokens.color.onPrimary};
-
-    &:hover:not(:disabled) {
-      background: ${uiTokens.color.dangerHover};
-    }
-  `,
-  quiet: css`
-    border: 1px solid ${uiTokens.color.border};
-    background: ${uiTokens.color.bg};
-    color: ${uiTokens.color.text};
-
-    &:hover:not(:disabled) {
-      background: #f9fafb;
-      border-color: ${uiTokens.color.primary};
-      color: ${uiTokens.color.primary};
-    }
-  `,
-  ghost: css`
-    border: 1px solid transparent;
-    background: transparent;
-    color: ${uiTokens.color.textMuted};
-
-    &:hover:not(:disabled) {
-      background: ${uiTokens.color.bgSoft};
-      color: ${uiTokens.color.primary};
-    }
-  `,
+const variantClasses: Record<ButtonVariant, string> = {
+  primary: 'border-brand bg-brand text-white hover:not-disabled:border-brand-hover hover:not-disabled:bg-brand-hover',
+  secondary:
+    'border-brand-border bg-white text-[#6b1f1f] hover:not-disabled:border-brand hover:not-disabled:bg-brand-soft hover:not-disabled:text-brand',
+  danger: 'border-transparent bg-red-600 text-white hover:not-disabled:bg-red-800',
+  quiet:
+    'border-gray-300 bg-white text-gray-700 hover:not-disabled:border-brand hover:not-disabled:bg-gray-50 hover:not-disabled:text-brand',
+  ghost: 'border-transparent bg-transparent text-gray-500 hover:not-disabled:bg-brand-soft hover:not-disabled:text-brand',
 };
-
-const StyledButton = styled.button<{
-  $variant: ButtonVariant;
-  $size: ButtonSize;
-  $fullWidth: boolean;
-}>`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  width: ${({ $fullWidth }) => ($fullWidth ? '100%' : 'auto')};
-  border-radius: ${uiTokens.radius.md};
-  cursor: pointer;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  line-height: 1.2;
-  transition: background ${uiTokens.transition.fast}, border-color ${uiTokens.transition.fast}, color ${uiTokens.transition.fast}, opacity ${uiTokens.transition.fast};
-
-  ${({ $size }) => sizeStyles[$size]}
-  ${({ $variant }) => variantStyles[$variant]}
-
-  &:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 3px ${uiTokens.color.focusRingStrong};
-  }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-`;
 
 const Button: React.FC<ButtonProps> = ({
   variant = 'primary',
@@ -127,19 +38,24 @@ const Button: React.FC<ButtonProps> = ({
   iconLeft,
   iconRight,
   children,
+  className,
   ...props
 }) => (
-  <StyledButton
+  <button
     {...props}
     disabled={disabled || loading}
-    $variant={variant}
-    $size={size}
-    $fullWidth={fullWidth}
+    className={cn(
+      'inline-flex items-center justify-center gap-[0.45rem] rounded-ui-md border font-black uppercase leading-[1.2] tracking-[0.04em] transition-[background,border-color,color,opacity] duration-[180ms] ease-in-out focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-focus-strong disabled:cursor-not-allowed disabled:opacity-60',
+      fullWidth ? 'w-full' : 'w-auto',
+      sizeClasses[size],
+      variantClasses[variant],
+      className,
+    )}
   >
     {iconLeft}
     {loading ? 'Carregando...' : children}
     {iconRight}
-  </StyledButton>
+  </button>
 );
 
 export default Button;
