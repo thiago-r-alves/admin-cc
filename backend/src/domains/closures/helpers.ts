@@ -1,17 +1,35 @@
 import { ObjectId } from 'mongodb';
 import { ClosureGroupModel } from '../../models/ClosureGroup';
-import { buildLocalDateRange } from '../../utils/order';
+import { parseLocalDate } from '../../utils/order';
 
 export const buildClosureDateRange = (startDate: unknown, endDate: unknown) => {
-  if (!startDate || !endDate) return null;
-  return buildLocalDateRange(String(startDate), String(endDate));
+  const hasStartDate = typeof startDate === 'string' && startDate.trim().length > 0;
+  const hasEndDate = typeof endDate === 'string' && endDate.trim().length > 0;
+  if (!hasStartDate && !hasEndDate) return null;
+
+  const start = hasStartDate ? parseLocalDate(String(startDate)) : undefined;
+  const end = hasEndDate ? parseLocalDate(String(endDate)) : undefined;
+  if ((hasStartDate && !start) || (hasEndDate && !end)) return null;
+
+  end?.setHours(23, 59, 59, 999);
+  if (start && end && start.getTime() > end.getTime()) return null;
+
+  return { start, end };
 };
 
-export const buildClosureOrdersQuery = (range: { start: Date; end: Date }) => ({
-  status: 'concluido' as const,
-  type: 'retirada' as const,
-  updatedAt: { $gte: range.start, $lte: range.end },
-});
+export type ClosureDateRange = NonNullable<ReturnType<typeof buildClosureDateRange>>;
+
+export const buildClosureOrdersQuery = (range: ClosureDateRange) => {
+  const updatedAt: Record<string, Date> = {};
+  if (range.start) updatedAt.$gte = range.start;
+  if (range.end) updatedAt.$lte = range.end;
+
+  return {
+    status: 'concluido' as const,
+    type: 'retirada' as const,
+    ...(Object.keys(updatedAt).length ? { updatedAt } : {}),
+  };
+};
 
 export type ClosurePaymentFilter =
   | 'all'

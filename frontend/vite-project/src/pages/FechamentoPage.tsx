@@ -277,8 +277,10 @@ const FechamentoPage: React.FC = () => {
       }
       const query = new URLSearchParams();
       query.append('closure', 'true');
-      if (isIsoDate(startDate) && isIsoDate(endDate)) {
+      if (isIsoDate(startDate)) {
         query.append('startDate', startDate);
+      }
+      if (isIsoDate(endDate)) {
         query.append('endDate', endDate);
       }
       query.append('paymentStatus', paymentStatus);
@@ -491,4 +493,3 @@ const FechamentoPage: React.FC = () => {
 };
 
 export default FechamentoPage;
-

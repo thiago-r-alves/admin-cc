@@ -90,8 +90,10 @@ export const useClientOrdersModal = ({
 
     const query = new URLSearchParams();
     if (closureMode) {
-      if (startDate && endDate) {
+      if (startDate) {
         query.append('startDate', startDate);
+      }
+      if (endDate) {
         query.append('endDate', endDate);
       }
       if (type) query.append('type', type);
@@ -152,9 +154,13 @@ export const useClientOrdersModal = ({
     setIsLoadingHistory(true);
     try {
       const query = new URLSearchParams();
-      if (viewMode !== 'generated_notes' && startDate && endDate) {
-        query.append('startDate', startDate);
-        query.append('endDate', endDate);
+      if (viewMode !== 'generated_notes') {
+        if (startDate) {
+          query.append('startDate', startDate);
+        }
+        if (endDate) {
+          query.append('endDate', endDate);
+        }
       }
       query.append('status', status);
 

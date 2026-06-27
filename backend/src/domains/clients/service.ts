@@ -9,8 +9,25 @@ import {
   buildClosureGroupClientMatch,
   buildClosureOrdersQuery,
   CLOSURE_DEBUG,
+  type ClosureDateRange,
   parseClosurePaymentFilter,
 } from '../closures/helpers';
+
+const buildClosureCacambaAggregationCond = (range: ClosureDateRange | null) => {
+  const conditions: any[] = [{ $eq: ['$$cacamba.tipo', 'retirada'] }];
+  if (range?.start) conditions.push({ $gte: ['$$cacamba.createdAt', range.start] });
+  if (range?.end) conditions.push({ $lte: ['$$cacamba.createdAt', range.end] });
+  return conditions.length === 1 ? conditions[0] : { $and: conditions };
+};
+
+const isCacambaWithinClosureDateRange = (cacamba: any, range: ClosureDateRange | null) => {
+  if (!range?.start && !range?.end) return true;
+  const createdAtMs = new Date(cacamba?.createdAt || '').getTime();
+  if (!Number.isFinite(createdAtMs)) return false;
+  if (range.start && createdAtMs < range.start.getTime()) return false;
+  if (range.end && createdAtMs > range.end.getTime()) return false;
+  return true;
+};
 
 export const listClients = async (query: Record<string, unknown>) => {
   const { startDate, endDate, type, closure, paymentStatus } = query;
@@ -19,16 +36,18 @@ export const listClients = async (query: Record<string, unknown>) => {
   const hasTypeFilter = typeof type === 'string' && (type === 'entrega' || type === 'retirada');
 
   if (isClosureMode) {
-    const hasDateRange = Boolean(startDate && endDate);
-    const range = hasDateRange ? buildClosureDateRange(startDate, endDate) : null;
-    if (hasDateRange && !range) {
+    const hasDateFilter = Boolean(startDate || endDate);
+    const range = hasDateFilter ? buildClosureDateRange(startDate, endDate) : null;
+    if (hasDateFilter && !range) {
       return { status: 400, body: { message: 'Período de datas inválido.' } };
     }
+    const metadataPendingDateRange = closurePaymentFilter === 'metadata_pending' ? range : null;
+    const closureCacambaCond = buildClosureCacambaAggregationCond(metadataPendingDateRange);
 
     const aggregated = await OrderModel.aggregate([
       {
         $match: range
-          ? buildClosureOrdersQuery({ start: range.start, end: range.end })
+          ? buildClosureOrdersQuery(range)
           : { status: 'concluido', type: 'retirada' },
       },
       {
@@ -45,9 +64,7 @@ export const listClients = async (query: Record<string, unknown>) => {
             $filter: {
               input: '$cacambasDocs',
               as: 'cacamba',
-              cond: {
-                $eq: ['$$cacamba.tipo', 'retirada'],
-              },
+              cond: closureCacambaCond,
             },
           },
         },
@@ -340,7 +357,12 @@ export const listClients = async (query: Record<string, unknown>) => {
 
     if (CLOSURE_DEBUG) {
       console.log('[CLOSURE_DEBUG] /clients?closure=true', {
-        range: range ? { start: range.start.toISOString(), end: range.end.toISOString() } : 'all',
+        range: range
+          ? {
+            start: range.start?.toISOString() || null,
+            end: range.end?.toISOString() || null,
+          }
+          : 'all',
         count: aggregated.length,
         clients: aggregated.map((row: any) => ({
           clientId: row._id,
@@ -556,19 +578,20 @@ export const listClientOrders = async (clientId: string, query: Record<string, u
   const isClosureMode = String(closure || '').toLowerCase() === 'true';
   const closurePaymentFilter = parseClosurePaymentFilter(paymentStatus);
   const orderQuery: Record<string, unknown> = { clientId };
+  let closureRange: ClosureDateRange | null = null;
 
   if (isClosureMode) {
-    const hasDateRange = Boolean(startDate && endDate);
-    const range = hasDateRange ? buildClosureDateRange(startDate, endDate) : null;
-    if (hasDateRange && !range) {
+    const hasDateFilter = Boolean(startDate || endDate);
+    closureRange = hasDateFilter ? buildClosureDateRange(startDate, endDate) : null;
+    if (hasDateFilter && !closureRange) {
       return { status: 400, body: { message: 'Período de datas inválido.' } };
     }
     orderQuery.$or = buildClientIdMatch(clientId);
     delete orderQuery.clientId;
     Object.assign(
       orderQuery,
-      range
-        ? buildClosureOrdersQuery({ start: range.start, end: range.end })
+      closureRange
+        ? buildClosureOrdersQuery(closureRange)
         : { status: 'concluido', type: 'retirada' },
     );
   } else {
@@ -606,6 +629,12 @@ export const listClientOrders = async (clientId: string, query: Record<string, u
       .map((order: any) => {
         const filteredCacambas = (order.cacambas || []).filter((cacamba: any) => {
           if (cacamba?.tipo !== 'retirada') return false;
+          if (
+            closurePaymentFilter === 'metadata_pending' &&
+            !isCacambaWithinClosureDateRange(cacamba, closureRange)
+          ) {
+            return false;
+          }
           const hasValidPrice =
             typeof cacamba?.price === 'number' && Number.isFinite(cacamba.price);
           const hasValidContentType =
@@ -646,17 +675,19 @@ export const listClosureGroups = async (
   query: { startDate?: string; endDate?: string; status?: 'nota_fiscal_pendente' | 'pix_pendente' | 'paga' | 'all' },
 ) => {
   const { startDate, endDate, status } = query;
-  const hasDateRange = Boolean(startDate && endDate);
-  const range = hasDateRange ? buildClosureDateRange(startDate, endDate) : null;
-  if (hasDateRange && !range) {
+  const hasDateFilter = Boolean(startDate || endDate);
+  const range = hasDateFilter ? buildClosureDateRange(startDate, endDate) : null;
+  if (hasDateFilter && !range) {
     return { status: 400, body: { message: 'Período de datas inválido.' } };
   }
 
   const groupQuery: Record<string, unknown> = {
     $or: buildClosureGroupClientMatch(clientId),
   };
-  if (range) {
+  if (range?.start) {
     groupQuery.startDate = { $gte: range.start };
+  }
+  if (range?.end) {
     groupQuery.endDate = { $lte: range.end };
   }
   if (status && status !== 'all') {

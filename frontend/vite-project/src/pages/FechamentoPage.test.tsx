@@ -135,6 +135,34 @@ describe('FechamentoPage', () => {
       ).toBe(true),
     );
   });
+  it('envia data inicial mesmo sem data final no filtro de fechamento', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/clients?')) {
+        return buildJsonResponse([]);
+      }
+      return buildJsonResponse([]);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<FechamentoPage />);
+
+    fireEvent.change(screen.getByLabelText('Data Inicial'), {
+      target: { value: '2026-05-15' },
+    });
+
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(([input]) => {
+          const url = new URL(String(input), 'http://localhost');
+          return (
+            url.searchParams.get('startDate') === '2026-05-15' &&
+            !url.searchParams.has('endDate')
+          );
+        }),
+      ).toBe(true),
+    );
+  });
   it('troca o CTA principal no filtro de informações pendentes', async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input);

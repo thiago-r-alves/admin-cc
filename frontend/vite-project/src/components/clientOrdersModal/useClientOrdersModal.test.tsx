@@ -607,6 +607,31 @@ describe('useClientOrdersModal', () => {
     expect(firstCallUrl).toContain('paymentStatus=metadata_pending');
   });
 
+  it('envia data inicial sem exigir data final no modal de informações pendentes', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => [],
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    renderHook(() =>
+      useClientOrdersModal({
+        client,
+        startDate: '2026-05-15',
+        type: 'retirada',
+        closureMode: true,
+        paymentStatus: 'metadata_pending',
+      }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const firstCallUrl = String((fetchMock as unknown as { mock: { calls: unknown[][] } }).mock.calls[0][0]);
+    const url = new URL(firstCallUrl, 'http://localhost');
+    expect(url.searchParams.get('startDate')).toBe('2026-05-15');
+    expect(url.searchParams.has('endDate')).toBe(false);
+    expect(url.searchParams.get('paymentStatus')).toBe('metadata_pending');
+  });
+
   it('remove localmente a caçamba do modo metadata_pending quando a pendência é resolvida', async () => {
     const onClosureStateChanged = vi.fn();
     const fetchMock = vi
