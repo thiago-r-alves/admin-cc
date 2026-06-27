@@ -74,6 +74,17 @@ describe('Admin APIs', () => {
     expect(withdrawalCreate.status).toBe(201);
     expect(withdrawalCreate.body.cacambaPrice).toBeUndefined();
 
+    const pricedWithdrawalCreate = await request(app)
+      .post('/orders')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        ...baseOrderPayload,
+        type: 'retirada',
+        cacambaPrice: 250,
+      });
+    expect(pricedWithdrawalCreate.status).toBe(201);
+    expect(pricedWithdrawalCreate.body.cacambaPrice).toBe(250);
+
     const list = await request(app).get('/orders').set('Authorization', `Bearer ${adminToken}`);
     expect(list.status).toBe(200);
     expect(Array.isArray(list.body)).toBe(true);
@@ -398,6 +409,30 @@ describe('Admin APIs', () => {
     expect(corrected.body.type).toBe('retirada');
     expect(corrected.body.cacambaPrice).toBeUndefined();
     expect(String(corrected.body.motorista._id)).toBe(String(otherDriver._id));
+
+    const pricedWithdrawalCorrectionOrder = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: client._id,
+      clientName: client.clientName,
+      contactName: client.contactName,
+      contactNumber: client.contactNumber,
+      neighborhood: client.neighborhood,
+      address: client.address,
+      addressNumber: client.addressNumber,
+      type: 'entrega',
+      status: 'pendente',
+      motorista: driver._id,
+      cacambaPrice: 160,
+    });
+
+    const pricedWithdrawalCorrection = await request(app)
+      .patch(`/orders/${pricedWithdrawalCorrectionOrder._id}/correction`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ type: 'retirada', motorista: String(otherDriver._id), cacambaPrice: 180 });
+
+    expect(pricedWithdrawalCorrection.status).toBe(200);
+    expect(pricedWithdrawalCorrection.body.type).toBe('retirada');
+    expect(pricedWithdrawalCorrection.body.cacambaPrice).toBe(180);
 
     const deliveryCorrectionOrder = await OrderModel.create({
       orderNumber: nextOrderNumber++,

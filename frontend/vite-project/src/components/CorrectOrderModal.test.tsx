@@ -55,7 +55,7 @@ describe('CorrectOrderModal', () => {
       />,
     );
 
-    expect(screen.queryByLabelText('Valor da caçamba (R$)')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Valor da caçamba (R$)')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Tipo do pedido'), { target: { value: 'entrega' } });
     expect(screen.getByLabelText('Valor da caçamba (R$)')).toBeInTheDocument();
@@ -75,5 +75,30 @@ describe('CorrectOrderModal', () => {
       }),
     );
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('envia valor ao corrigir pedido para retirada quando informado', async () => {
+    const onChanged = vi.fn();
+    render(
+      <CorrectOrderModal
+        apiUrl="http://api.test"
+        order={baseOrder}
+        drivers={[driver]}
+        onClose={vi.fn()}
+        onChanged={onChanged}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Valor da caçamba (R$)'), { target: { value: '180' } });
+    submitCorrectionForm();
+
+    await waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
+    const body = JSON.parse(String((fetch as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1].body));
+    expect(body).toEqual(
+      expect.objectContaining({
+        type: 'retirada',
+        cacambaPrice: 180,
+      }),
+    );
   });
 });

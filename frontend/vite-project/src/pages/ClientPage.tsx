@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import styled from 'styled-components';
 import ClientList from '../components/ClientList';
 import ClientForm from '../components/ClientForm';
 import ActionConfirmModal from '../components/ActionConfirmModal';
@@ -7,109 +6,14 @@ import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import LoadingScreen from '../components/LoadingScreen';
 import ClientOrdersModal from '../components/ClientOrdersModal';
 import type { IClient } from '../interfaces';
+import { ClientToolbar } from '../features/clients/ClientToolbar';
+import { normClientSearch } from '../features/clients/client.helpers';
 
-const Container = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-`;
-
-const Header = styled.div`
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-`;
-
-const Title = styled.h2`
-  margin: 0;
-  color: #1f2937;
-  font-size: clamp(1.45rem, 2vw, 2rem);
-  line-height: 1.15;
-`;
-
-const Toolbar = styled.div`
-  display: flex;
-  align-items: flex-end;
-  gap: 0.8rem;
-
-  @media (max-width: 720px) {
-    flex-direction: column;
-    align-items: stretch;
-  }
-`;
-
-const SearchWrap = styled.div`
-  position: relative;
-  flex: 1 1 auto;
-  min-width: 260px;
-  padding-top: 1.3rem;
-
-  @media (max-width: 720px) {
-    width: 100%;
-    min-width: 0;
-    padding-top: 0;
-  }
-`;
-
-const SearchIcon = styled.span`
-  position: absolute;
-  left: 0.9rem;
-  top: calc(50% + 0.65rem);
-  transform: translateY(-50%);
-  display: inline-flex;
-  color: #9ca3af;
-  pointer-events: none;
-
-  @media (max-width: 720px) {
-    top: 50%;
-  }
-`;
-
-const SearchInput = styled.input`
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0.82rem 0.9rem 0.82rem 2.45rem;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #374151;
-  font-size: 0.92rem;
-
-  &::placeholder {
-    color: #9ca3af;
-  }
-
-  &:focus {
-    outline: none;
-    border-color: #e30613;
-    box-shadow: 0 0 0 3px rgba(227, 6, 19, 0.12);
-  }
-`;
-
-const AddButton = styled.button`
-  flex: 0 0 auto;
-  min-height: 43px;
-  padding: 0.75rem 1rem;
-  border: none;
-  border-radius: 4px;
-  background: #e30613;
-  color: #ffffff;
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 900;
-  text-transform: uppercase;
-  white-space: nowrap;
-  box-shadow: 0 8px 16px rgba(227, 6, 19, 0.18);
-
-  &:hover {
-    background: #c9000b;
-  }
-
-  @media (max-width: 720px) {
-    width: 100%;
-  }
-`;
+import {
+  Container,
+  Header,
+  Title,
+} from '../features/clients/client.styles';
 
 const ClientPage: React.FC = () => {
   const [clients, setClients] = useState<IClient[]>([]);
@@ -232,16 +136,10 @@ const ClientPage: React.FC = () => {
     setShowForm(true);
   };
 
-  const norm = (s: unknown) =>
-    String(s ?? '')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase();
-
   const filteredClients = useMemo(() => {
     if (!search.trim()) return clients;
 
-    const q = norm(search);
+    const q = normClientSearch(search);
     return clients.filter((c) => {
       const fields = [
         c.clientName,
@@ -256,7 +154,7 @@ const ClientPage: React.FC = () => {
         c.contactName,
         c.contactNumber,
       ];
-      return fields.some((f) => norm(f).includes(q));
+      return fields.some((f) => normClientSearch(f).includes(q));
     });
   }, [clients, search]);
 
@@ -274,27 +172,11 @@ const ClientPage: React.FC = () => {
       </Header>
 
       {!showForm && (
-        <Toolbar>
-          <SearchWrap>
-            <SearchIcon aria-hidden="true">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-                <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
-                <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </SearchIcon>
-            <SearchInput
-              data-testid="clients-search-input"
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar cliente por nome, CNPJ/CPF, e-mail, RG/IE, endereço, bairro, cidade, CEP..."
-            />
-          </SearchWrap>
-
-          <AddButton data-testid="clients-add-button" onClick={() => setShowForm(true)}>
-            + Adicionar Cliente
-          </AddButton>
-        </Toolbar>
+        <ClientToolbar
+          search={search}
+          onSearchChange={setSearch}
+          onAddClient={() => setShowForm(true)}
+        />
       )}
 
       {showForm ? (

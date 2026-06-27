@@ -654,7 +654,6 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
     setForm(prev => ({
       ...prev,
       type,
-      cacambaPrice: type === 'entrega' ? prev.cacambaPrice : '',
     }));
     setError('');
   };
@@ -700,7 +699,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
         priority: 0,
         placa: form.placa,
         motorista: form.motorista || undefined,
-        ...(orderType === 'entrega' ? { cacambaPrice: parsedCacambaPrice } : {}),
+        ...(Number.isFinite(parsedCacambaPrice) && parsedCacambaPrice > 0 ? { cacambaPrice: parsedCacambaPrice } : {}),
         ...(isPresetWithdrawal ? { plannedWithdrawalCacambaIds: initialPreset?.plannedWithdrawalCacambaIds || [] } : {}),
       }),
     });
@@ -929,7 +928,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                       </Field>
                     )}
 
-                    {form.type === 'entrega' && (
+                    {form.type && (
                       <Field>
                         <Label>Valor da Caçamba (R$)</Label>
                         <Input
@@ -938,7 +937,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                           onChange={e => setForm(f => ({ ...f, cacambaPrice: e.target.value }))}
                           placeholder="Ex: 180,00"
                           inputMode="decimal"
-                          required
+                          required={form.type === 'entrega'}
                         />
                       </Field>
                     )}

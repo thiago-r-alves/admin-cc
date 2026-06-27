@@ -1,15 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import styled from 'styled-components';
 import type { IOrder, ICacamba, OrderType } from '../interfaces';
-import CacambaForm from '../components/CacambaForm';
-import CacambaList from '../components/CacambaList';
-import EditCacambaModal from '../components/EditCacambaModal';
-import ActionConfirmModal from '../components/ActionConfirmModal';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import LoadingScreen from '../components/LoadingScreen';
-import ImageModal from '../components/ImageModal';
 import { apiUrl, authFetch, clearStoredSession } from '../services/api';
+import { DriverHeaderPanel } from '../features/driver/DriverHeaderPanel';
+import { DriverModals } from '../features/driver/DriverModals';
+import { DriverOrdersSection } from '../features/driver/DriverOrdersSection';
+import type { DriverConfirmState, DriverFeedbackState } from '../features/driver/driver.types';
 // socket.io-client will be dynamically imported to avoid parsing on initial load
 
 type OrdersSocket = {
@@ -18,313 +16,10 @@ type OrdersSocket = {
   close(): void;
 };
 
-const DriverContainer = styled.div`
-  min-height: 100vh;
-  background: #f5f6f8;
-  color: #111827;
-  font-family: Arial, sans-serif;
-  padding: 1.5rem;
-
-  @media (max-width: 640px) {
-    padding: 1rem;
-  }
-`;
-
-const DriverShell = styled.div`
-  width: min(1120px, 100%);
-  margin: 0 auto;
-`;
-
-const DriverHeader = styled.header`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1.35rem 1.5rem;
-  margin-bottom: 1.5rem;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
-  background: #ffffff;
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.05);
-
-  @media (max-width: 760px) {
-    align-items: stretch;
-    flex-direction: column;
-    padding: 1.1rem;
-  }
-`;
-
-const HeaderText = styled.div`
-  min-width: 0;
-`;
-
-const PageTitle = styled.h1`
-  margin: 0;
-  color: #1f2937;
-  font-size: clamp(1.45rem, 2.2vw, 2rem);
-  font-weight: 900;
-`;
-
-const PageSubtitle = styled.p`
-  margin: 0.35rem 0 0;
-  color: #6b7280;
-  font-size: 0.9rem;
-`;
-
-const HeaderActions = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-
-  @media (max-width: 760px) {
-    justify-content: stretch;
-  }
-`;
-
-const HeaderButton = styled.button<{ $variant?: 'primary' | 'danger' | 'success' | 'quiet' }>`
-  min-height: 40px;
-  padding: 0.65rem 0.95rem;
-  border: 1px solid ${({ $variant }) => {
-    if ($variant === 'danger') return '#e30613';
-    if ($variant === 'success') return '#e30613';
-    return '#d8b4b4';
-  }};
-  border-radius: 4px;
-  background: ${({ $variant }) => {
-    if ($variant === 'danger') return '#e30613';
-    if ($variant === 'success') return '#e30613';
-    if ($variant === 'primary') return '#e30613';
-    return '#ffffff';
-  }};
-  color: ${({ $variant }) => ($variant === 'danger' || $variant === 'success' || $variant === 'primary' ? '#ffffff' : '#6b1f1f')};
-  cursor: pointer;
-  font-size: 0.78rem;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
-
-  &:hover:not(:disabled) {
-    transform: translateY(-1px);
-    background: ${({ $variant }) => {
-      if ($variant === 'success') return '#c9000b';
-      if ($variant === 'quiet') return '#fff1f2';
-      return '#c9000b';
-    }};
-    border-color: #e30613;
-    color: ${({ $variant }) => ($variant === 'quiet' ? '#e30613' : '#ffffff')};
-  }
-
-  &:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-  }
-
-  @media (max-width: 560px) {
-    width: 100%;
-  }
-`;
-
-const NotificationStatus = styled.span`
-  color: #15803d;
-  font-size: 0.82rem;
-  font-weight: 800;
-`;
-
-const NotificationError = styled.div`
-  width: 100%;
-  color: #dc2626;
-  font-size: 0.8rem;
-  font-weight: 700;
-`;
-
-const OrdersSection = styled.section`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-`;
-
-const OrdersSectionTitle = styled.h2`
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  margin: 0;
-  color: #1f2937;
-  font-size: 1.25rem;
-  font-weight: 900;
-
-  &::before {
-    content: '';
-    width: 4px;
-    height: 26px;
-    border-radius: 999px;
-    background: #e30613;
-  }
-`;
-
-const OrdersGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
-`;
-
-const EmptyState = styled.div`
-  padding: 1.25rem;
-  border: 1px dashed #fecaca;
-  border-radius: 6px;
-  background: #ffffff;
-  color: #6b7280;
-  font-size: 0.95rem;
-`;
-
-const OrderCard = styled.article`
-  overflow: hidden;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
-  background: #ffffff;
-  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.04);
-`;
-
-const OrderCardHeader = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid #fee2e2;
-  background: #f8fafc;
-
-  @media (max-width: 640px) {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-`;
-
-const OrderIdentifier = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  min-width: 0;
-  color: #e30613;
-  font-size: 1.05rem;
-  font-weight: 900;
-`;
-
-const OrderNumber = styled.span`
-  white-space: nowrap;
-`;
-
-const OrderTypeBadge = styled.span`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 30px;
-  padding: 0.4rem 0.65rem;
-  border-radius: 4px;
-  background: #23324a;
-  color: #ffffff;
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-`;
-
-const OrderCardBody = styled.div`
-  padding: 1.25rem;
-
-  @media (max-width: 560px) {
-    padding: 1rem;
-  }
-`;
-
-const ClientName = styled.h3`
-  margin: 0 0 1rem;
-  color: #111827;
-  font-size: clamp(1.05rem, 2vw, 1.28rem);
-  font-weight: 900;
-  line-height: 1.25;
-`;
-
-const InfoGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr;
-  gap: 0.95rem;
-  margin-bottom: 1rem;
-
-  @media (max-width: 860px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const InfoBlock = styled.div<{ $span?: number }>`
-  min-width: 0;
-  grid-column: span ${({ $span }) => $span || 1};
-  padding: 0.85rem;
-  border: 1px solid #f1d4d4;
-  border-radius: 4px;
-  background: #fffafa;
-
-  @media (max-width: 860px) {
-    grid-column: span 1;
-  }
-`;
-
-const InfoLabel = styled.div`
-  margin-bottom: 0.35rem;
-  color: #9ca3af;
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-`;
-
-const InfoValue = styled.div`
-  color: #374151;
-  font-size: 0.92rem;
-  line-height: 1.45;
-  word-break: break-word;
-`;
-
-const ActionRow = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin: 1rem 0 0;
-
-  @media (max-width: 560px) {
-    flex-direction: column;
-  }
-`;
-
-const CacambaButton = styled(HeaderButton)``;
-
-const CacambaSection = styled.div`
-  margin-top: 1.15rem;
-  padding-top: 1.15rem;
-  border-top: 1px solid #fee2e2;
-`;
-
-const CacambaHeader = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-
-  @media (max-width: 640px) {
-    align-items: stretch;
-    flex-direction: column;
-  }
-`;
-
-// Componente principal da página do motorista
-const typeLabels: Record<OrderType, string> = {
-  entrega: 'Entrega',
-  retirada: 'Retirada',
-};
+import {
+  DriverContainer,
+  DriverShell,
+} from '../features/driver/driver.styles';
 
 const DriverPage: React.FC = () => {
   const navigate = useNavigate();
@@ -336,20 +31,13 @@ const DriverPage: React.FC = () => {
   const [modalImage, setModalImage] = useState<string | null>(null);
   const [editingCacamba, setEditingCacamba] = useState<ICacamba | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  // ADICIONE um estado para guardar o tipo do pedido em edição
   const [editingOrderType, setEditingOrderType] = useState<OrderType | undefined>(undefined);
   const [role] = useState<string | null>(() => localStorage.getItem('role'));
   const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
   const [pushError, setPushError] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const [feedback, setFeedback] = useState<DriverFeedbackState>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
-  const [confirmState, setConfirmState] = useState<{
-    title: string;
-    description: string;
-    variant: 'danger' | 'warning' | 'info';
-    confirmLabel: string;
-    onConfirm: () => Promise<void> | void;
-  } | null>(null);
+  const [confirmState, setConfirmState] = useState<DriverConfirmState>(null);
   
   const socketRef = React.useRef<OrdersSocket | null>(null);
   const clearSessionAndRedirect = useCallback(() => {
@@ -707,147 +395,49 @@ const DriverPage: React.FC = () => {
           tone={feedback?.tone}
           onClose={() => setFeedback(null)}
         />
-        <DriverHeader>
-          <HeaderText>
-            <PageTitle>Painel do Motorista</PageTitle>
-            <PageSubtitle>Acompanhe seus pedidos ativos e registre as caçambas em campo.</PageSubtitle>
-          </HeaderText>
-          <HeaderActions>
-            {role === 'motorista' && (
-              <>
-                {!isSubscribed ? (
-                  <HeaderButton type="button" $variant="quiet" onClick={() => registerServiceWorkerAndSubscribe(true)}>
-                    Ativar Notificações
-                  </HeaderButton>
-                ) : (
-                  <NotificationStatus>Notificações ativas</NotificationStatus>
-                )}
-                {pushError && <NotificationError>{pushError}</NotificationError>}
-              </>
-            )}
-            <HeaderButton type="button" $variant="danger" onClick={handleLogout}>
-              Sair
-            </HeaderButton>
-          </HeaderActions>
-        </DriverHeader>
-        <OrdersSection>
-          <OrdersSectionTitle>Pedidos Ativos</OrdersSectionTitle>
-      <OrdersGrid>
-            {activeOrders.length === 0 && (
-              <EmptyState>Nenhum pedido ativo para o motorista no momento.</EmptyState>
-            )}
-
-            {activeOrders.map(order => {
-            const canConclude = (order.cacambas?.length ?? 0) >= 1;
-            const canManage = order.status !== 'cancelado';
-
-            return (
-              <OrderCard key={order._id}>
-                <OrderCardHeader>
-                  <OrderIdentifier>
-                    <OrderNumber>{order.orderNumber ? `#${order.orderNumber}` : 'Pedido'}</OrderNumber>
-                  </OrderIdentifier>
-                  <OrderTypeBadge>{typeLabels[order.type] ?? order.type}</OrderTypeBadge>
-                </OrderCardHeader>
-
-                <OrderCardBody>
-                  <ClientName>{order.clientName}</ClientName>
-
-                  <InfoGrid>
-                    <InfoBlock $span={2}>
-                      <InfoLabel>Endereço da obra</InfoLabel>
-                      <InfoValue>
-                        {order.address}, {order.addressNumber} - {order.neighborhood} - {order.city} - CEP {order.cep}
-                      </InfoValue>
-                    </InfoBlock>
-                    <InfoBlock>
-                      <InfoLabel>Contato</InfoLabel>
-                      <InfoValue>{order.contactName} ({order.contactNumber})</InfoValue>
-                    </InfoBlock>
-                  </InfoGrid>
-
-                  <ActionRow>
-                    <CacambaButton
-                      type="button"
-                      $variant="danger"
-                      onClick={() => openGoogleMapsRoute(order.address, order.addressNumber, order.neighborhood)}
-                    >
-                      Ver rota
-                    </CacambaButton>
-                    {canManage && canConclude && (
-                      <CacambaButton
-                        type="button"
-                        $variant="success"
-                        onClick={() => handleCompleteOrder(order._id)}
-                      >
-                        Concluir Pedido
-                      </CacambaButton>
-                    )}
-                  </ActionRow>
-
-                  {canManage && (
-                    <CacambaSection>
-                      <CacambaHeader>
-                        <CacambaButton type="button" $variant="primary" onClick={() => handleAddCacamba(order._id, order.type)}>
-                          + Adicionar Caçamba
-                        </CacambaButton>
-                      </CacambaHeader>
-                      <CacambaList
-                        cacambas={order.cacambas || []}
-                        onImageClick={setModalImage}
-                        onEdit={(cacamba) => handleOpenEditModal(cacamba, order.type)}
-                        onDelete={handleDeleteCacamba}
-                        responsibility={{ motorista: order.motorista, placa: order.placa }}
-                      />
-                    </CacambaSection>
-                  )}
-                </OrderCardBody>
-              </OrderCard>
-            );
-            })}
-          </OrdersGrid>
-        </OrdersSection>
+        <DriverHeaderPanel
+          role={role}
+          isSubscribed={isSubscribed}
+          pushError={pushError}
+          onSubscribe={() => registerServiceWorkerAndSubscribe(true)}
+          onLogout={handleLogout}
+        />
+        <DriverOrdersSection
+          orders={activeOrders}
+          onOpenRoute={openGoogleMapsRoute}
+          onCompleteOrder={handleCompleteOrder}
+          onAddCacamba={handleAddCacamba}
+          onOpenImage={setModalImage}
+          onEditCacamba={handleOpenEditModal}
+          onDeleteCacamba={handleDeleteCacamba}
+        />
       </DriverShell>
 
-      {showCacambaForm && selectedOrderId && selectedOrderType && (
-        <CacambaForm
-          orderId={selectedOrderId}
-          orderType={selectedOrderType}
-          onCacambaAdded={handleCacambaAdded}
-          onClose={handleCloseCacambaForm}
-          beforeUploadFiles={beforeUploadForCreate} // usa o guard
-        />
-      )}
-
-      {isEditModalOpen && editingCacamba && (
-        <EditCacambaModal
-          cacamba={editingCacamba}
-          orderType={editingOrderType}
-          onClose={() => { setIsEditModalOpen(false); setEditingOrderType(undefined); }}
-          onUpdate={async (updated) => {
-            if (editingCacamba._id) {
-              await handleUpdateCacamba(editingCacamba._id, updated);
-            }
-          }}
-          beforeUploadFiles={beforeUploadForEdit} // usa o guard
-        />
-      )}
-
-      {modalImage && <ImageModal url={modalImage} onClose={() => setModalImage(null)} />}
-      {confirmState && (
-        <ActionConfirmModal
-          open
-          title={confirmState.title}
-          description={confirmState.description}
-          confirmLabel={confirmState.confirmLabel}
-          variant={confirmState.variant}
-          loading={confirmLoading}
-          onClose={() => {
-            if (!confirmLoading) setConfirmState(null);
-          }}
-          onConfirm={confirmState.onConfirm}
-        />
-      )}
+      <DriverModals
+        showCacambaForm={showCacambaForm}
+        selectedOrderId={selectedOrderId}
+        selectedOrderType={selectedOrderType}
+        onCacambaAdded={handleCacambaAdded}
+        onCloseCacambaForm={handleCloseCacambaForm}
+        beforeUploadForCreate={beforeUploadForCreate}
+        isEditModalOpen={isEditModalOpen}
+        editingCacamba={editingCacamba}
+        editingOrderType={editingOrderType}
+        onCloseEditModal={() => { setIsEditModalOpen(false); setEditingOrderType(undefined); }}
+        onUpdateCacamba={async (updated) => {
+          if (editingCacamba?._id) {
+            await handleUpdateCacamba(editingCacamba._id, updated);
+          }
+        }}
+        beforeUploadForEdit={beforeUploadForEdit}
+        modalImage={modalImage}
+        onCloseImage={() => setModalImage(null)}
+        confirmState={confirmState}
+        confirmLoading={confirmLoading}
+        onCloseConfirm={() => {
+          if (!confirmLoading) setConfirmState(null);
+        }}
+      />
     </DriverContainer>
   );
 };

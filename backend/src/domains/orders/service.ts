@@ -19,12 +19,22 @@ const parseCacambaPrice = (value: unknown) => {
 };
 
 const validateCacambaPriceForType = (type: unknown, value: unknown) => {
+  const parsed = parseCacambaPrice(value);
   if (type === 'entrega') {
-    const parsed = parseCacambaPrice(value);
     if (parsed === null || parsed <= 0) {
       return {
         ok: false as const,
         body: { message: 'Valor da caçamba é obrigatório para pedidos de entrega.' },
+      };
+    }
+    return { ok: true as const, value: parsed };
+  }
+
+  if (parsed !== null) {
+    if (parsed <= 0) {
+      return {
+        ok: false as const,
+        body: { message: 'Valor da caçamba deve ser maior que zero.' },
       };
     }
     return { ok: true as const, value: parsed };
@@ -424,7 +434,9 @@ export const correctPendingOrder = async (id: string, payload: Record<string, un
       type,
       motorista: normalizedMotorista,
       updatedAt: Date.now(),
-      ...(type === 'entrega' ? { cacambaPrice: priceValidation.value } : { $unset: { cacambaPrice: '' } }),
+      ...(typeof priceValidation.value === 'number'
+        ? { cacambaPrice: priceValidation.value }
+        : { $unset: { cacambaPrice: '' } }),
     },
     { new: true },
   )

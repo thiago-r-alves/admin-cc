@@ -14,27 +14,33 @@ describe('ClientOrdersModal (history mode)', () => {
   });
 
   it('exibe filtros operacionais e refaz a busca ao alternar o tipo', async () => {
-    const fetchMock = vi.fn(async (_input: RequestInfo | URL): Promise<Response> => ({
-      ok: true,
-      json: async () => [
-        {
-          _id: 'ord-1',
-          orderNumber: 401,
-          clientId: 'cli-1',
-          clientName: 'Cliente Historico',
-          contactName: '',
-          contactNumber: '',
-          neighborhood: '',
-          address: '',
-          addressNumber: '',
-          type: 'retirada',
-          priority: 0,
-          status: 'concluido',
-          createdAt: '2026-05-10T10:00:00.000Z',
-          cacambas: [],
-        },
-      ],
-    } as Response));
+    const fetchMock = vi.fn(async (input: RequestInfo | URL): Promise<Response> => {
+      if (!input) {
+        throw new Error('Expected request input.');
+      }
+
+      return {
+        ok: true,
+        json: async () => [
+          {
+            _id: 'ord-1',
+            orderNumber: 401,
+            clientId: 'cli-1',
+            clientName: 'Cliente Historico',
+            contactName: '',
+            contactNumber: '',
+            neighborhood: '',
+            address: '',
+            addressNumber: '',
+            type: 'retirada',
+            priority: 0,
+            status: 'concluido',
+            createdAt: '2026-05-10T10:00:00.000Z',
+            cacambas: [],
+          },
+        ],
+      } as Response;
+    });
     vi.stubGlobal('fetch', fetchMock);
 
     render(
@@ -58,7 +64,7 @@ describe('ClientOrdersModal (history mode)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Retiradas' }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    const calls = fetchMock.mock.calls as Array<[RequestInfo | URL]>;
+    const calls = fetchMock.mock.calls;
     expect(String(calls[1]?.[0] ?? '')).toContain('type=retirada');
 
     fireEvent.click(screen.getByRole('button', { name: 'Entregas' }));

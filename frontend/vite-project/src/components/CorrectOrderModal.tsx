@@ -255,7 +255,7 @@ const CorrectOrderModal: React.FC<CorrectOrderModalProps> = ({
         body: JSON.stringify({
           type,
           motorista: driverId,
-          ...(type === 'entrega' ? { cacambaPrice: parsedCacambaPrice } : {}),
+          ...(Number.isFinite(parsedCacambaPrice) && parsedCacambaPrice > 0 ? { cacambaPrice: parsedCacambaPrice } : {}),
         }),
       });
       const data = await response.json();
@@ -301,7 +301,6 @@ const CorrectOrderModal: React.FC<CorrectOrderModalProps> = ({
                   value={type}
                   onChange={(event) => {
                     setType(event.target.value as OrderType);
-                    if (event.target.value === 'retirada') setCacambaPrice('');
                     setError('');
                   }}
                 >
@@ -310,7 +309,7 @@ const CorrectOrderModal: React.FC<CorrectOrderModalProps> = ({
                 </Select>
               </div>
 
-              {type === 'entrega' && (
+              {type && (
                 <div>
                   <Label htmlFor="correct-order-cacamba-price">Valor da caçamba (R$)</Label>
                   <Input
@@ -323,7 +322,7 @@ const CorrectOrderModal: React.FC<CorrectOrderModalProps> = ({
                     }}
                     placeholder="Ex: 180,00"
                     inputMode="decimal"
-                    required
+                    required={type === 'entrega'}
                   />
                 </div>
               )}
