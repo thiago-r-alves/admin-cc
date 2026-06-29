@@ -178,6 +178,8 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
   const isPresetWithdrawal = initialPreset?.mode === 'withdrawal';
   const [SelectComponent, setSelectComponent] = useState<SelectComponentType | null>(null);
   const [clients, setClients] = useState<IClient[]>([]);
+  const [isClientListLoaded, setIsClientListLoaded] = useState(false);
+  const [isClientSelectReady, setIsClientSelectReady] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string>(initialPreset?.clientId || '');
   const [form, setForm] = useState<CreateOrderForm>(() =>
     initialPreset ? formFromPreset(initialPreset) : emptyForm,
@@ -187,12 +189,15 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
   const fallbackClientSelectRef = useRef<HTMLSelectElement>(null);
   const lastCepRef = useRef<string>('');
   const apiUrl = import.meta.env.VITE_API_URL;
+  const isInitialContentReady = isPresetWithdrawal || (isClientListLoaded && isClientSelectReady);
 
   useEffect(() => {
     let mounted = true;
     import('react-select').then(mod => {
       if (mounted) setSelectComponent(() => mod.default as SelectComponentType);
-    }).catch(() => {});
+    }).catch(() => {}).finally(() => {
+      if (mounted) setIsClientSelectReady(true);
+    });
 
     return () => {
       mounted = false;
@@ -200,8 +205,8 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
   }, []);
 
   useEffect(() => {
-    if (!SelectComponent) fallbackClientSelectRef.current?.focus();
-  }, [SelectComponent]);
+    if (isInitialContentReady && !SelectComponent) fallbackClientSelectRef.current?.focus();
+  }, [SelectComponent, isInitialContentReady]);
 
   useEffect(() => {
     if (!initialPreset) return;
@@ -210,19 +215,32 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
   }, [initialPreset]);
 
   useEffect(() => {
-    const fetchClients = async () => {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${apiUrl}/clients`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+    let mounted = true;
 
-      if (response.ok) {
-        const data = await response.json();
-        setClients(data);
+    const fetchClients = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${apiUrl}/clients`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (mounted) setClients(data);
+        } else if (mounted) {
+          setError('Não foi possível carregar os clientes.');
+        }
+      } catch {
+        if (mounted) setError('Não foi possível carregar os clientes.');
+      } finally {
+        if (mounted) setIsClientListLoaded(true);
       }
     };
 
-    fetchClients();
+    void fetchClients();
+    return () => {
+      mounted = false;
+    };
   }, [apiUrl]);
 
   const clientOptions = useMemo<ClientOption[]>(
@@ -442,6 +460,8 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
 
   const plannedCacambaText =
     initialPreset?.cacambaNumbers.map((numero) => `#${numero}`).join(', ') || '';
+
+  if (!isInitialContentReady) return null;
 
   return (
     <ModalOverlay onClick={onClose}>

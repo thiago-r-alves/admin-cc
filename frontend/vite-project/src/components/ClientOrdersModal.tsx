@@ -292,6 +292,8 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     selectedCacambaIds,
     isSubmittingPayment,
     isLoadingHistory,
+    isInitialOrdersLoading,
+    hasLoadedInitialClosureGroups,
     cacambaMetaModal,
     setCacambaMetaModal,
     clientTotal,
@@ -377,6 +379,15 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     setShowHistory(false);
     setIsEditingInvoice(false);
   }, [closureMode, isGeneratedNotesView, paymentStatus, setIsEditingInvoice]);
+
+  const requiresInitialClosureGroups =
+    isGeneratedNotesView ||
+    (closureMode && ['paid', 'invoice_pending', 'pix_pending'].includes(paymentStatus));
+  const isInitialContentLoading =
+    Boolean(isInitialOrdersLoading) ||
+    (requiresInitialClosureGroups && hasLoadedInitialClosureGroups === false);
+
+  if (isInitialContentLoading) return null;
 
   const handleGenerateClosure = async () => {
     try {

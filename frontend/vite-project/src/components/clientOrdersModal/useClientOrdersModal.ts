@@ -67,6 +67,8 @@ export const useClientOrdersModal = ({
   const [selectedCacambaIds, setSelectedCacambaIds] = useState<string[]>([]);
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isInitialOrdersLoading, setIsInitialOrdersLoading] = useState(true);
+  const [hasLoadedInitialClosureGroups, setHasLoadedInitialClosureGroups] = useState(false);
   const [cacambaMetaModal, setCacambaMetaModal] = useState<CacambaMetaState | null>(null);
   const isMetadataPendingMode = closureMode && paymentStatus === 'metadata_pending';
 
@@ -83,58 +85,65 @@ export const useClientOrdersModal = ({
       .filter((order) => (order.cacambas?.length || 0) > 0), []);
 
   const fetchEligibleOrders = useCallback(async () => {
-    if (viewMode === 'generated_notes') {
+    try {
+      if (viewMode === 'generated_notes') {
+        setEligibleOrders([]);
+        setSelectedCacambaIds([]);
+        return;
+      }
+
+      const query = new URLSearchParams();
+      if (closureMode) {
+        if (startDate) {
+          query.append('startDate', startDate);
+        }
+        if (endDate) {
+          query.append('endDate', endDate);
+        }
+        query.append('closure', 'true');
+        query.append('paymentStatus', isMetadataPendingMode ? 'metadata_pending' : 'pending');
+      } else if (historyFilters) {
+        if (historyFilters.startDate && historyFilters.endDate) {
+          query.set('startDate', historyFilters.startDate);
+          query.set('endDate', historyFilters.endDate);
+        }
+        if (historyFilters.type !== 'all') query.append('type', historyFilters.type);
+        if (historyFilters.status !== 'all') query.append('status', historyFilters.status);
+        if (historyFilters.local !== 'all') query.append('local', historyFilters.local);
+        const trimmedSearch = historyFilters.q?.trim();
+        if (trimmedSearch) query.append('q', trimmedSearch);
+      } else if (paymentStatus !== 'all') {
+        if (startDate && endDate) {
+          query.append('startDate', startDate);
+          query.append('endDate', endDate);
+        }
+        if (type) query.append('type', type);
+        query.append('paymentStatus', paymentStatus);
+      } else if (type) {
+        if (startDate && endDate) {
+          query.append('startDate', startDate);
+          query.append('endDate', endDate);
+        }
+        query.append('type', type);
+      } else if (startDate && endDate) {
+        query.append('startDate', startDate);
+        query.append('endDate', endDate);
+      }
+
+      const response = await fetch(`${apiUrl}/clients/${client._id}/orders?${query.toString()}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      if (!response.ok) return;
+
+      const data = (await response.json()) as IOrder[];
+      setEligibleOrders(isMetadataPendingMode ? filterOrdersForMetadataPending(data) : data);
+      setSelectedCacambaIds([]);
+    } catch {
       setEligibleOrders([]);
       setSelectedCacambaIds([]);
-      return;
+    } finally {
+      setIsInitialOrdersLoading(false);
     }
-
-    const query = new URLSearchParams();
-    if (closureMode) {
-      if (startDate) {
-        query.append('startDate', startDate);
-      }
-      if (endDate) {
-        query.append('endDate', endDate);
-      }
-      query.append('closure', 'true');
-      query.append('paymentStatus', isMetadataPendingMode ? 'metadata_pending' : 'pending');
-    } else if (historyFilters) {
-      if (historyFilters.startDate && historyFilters.endDate) {
-        query.set('startDate', historyFilters.startDate);
-        query.set('endDate', historyFilters.endDate);
-      }
-      if (historyFilters.type !== 'all') query.append('type', historyFilters.type);
-      if (historyFilters.status !== 'all') query.append('status', historyFilters.status);
-      if (historyFilters.local !== 'all') query.append('local', historyFilters.local);
-      const trimmedSearch = historyFilters.q?.trim();
-      if (trimmedSearch) query.append('q', trimmedSearch);
-    } else if (paymentStatus !== 'all') {
-      if (startDate && endDate) {
-        query.append('startDate', startDate);
-        query.append('endDate', endDate);
-      }
-      if (type) query.append('type', type);
-      query.append('paymentStatus', paymentStatus);
-    } else if (type) {
-      if (startDate && endDate) {
-        query.append('startDate', startDate);
-        query.append('endDate', endDate);
-      }
-      query.append('type', type);
-    } else if (startDate && endDate) {
-      query.append('startDate', startDate);
-      query.append('endDate', endDate);
-    }
-
-    const response = await fetch(`${apiUrl}/clients/${client._id}/orders?${query.toString()}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-    });
-    if (!response.ok) return;
-
-    const data = (await response.json()) as IOrder[];
-    setEligibleOrders(isMetadataPendingMode ? filterOrdersForMetadataPending(data) : data);
-    setSelectedCacambaIds([]);
   }, [
     client._id,
     closureMode,
@@ -179,8 +188,12 @@ export const useClientOrdersModal = ({
         }
         return data[0]?._id || null;
       });
+    } catch {
+      setExistingClosureGroups([]);
+      setSelectedGroupId(null);
     } finally {
       setIsLoadingHistory(false);
+      setHasLoadedInitialClosureGroups(true);
     }
   }, [client._id, endDate, startDate, viewMode]);
 
@@ -650,6 +663,8 @@ export const useClientOrdersModal = ({
     selectedCacambaIds,
     isSubmittingPayment,
     isLoadingHistory,
+    isInitialOrdersLoading,
+    hasLoadedInitialClosureGroups,
     cacambaMetaModal,
     setCacambaMetaModal,
     selectedOrders,

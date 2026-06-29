@@ -52,50 +52,73 @@ const ChangeOrderClientModal: React.FC<ChangeOrderClientModalProps> = ({
 }) => {
   const [SelectComponent, setSelectComponent] = useState<ClientSelectComponent | null>(null);
   const [clients, setClients] = useState<IClient[]>([]);
+  const [isClientListLoaded, setIsClientListLoaded] = useState(false);
+  const [isClientSelectReady, setIsClientSelectReady] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const fallbackClientSelectRef = useRef<HTMLSelectElement>(null);
+  const isInitialContentReady = isClientListLoaded && isClientSelectReady;
 
   useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
     let mounted = true;
     import('react-select')
       .then((mod) => {
         if (mounted) setSelectComponent(mod.default || mod);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (mounted) setIsClientSelectReady(true);
+      });
+
     return () => {
       mounted = false;
-      document.body.style.overflow = previousOverflow;
     };
   }, []);
 
   useEffect(() => {
-    if (!SelectComponent) fallbackClientSelectRef.current?.focus();
-  }, [SelectComponent]);
+    if (!isInitialContentReady) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isInitialContentReady]);
 
   useEffect(() => {
+    if (isInitialContentReady && !SelectComponent) fallbackClientSelectRef.current?.focus();
+  }, [SelectComponent, isInitialContentReady]);
+
+  useEffect(() => {
+    let mounted = true;
+
     const fetchClients = async () => {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${apiUrl}/clients`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${apiUrl}/clients`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-      if (!response.ok) {
-        setError('Não foi possível carregar os clientes.');
-        return;
+        if (!response.ok) {
+          if (mounted) setError('Não foi possível carregar os clientes.');
+          return;
+        }
+
+        const data = await response.json();
+        if (mounted) setClients(data);
+      } catch {
+        if (mounted) setError('Não foi possível carregar os clientes.');
+      } finally {
+        if (mounted) setIsClientListLoaded(true);
       }
-
-      const data = await response.json();
-      setClients(data);
     };
 
-    fetchClients().catch(() => {
-      setError('Não foi possível carregar os clientes.');
-    });
+    void fetchClients();
+    return () => {
+      mounted = false;
+    };
   }, [apiUrl]);
 
   const clientOptions = useMemo<ClientOption[]>(
@@ -135,6 +158,8 @@ const ChangeOrderClientModal: React.FC<ChangeOrderClientModalProps> = ({
     }),
     [],
   );
+
+  if (!isInitialContentReady) return null;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

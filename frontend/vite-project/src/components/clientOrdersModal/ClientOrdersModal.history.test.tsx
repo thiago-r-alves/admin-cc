@@ -51,7 +51,7 @@ describe('ClientOrdersModal (history mode)', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Todos os pedidos' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Todos os pedidos' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retiradas' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Entregas' })).toBeInTheDocument();
     expect(screen.getByLabelText('Início')).toBeInTheDocument();
