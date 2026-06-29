@@ -343,6 +343,10 @@ describe('ClientOrdersModal (closure flow)', () => {
   });
 
   it('avança para a etapa de NF no mesmo modal após gerar o fechamento', async () => {
+    hookOverrides.current = {
+      clientTotal: 100,
+      selectedTotal: 40,
+    };
     vi.mocked(handleDownloadMock).mockResolvedValueOnce({
       _id: 'grp-2',
       clientId: 'client-1',
@@ -374,6 +378,8 @@ describe('ClientOrdersModal (closure flow)', () => {
         paymentStatus="pending"
       />,
     );
+
+    expect(screen.getByText(/Total do fechamento:/i)).toHaveTextContent('R$ 40,00');
 
     fireEvent.click(screen.getByRole('button', { name: 'Gerar fechamento' }));
 

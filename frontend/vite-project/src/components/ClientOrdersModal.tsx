@@ -25,28 +25,28 @@ const ModalOverlay = twComponent('div', 'fixed inset-0 z-[1100] flex items-cente
 
 const ModalContent = twComponent(
   'div',
-  'flex max-h-[min(90dvh,820px)] w-[min(980px,94vw)] flex-col overflow-hidden rounded-lg border border-red-200 bg-white max-md:h-dvh max-md:max-h-dvh max-md:w-screen max-md:rounded-none',
+  'flex max-h-[min(92dvh,860px)] w-[min(1120px,94vw)] flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.2)] max-md:h-dvh max-md:max-h-dvh max-md:w-screen max-md:rounded-none',
 );
 
-const ModalBody = twComponent('div', 'flex min-h-0 flex-1 flex-col overflow-hidden');
+const ModalBody = twComponent('div', 'flex min-h-0 flex-1 flex-col overflow-hidden bg-[#f8fafc]');
 
-const Stepper = twComponent('div', 'mb-4 grid grid-cols-3 gap-[0.65rem] px-5 pt-4 max-sm:grid-cols-1');
+const Stepper = twComponent('div', 'flex flex-wrap items-center gap-2');
 
 const StepItem = twComponent<'div', { $active: boolean; $done: boolean }>(
   'div',
   '',
   ({ $active, $done }) =>
     cn(
-      'rounded-lg border px-[0.8rem] py-[0.7rem]',
-      $active && 'border-[#e30613] bg-rose-50 text-red-800',
+      'inline-flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-full border px-3 py-[0.45rem] max-[640px]:flex-[1_1_100%]',
+      $active && 'border-brand bg-brand-soft text-brand',
       !$active && $done && 'border-green-300 bg-green-50 text-green-800',
-      !$active && !$done && 'border-red-200 bg-[#fffafa] text-gray-500',
+      !$active && !$done && 'border-gray-200 bg-white text-gray-500',
     ),
 );
 
-const StepLabel = twComponent('div', 'text-[0.72rem] font-black uppercase tracking-[0.05em]');
+const StepLabel = twComponent('div', 'text-[0.68rem] font-black uppercase tracking-[0.05em]');
 
-const StepTitle = twComponent('div', 'mt-[0.2rem] text-[0.95rem] font-black');
+const StepTitle = twComponent('div', 'truncate text-[0.82rem] font-black');
 
 const SecondaryButton = twComponent(
   'button',
@@ -55,12 +55,33 @@ const SecondaryButton = twComponent(
 
 const StageBody = twComponent('div', 'flex min-h-0 flex-1 flex-col overflow-hidden');
 
+const ClosureWorkspace = twComponent(
+  'div',
+  'grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_280px] gap-4 p-4 max-[980px]:grid-cols-1 max-[980px]:overflow-y-auto max-[640px]:p-3',
+);
+
+const ClosureMain = twComponent(
+  'section',
+  'flex min-h-0 flex-col overflow-hidden rounded-ui-lg border border-gray-200 bg-white shadow-[0_8px_22px_rgba(15,23,42,0.04)] max-[980px]:min-h-[420px]',
+);
+
+const ClosureMainHeader = twComponent('div', 'flex-none border-b border-gray-100 px-4 py-3');
+
+const ClosureAside = twComponent(
+  'aside',
+  'flex min-h-0 flex-col gap-3 overflow-y-auto rounded-ui-lg border border-gray-200 bg-white p-3 shadow-[0_8px_22px_rgba(15,23,42,0.04)] max-[980px]:overflow-visible',
+);
+
+const PaymentPanel = twComponent('div', 'grid gap-3 border-t border-gray-100 pt-3');
+
+const PanelTitle = twComponent('h3', 'm-0 text-[0.78rem] font-black uppercase tracking-[0.05em] text-gray-500');
+
 const GroupsLayout = twComponent(
   'div',
   'grid min-h-0 flex-1 grid-cols-[280px_minmax(0,1fr)] gap-3 px-5 pb-5 pt-4 max-[900px]:grid-cols-1',
 );
 
-const GroupList = twComponent('div', 'min-h-0 overflow-auto rounded-lg border border-red-100');
+const GroupList = twComponent('div', 'min-h-0 overflow-auto rounded-lg border border-gray-200');
 
 const GroupItem = twComponent<'button', { $active: boolean }>(
   'button',
@@ -68,20 +89,20 @@ const GroupItem = twComponent<'button', { $active: boolean }>(
   ({ $active }) =>
     cn(
       'w-full cursor-pointer border-0 border-b border-red-100 px-3 py-[0.7rem] text-left',
-      $active ? 'bg-rose-50' : 'bg-white',
+      $active ? 'bg-brand-soft' : 'bg-white',
     ),
 );
 
 const GroupDetail = twComponent(
   'div',
-  'flex min-h-0 flex-col gap-[0.8rem] overflow-y-auto rounded-lg border border-red-100 p-[0.9rem]',
+  'flex min-h-0 flex-col gap-[0.8rem] overflow-y-auto rounded-lg border border-gray-200 bg-white p-[0.9rem]',
 );
 
 const MetaRow = twComponent('div', 'flex flex-wrap items-center justify-between gap-4');
 
 const ValueHighlight = twComponent(
   'div',
-  'rounded-lg border border-red-200 bg-[#fffafa] px-[0.9rem] py-[0.8rem] font-black text-red-800',
+  'rounded-lg border border-brand-border bg-brand-soft px-[0.9rem] py-[0.8rem] font-black text-brand',
 );
 
 const InvoiceRow = twComponent('div', 'flex flex-wrap gap-[0.6rem] max-sm:flex-col');
@@ -103,7 +124,7 @@ const HighlightButton = twComponent(
 
 const ActionButtonsRow = twComponent('div', 'flex flex-wrap gap-[0.6rem]');
 
-const PaymentMethodRow = twComponent('div', 'grid grid-cols-2 gap-[0.6rem] px-5 pb-4');
+const PaymentMethodRow = twComponent('div', 'grid grid-cols-2 gap-2');
 
 const PaymentMethodButton = twComponent<'button', { $active: boolean }>(
   'button',
@@ -111,7 +132,7 @@ const PaymentMethodButton = twComponent<'button', { $active: boolean }>(
   ({ $active }) =>
     cn(
       'min-h-[42px] cursor-pointer rounded-lg border font-black',
-      $active ? 'border-[#e30613] bg-rose-50 text-red-800' : 'border-red-200 bg-white text-gray-600',
+      $active ? 'border-brand bg-brand-soft text-brand' : 'border-gray-200 bg-white text-gray-600',
     ),
 );
 
@@ -125,7 +146,7 @@ const HistoryTypeButton = twComponent<'button', { $active: boolean }>(
   ({ $active }) =>
     cn(
       'min-h-10 cursor-pointer rounded-md border text-[0.78rem] font-black uppercase',
-      $active ? 'border-[#e30613] bg-rose-50 text-red-800' : 'border-red-200 bg-white text-gray-700',
+      $active ? 'border-brand bg-brand-soft text-brand' : 'border-gray-200 bg-white text-gray-700',
     ),
 );
 
@@ -141,12 +162,12 @@ const HistoryField = twComponent(
 
 const HistoryInput = twComponent(
   'input',
-  'box-border min-h-[38px] w-full rounded-md border border-red-200 bg-white px-[0.65rem] py-2 text-[0.85rem] text-gray-900 focus:border-[#e30613] focus:outline-none focus:ring-3 focus:ring-red-600/10',
+  'box-border min-h-[38px] w-full rounded-md border border-gray-200 bg-white px-[0.65rem] py-2 text-[0.85rem] text-gray-900 focus:border-brand focus:outline-none focus:ring-3 focus:ring-brand-focus',
 );
 
 const HistorySelect = twComponent(
   'select',
-  'box-border min-h-[38px] w-full rounded-md border border-red-200 bg-white px-[0.65rem] py-2 text-[0.85rem] text-gray-900 focus:border-[#e30613] focus:outline-none focus:ring-3 focus:ring-red-600/10',
+  'box-border min-h-[38px] w-full rounded-md border border-gray-200 bg-white px-[0.65rem] py-2 text-[0.85rem] text-gray-900 focus:border-brand focus:outline-none focus:ring-3 focus:ring-brand-focus',
 );
 
 const ClearFiltersButton = twComponent(
@@ -161,7 +182,7 @@ const PixCode = twComponent(
 
 const EmptyState = twComponent(
   'div',
-  'rounded-md border border-dashed border-red-200 bg-[#fffafa] p-4 text-[0.92rem] text-gray-500',
+  'rounded-md border border-dashed border-gray-300 bg-white p-4 text-[0.92rem] text-gray-500',
 );
 
 const InlineFeedback = twComponent<'div', { $tone: 'success' | 'error' }>(
@@ -297,6 +318,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     cacambaMetaModal,
     setCacambaMetaModal,
     clientTotal,
+    selectedTotal,
     fetchExistingClosureGroups,
     toggleSelectCacamba,
     handleUpdateCacambaMeta,
@@ -667,6 +689,13 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     shouldCloseOnMouseUpRef.current = false;
   };
 
+  const isClosureSelectionView =
+    closureMode && !isGeneratedNotesView && !isMetadataPendingView && step === 'select';
+  const isClosureActionDisabled =
+    orders.length === 0 || isSubmittingPayment || selectedCacambaIds.length === 0;
+  const closureActionLabel =
+    selectedCacambaIds.length > 0 ? 'Gerar fechamento' : 'Selecione caçambas';
+
   return (
     <ModalOverlay onMouseDown={handleOverlayMouseDown} onMouseUp={handleOverlayMouseUp}>
       <ToastPopup
@@ -765,150 +794,200 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
             </HistoryControls>
           )}
 
-          {closureMode && !isGeneratedNotesView && !isMetadataPendingView && (
-            <Stepper data-testid="closure-stepper">
-              {stepItems.map((item, index) => (
-                <StepItem key={item.key} $active={step === item.key} $done={index < stepIndex}>
-                  <StepLabel>{item.label}</StepLabel>
-                  <StepTitle>{item.title}</StepTitle>
-                </StepItem>
-              ))}
-            </Stepper>
-          )}
+          {isClosureSelectionView ? (
+            <ClosureWorkspace>
+              <ClosureMain>
+                <ClosureMainHeader>
+                  <Stepper data-testid="closure-stepper">
+                    {stepItems.map((item, index) => (
+                      <StepItem key={item.key} $active={step === item.key} $done={index < stepIndex}>
+                        <StepLabel>{item.label}</StepLabel>
+                        <StepTitle>{item.title}</StepTitle>
+                      </StepItem>
+                    ))}
+                  </Stepper>
+                </ClosureMainHeader>
 
-          {!isMetadataPendingView && (
-            <ClientOrdersSummary
-              clientTotal={
-                isGeneratedNotesView
-                  ? clientTotal
-                  : step === 'select'
-                    ? clientTotal
-                    : getGroupTotal(displayedGroup)
-              }
-              totalOrders={
-                isGeneratedNotesView
-                  ? closureGroups.length
-                  : step === 'select'
-                    ? orders.length
-                    : displayedGroup
-                      ? 1
-                      : 0
-              }
-              totalCacambas={
-                isGeneratedNotesView
-                  ? closureGroups.reduce((sum, group) => sum + (group.cacambaIds?.length || 0), 0)
-                  : step === 'select'
-                  ? orders.reduce((sum, order) => sum + (order.cacambas?.length || 0), 0)
-                  : displayedGroup?.cacambaIds?.length || 0
-              }
-              closureMode={closureMode && !isGeneratedNotesView}
-              selectedCount={
-                isGeneratedNotesView
-                  ? displayedGroup?.cacambaIds?.length || 0
-                  : step === 'select'
-                  ? selectedCacambaIds.length
-                  : displayedGroup?.cacambaIds?.length || 0
-              }
-              compactOnlyTotal={isGeneratedNotesView || step !== 'select'}
-              totalLabel={closureMode ? 'Total do fechamento' : undefined}
-            />
-          )}
+                {invoiceFeedback && (
+                  <InlineFeedback $tone={invoiceFeedback.tone} className="mx-4 mt-3">
+                    {invoiceFeedback.message}
+                  </InlineFeedback>
+                )}
 
-          {invoiceFeedback && (
-            <InlineFeedback $tone={invoiceFeedback.tone}>
-              {invoiceFeedback.message}
-            </InlineFeedback>
-          )}
+                <ClientOrdersList
+                  orders={orders}
+                  closureMode
+                  selectedCacambaIds={selectedCacambaIds}
+                  onToggleSelect={toggleSelectCacamba}
+                  onImageClick={setModalImage}
+                  onEditPrice={(cacamba) => setCacambaMetaModal({ mode: 'price', cacamba })}
+                  onEditContentType={(cacamba) =>
+                    setCacambaMetaModal({ mode: 'contentType', cacamba })
+                  }
+                  compact
+                />
+              </ClosureMain>
 
-          <StageBody>
-            {isHistoryMode ? (
-              <ClientOrdersList
-                orders={orders}
-                closureMode={false}
-                selectedCacambaIds={[]}
-                onToggleSelect={() => undefined}
-                onImageClick={setModalImage}
-                onEditPrice={() => undefined}
-                onEditContentType={() => undefined}
-              />
-            ) : closureMode && !isGeneratedNotesView && step === 'select' ? (
-              <ClientOrdersList
-                orders={orders}
-                closureMode
-                emptyMessage={
-                  isMetadataPendingView
-                    ? 'Nenhuma caçamba com informações pendentes encontrada para este cliente.'
-                    : undefined
-                }
-                selectedCacambaIds={selectedCacambaIds}
-                onToggleSelect={toggleSelectCacamba}
-                onImageClick={setModalImage}
-                onEditPrice={(cacamba) => setCacambaMetaModal({ mode: 'price', cacamba })}
-                onEditContentType={(cacamba) =>
-                  setCacambaMetaModal({ mode: 'contentType', cacamba })
-                }
-              />
-            ) : step === 'paid' || showHistory ? (
-              <GroupsLayout>
-                <GroupList data-testid="closure-groups-list">
-                  {closureGroups.map((group, index) => (
-                    <GroupItem
-                      key={group._id}
+              <ClosureAside>
+                <PanelTitle>Resumo</PanelTitle>
+                <ClientOrdersSummary
+                  clientTotal={selectedTotal}
+                  totalOrders={orders.length}
+                  totalCacambas={orders.reduce((sum, order) => sum + (order.cacambas?.length || 0), 0)}
+                  closureMode
+                  selectedCount={selectedCacambaIds.length}
+                  totalLabel="Total do fechamento"
+                  stacked
+                />
+
+                <PaymentPanel>
+                  <PanelTitle>Pagamento</PanelTitle>
+                  <PaymentMethodRow aria-label="Forma de pagamento">
+                    <PaymentMethodButton
                       type="button"
-                      $active={selectedGroupId === group._id}
-                      onClick={() => {
-                        setSelectedGroupId(group._id);
-                        setIsEditingInvoice(false);
-                        setInvoiceNumber(group.invoiceNumber || '');
-                      }}
-                      data-testid={`closure-group-item-${group._id}`}
+                      $active={paymentMethod === 'invoice'}
+                      onClick={() => setPaymentMethod('invoice')}
                     >
-                      <div>
-                        <strong>
-                          Grupo #{getGroupDisplayNumber(group, index, closureGroups.length)}
-                        </strong>
-                      </div>
-                      <div>NF: {group.invoiceNumber || '-'}</div>
-                      <div>{group.paymentMethod === 'pix' ? 'Pix' : 'NF'}</div>
-                    </GroupItem>
-                  ))}
-                </GroupList>
-                <GroupDetail>{renderGroupDetails(displayedGroup)}</GroupDetail>
-              </GroupsLayout>
-            ) : (
-              <GroupsLayout style={{ gridTemplateColumns: '1fr' }}>
-                <GroupDetail>{renderGroupDetails(displayedGroup)}</GroupDetail>
-              </GroupsLayout>
-            )}
-          </StageBody>
-
-          {closureMode && !isGeneratedNotesView && step === 'select' && !isMetadataPendingView && (
+                      Nota fiscal
+                    </PaymentMethodButton>
+                    <PaymentMethodButton
+                      type="button"
+                      $active={paymentMethod === 'pix'}
+                      onClick={() => setPaymentMethod('pix')}
+                    >
+                      Pix
+                    </PaymentMethodButton>
+                  </PaymentMethodRow>
+                  <ClientOrdersFooter
+                    onDownload={handleGenerateClosure}
+                    disabled={isClosureActionDisabled}
+                    isSubmittingPayment={isSubmittingPayment}
+                    closureMode
+                    actionLabel={closureActionLabel}
+                    className="pt-1"
+                  />
+                </PaymentPanel>
+              </ClosureAside>
+            </ClosureWorkspace>
+          ) : (
             <>
-              <PaymentMethodRow aria-label="Forma de pagamento">
-                <PaymentMethodButton
-                  type="button"
-                  $active={paymentMethod === 'invoice'}
-                  onClick={() => setPaymentMethod('invoice')}
-                >
-                  Nota fiscal
-                </PaymentMethodButton>
-                <PaymentMethodButton
-                  type="button"
-                  $active={paymentMethod === 'pix'}
-                  onClick={() => setPaymentMethod('pix')}
-                >
-                  Pix
-                </PaymentMethodButton>
-              </PaymentMethodRow>
-              <ClientOrdersFooter
-                onDownload={handleGenerateClosure}
-                disabled={
-                  orders.length === 0 || isSubmittingPayment || selectedCacambaIds.length === 0
-                }
-                isSubmittingPayment={isSubmittingPayment}
-                closureMode
-                actionLabel="Gerar fechamento"
-              />
+              {closureMode && !isGeneratedNotesView && !isMetadataPendingView && (
+                <Stepper className="mx-5 mt-4" data-testid="closure-stepper">
+                  {stepItems.map((item, index) => (
+                    <StepItem key={item.key} $active={step === item.key} $done={index < stepIndex}>
+                      <StepLabel>{item.label}</StepLabel>
+                      <StepTitle>{item.title}</StepTitle>
+                    </StepItem>
+                  ))}
+                </Stepper>
+              )}
+
+              {!isMetadataPendingView && (
+                <ClientOrdersSummary
+                  className="mx-5 mt-4"
+                  clientTotal={
+                    isGeneratedNotesView
+                      ? clientTotal
+                      : step === 'select'
+                        ? clientTotal
+                        : getGroupTotal(displayedGroup)
+                  }
+                  totalOrders={
+                    isGeneratedNotesView
+                      ? closureGroups.length
+                      : step === 'select'
+                        ? orders.length
+                        : displayedGroup
+                          ? 1
+                          : 0
+                  }
+                  totalCacambas={
+                    isGeneratedNotesView
+                      ? closureGroups.reduce((sum, group) => sum + (group.cacambaIds?.length || 0), 0)
+                      : step === 'select'
+                      ? orders.reduce((sum, order) => sum + (order.cacambas?.length || 0), 0)
+                      : displayedGroup?.cacambaIds?.length || 0
+                  }
+                  closureMode={closureMode && !isGeneratedNotesView}
+                  selectedCount={
+                    isGeneratedNotesView
+                      ? displayedGroup?.cacambaIds?.length || 0
+                      : step === 'select'
+                      ? selectedCacambaIds.length
+                      : displayedGroup?.cacambaIds?.length || 0
+                  }
+                  compactOnlyTotal={isGeneratedNotesView || step !== 'select'}
+                  totalLabel={closureMode ? 'Total do fechamento' : undefined}
+                />
+              )}
+
+              {invoiceFeedback && (
+                <InlineFeedback $tone={invoiceFeedback.tone} className="mt-4">
+                  {invoiceFeedback.message}
+                </InlineFeedback>
+              )}
+
+              <StageBody>
+                {isHistoryMode ? (
+                  <ClientOrdersList
+                    orders={orders}
+                    closureMode={false}
+                    selectedCacambaIds={[]}
+                    onToggleSelect={() => undefined}
+                    onImageClick={setModalImage}
+                    onEditPrice={() => undefined}
+                    onEditContentType={() => undefined}
+                  />
+                ) : closureMode && !isGeneratedNotesView && step === 'select' ? (
+                  <ClientOrdersList
+                    orders={orders}
+                    closureMode
+                    emptyMessage={
+                      isMetadataPendingView
+                        ? 'Nenhuma caçamba com informações pendentes encontrada para este cliente.'
+                        : undefined
+                    }
+                    selectedCacambaIds={selectedCacambaIds}
+                    onToggleSelect={toggleSelectCacamba}
+                    onImageClick={setModalImage}
+                    onEditPrice={(cacamba) => setCacambaMetaModal({ mode: 'price', cacamba })}
+                    onEditContentType={(cacamba) =>
+                      setCacambaMetaModal({ mode: 'contentType', cacamba })
+                    }
+                  />
+                ) : step === 'paid' || showHistory ? (
+                  <GroupsLayout>
+                    <GroupList data-testid="closure-groups-list">
+                      {closureGroups.map((group, index) => (
+                        <GroupItem
+                          key={group._id}
+                          type="button"
+                          $active={selectedGroupId === group._id}
+                          onClick={() => {
+                            setSelectedGroupId(group._id);
+                            setIsEditingInvoice(false);
+                            setInvoiceNumber(group.invoiceNumber || '');
+                          }}
+                          data-testid={`closure-group-item-${group._id}`}
+                        >
+                          <div>
+                            <strong>
+                              Grupo #{getGroupDisplayNumber(group, index, closureGroups.length)}
+                            </strong>
+                          </div>
+                          <div>NF: {group.invoiceNumber || '-'}</div>
+                          <div>{group.paymentMethod === 'pix' ? 'Pix' : 'NF'}</div>
+                        </GroupItem>
+                      ))}
+                    </GroupList>
+                    <GroupDetail>{renderGroupDetails(displayedGroup)}</GroupDetail>
+                  </GroupsLayout>
+                ) : (
+                  <GroupsLayout style={{ gridTemplateColumns: '1fr' }}>
+                    <GroupDetail>{renderGroupDetails(displayedGroup)}</GroupDetail>
+                  </GroupsLayout>
+                )}
+              </StageBody>
             </>
           )}
         </ModalBody>
