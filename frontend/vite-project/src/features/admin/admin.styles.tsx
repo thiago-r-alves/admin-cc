@@ -44,7 +44,7 @@ const statusPanelBadgeClasses: Record<StatusPanelVariant, string> = {
 };
 
 export const AdminContainer: React.FC<DivProps> = ({ className, ...props }) => (
-  <div className={cn('box-border min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#f6f7fb] font-sans text-gray-950', className)} {...props} />
+  <div className={cn('box-border min-h-screen w-full max-w-[100vw] overflow-x-clip bg-[#f6f7fb] font-sans text-gray-950', className)} {...props} />
 );
 
 export const AdminShell: React.FC<DivProps> = ({ className, ...props }) => (
@@ -54,7 +54,7 @@ export const AdminShell: React.FC<DivProps> = ({ className, ...props }) => (
 export const Sidebar: React.FC<React.HTMLAttributes<HTMLElement> & { $open: boolean }> = ({ $open, className, ...props }) => (
   <aside
     className={cn(
-      'fixed inset-y-0 left-0 z-[900] flex w-[272px] flex-col border-r border-gray-200 bg-white transition-transform duration-200 ease-in-out min-[769px]:sticky min-[769px]:top-0 min-[769px]:h-screen min-[769px]:flex-[0_0_272px] min-[769px]:translate-x-0',
+      'fixed inset-y-0 left-0 z-[900] flex w-[272px] flex-col border-r border-gray-200 bg-white transition-transform duration-200 ease-in-out min-[769px]:sticky min-[769px]:bottom-auto min-[769px]:top-0 min-[769px]:h-screen min-[769px]:flex-[0_0_272px] min-[769px]:self-start min-[769px]:overflow-y-auto min-[769px]:translate-x-0',
       $open ? 'translate-x-0' : '-translate-x-full',
       className,
     )}
