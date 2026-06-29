@@ -1,25 +1,32 @@
 import type { ICacamba, IOrder } from '../../interfaces';
 
 export const hasValidPrice = (cacamba: ICacamba) =>
-  typeof cacamba.price === 'number' && Number.isFinite(cacamba.price);
+  typeof cacamba.price === 'number' && Number.isFinite(cacamba.price) && cacamba.price >= 0;
 
 export const hasValidContentType = (cacamba: ICacamba) =>
   typeof cacamba.contentType === 'string' && cacamba.contentType.trim().length > 0;
 
+export const isPendingClosurePayment = (cacamba: ICacamba) =>
+  (cacamba.paymentStatus || 'pendente') === 'pendente';
+
 export const hasPendingClosureMetadata = (cacamba: ICacamba) =>
-  cacamba.tipo === 'retirada' &&
-  cacamba.paymentStatus !== 'paga' &&
-  (!hasValidPrice(cacamba) || !hasValidContentType(cacamba));
+  isPendingClosurePayment(cacamba) &&
+  (cacamba.tipo === 'entrega' || cacamba.tipo === 'retirada') &&
+  (!hasValidPrice(cacamba) || (cacamba.tipo === 'retirada' && !hasValidContentType(cacamba)));
 
 export const isEligibleForClosureSelection = (cacamba: ICacamba) =>
-  cacamba.tipo === 'retirada' &&
-  cacamba.paymentStatus !== 'paga' &&
+  isPendingClosurePayment(cacamba) &&
   hasValidPrice(cacamba) &&
-  hasValidContentType(cacamba);
+  (cacamba.tipo === 'entrega' || (cacamba.tipo === 'retirada' && hasValidContentType(cacamba)));
 
-export const getOrderTotal = (order: IOrder) =>
+export const getWithdrawalOrderTotal = (order: IOrder) =>
   (order.cacambas || [])
     .filter((cacamba) => cacamba.tipo === 'retirada' && hasValidPrice(cacamba))
+    .reduce((sum, cacamba) => sum + Number(cacamba.price), 0);
+
+export const getClosureOrderTotal = (order: IOrder) =>
+  (order.cacambas || [])
+    .filter((cacamba) => (cacamba.tipo === 'entrega' || cacamba.tipo === 'retirada') && hasValidPrice(cacamba))
     .reduce((sum, cacamba) => sum + Number(cacamba.price), 0);
 
 export const buildSelectedOrders = (orders: IOrder[], selectedCacambaIds: string[]) =>
@@ -29,8 +36,7 @@ export const buildSelectedOrders = (orders: IOrder[], selectedCacambaIds: string
       cacambas: (order.cacambas || []).filter(
         (cacamba) =>
           selectedCacambaIds.includes(cacamba._id) &&
-          hasValidPrice(cacamba) &&
-          hasValidContentType(cacamba),
+          isEligibleForClosureSelection(cacamba),
       ),
     }))
     .filter((order) => (order.cacambas?.length || 0) > 0);

@@ -236,6 +236,56 @@ describe('buildClientOrdersPdf', () => {
     expect(details.margin?.top).toBe(46);
   });
 
+  it('gera PDF de fechamento para entrega ainda em obra com retirada vazia', async () => {
+    await buildClientOrdersPdf(
+      {
+        client: {
+          _id: 'cli-1',
+          clientName: 'Cliente Entrega',
+          address: 'Rua Central',
+          addressNumber: '123',
+          neighborhood: 'Centro',
+        },
+        startDate: '2026-05-01',
+        endDate: '2026-05-31',
+        clientTotal: 80,
+        orders: [
+          {
+            ...baseOrder,
+            _id: 'ord-entrega',
+            orderNumber: 30,
+            type: 'entrega',
+            motorista: { _id: 'drv-2', username: 'Entregador' },
+            placa: 'ENT1A23',
+            cacambas: [
+              {
+                _id: 'cac-entrega',
+                numero: '201',
+                tipo: 'entrega' as const,
+                paymentStatus: 'pendente' as const,
+                price: 80,
+                local: 'canteiro_obra',
+                orderId: 'ord-entrega',
+                createdAt: '2026-05-05T09:00:00.000Z',
+                horaServicoDigitos: '201',
+              },
+            ],
+          },
+        ],
+      },
+      { output: 'blob' },
+    );
+
+    const details = autoTableMock.mock.calls[1]?.[1];
+    if (!details) throw new Error('PDF details table was not rendered.');
+    const firstDetailsRow = details.body?.[0] ?? [];
+    expect(firstDetailsRow[0]).toBe('201');
+    expect(firstDetailsRow[5]).toBe('Entregador');
+    expect(firstDetailsRow[6]).toBe('ENT1A23');
+    expect(firstDetailsRow[7]).toBe('30');
+    expect(firstDetailsRow.slice(8, 12)).toEqual(['-', '-', '-', '-']);
+  });
+
   it('omite a linha de periodo quando o periodo nao foi definido', async () => {
     await buildClientOrdersPdf(
       {

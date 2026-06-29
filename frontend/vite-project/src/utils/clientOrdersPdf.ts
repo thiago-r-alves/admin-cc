@@ -261,6 +261,15 @@ export async function buildClientOrdersPdf(
 
   const flattenedCacambas = orders.flatMap((order) =>
     (order.cacambas || []).map((cacamba) => {
+      const fallbackDelivery =
+        cacamba.tipo === 'entrega'
+          ? {
+              date: cacamba.createdAt,
+              driverName: getDriverName(order),
+              placa: order.placa || '',
+              orderNumber: order.orderNumber,
+            }
+          : null;
       const fallbackWithdrawal =
         cacamba.tipo === 'retirada'
           ? {
@@ -271,7 +280,7 @@ export async function buildClientOrdersPdf(
             }
           : null;
 
-      const deliveryColumns = getActionColumns(cacamba.closureDelivery);
+      const deliveryColumns = getActionColumns(cacamba.closureDelivery || fallbackDelivery);
       const withdrawalColumns = getActionColumns(cacamba.closureWithdrawal || fallbackWithdrawal);
 
       return [

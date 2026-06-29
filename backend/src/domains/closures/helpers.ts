@@ -31,6 +31,18 @@ export const buildClosureOrdersQuery = (range: ClosureDateRange) => {
   };
 };
 
+export const buildClosureCandidateOrdersQuery = (range: ClosureDateRange | null) => {
+  const updatedAt: Record<string, Date> = {};
+  if (range?.start) updatedAt.$gte = range.start;
+  if (range?.end) updatedAt.$lte = range.end;
+
+  return {
+    status: 'concluido' as const,
+    type: { $in: ['entrega', 'retirada'] as const },
+    ...(Object.keys(updatedAt).length ? { updatedAt } : {}),
+  };
+};
+
 export type ClosurePaymentFilter =
   | 'all'
   | 'pending'

@@ -2,6 +2,12 @@
 import type { DriverRef, ICacamba } from '../interfaces';
 import { twComponent } from '../utils/twComponent';
 import { cn } from '../utils/cn';
+import {
+  hasValidContentType as hasClosureValidContentType,
+  hasValidPrice as hasClosureValidPrice,
+  isEligibleForClosureSelection,
+  isPendingClosurePayment,
+} from './clientOrdersModal/helpers';
 
 const EmptyState = twComponent('div', 'py-4 text-center text-gray-500');
 const Container = twComponent('div', 'flex flex-col gap-3');
@@ -196,18 +202,19 @@ const CacambaList: React.FC<CacambaListProps> = ({
 
       {cacambas.map((cacamba) => {
         const isRetirada = cacamba.tipo === 'retirada';
+        const isEntrega = cacamba.tipo === 'entrega';
         const isPaid = cacamba.paymentStatus === 'paga';
-        const hasValidPrice = typeof cacamba.price === 'number' && Number.isFinite(cacamba.price);
-        const hasValidContentType =
-          typeof cacamba.contentType === 'string' && cacamba.contentType.trim().length > 0;
+        const isPendingClosure = isPendingClosurePayment(cacamba);
+        const hasValidPrice = hasClosureValidPrice(cacamba);
+        const hasValidContentType = hasClosureValidContentType(cacamba);
 
-        const missingValue = isRetirada && !hasValidPrice;
+        const missingValue = (isRetirada || isEntrega) && !hasValidPrice;
         const missingContentType = isRetirada && !hasValidContentType;
-        const isSelectableInClosure = selectable && isRetirada && !isPaid && hasValidPrice && hasValidContentType;
+        const isSelectableInClosure = selectable && isEligibleForClosureSelection(cacamba);
         const deliveryDate = formatDateTime(cacamba.closureDelivery?.date);
 
         let warningText = '';
-        if (selectable && !isPaid && isRetirada && (missingValue || missingContentType)) {
+        if (selectable && isPendingClosure && (isRetirada || isEntrega) && (missingValue || missingContentType)) {
           if (missingValue && missingContentType) {
             warningText = 'Caçamba sem valor e tipo de conteúdo definidos.\nDefina os dados para liberar o pagamento.';
           } else if (missingValue) {
@@ -356,12 +363,12 @@ const CacambaList: React.FC<CacambaListProps> = ({
                   Voltar para pendente
                 </ActionButton>
               )}
-              {selectable && isRetirada && !isPaid && missingContentType && onEditContentType && (
+              {selectable && isRetirada && isPendingClosure && missingContentType && onEditContentType && (
                 <ActionButton $variant="secondary" onClick={() => onEditContentType(cacamba)}>
                   Adicionar conteúdo
                 </ActionButton>
               )}
-              {selectable && isRetirada && !isPaid && missingValue && onEditPrice && (
+              {selectable && (isRetirada || isEntrega) && isPendingClosure && missingValue && onEditPrice && (
                 <ActionButton $variant="secondary" onClick={() => onEditPrice(cacamba)}>
                   Adicionar valor
                 </ActionButton>
@@ -371,7 +378,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
                   Editar conteúdo
                 </ActionButton>
               )}
-              {!selectable && adminMetaActions && canEditPrice && isRetirada && onEditPrice && (
+              {!selectable && adminMetaActions && canEditPrice && (isRetirada || isEntrega) && onEditPrice && (
                 <ActionButton $variant="secondary" onClick={() => onEditPrice(cacamba)}>
                   {typeof cacamba.price === 'number' ? 'Editar valor' : 'Adicionar valor'}
                 </ActionButton>

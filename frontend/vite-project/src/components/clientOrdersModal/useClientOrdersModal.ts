@@ -10,7 +10,8 @@ import {
 } from '../../utils/whatsapp';
 import {
   buildSelectedOrders,
-  getOrderTotal,
+  getClosureOrderTotal,
+  getWithdrawalOrderTotal,
   hasPendingClosureMetadata,
 } from './helpers';
 import type {
@@ -96,7 +97,6 @@ export const useClientOrdersModal = ({
       if (endDate) {
         query.append('endDate', endDate);
       }
-      if (type) query.append('type', type);
       query.append('closure', 'true');
       query.append('paymentStatus', isMetadataPendingMode ? 'metadata_pending' : 'pending');
     } else if (historyFilters) {
@@ -199,12 +199,16 @@ export const useClientOrdersModal = ({
   }, [eligibleOrders, selectedCacambaIds, closureMode]);
 
   const clientTotal = useMemo(
-    () => eligibleOrders.reduce((sum, order) => sum + getOrderTotal(order), 0),
-    [eligibleOrders],
+    () =>
+      eligibleOrders.reduce(
+        (sum, order) => sum + (closureMode ? getClosureOrderTotal(order) : getWithdrawalOrderTotal(order)),
+        0,
+      ),
+    [eligibleOrders, closureMode],
   );
 
   const selectedTotal = useMemo(
-    () => selectedOrders.reduce((sum, order) => sum + getOrderTotal(order), 0),
+    () => selectedOrders.reduce((sum, order) => sum + getClosureOrderTotal(order), 0),
     [selectedOrders],
   );
 

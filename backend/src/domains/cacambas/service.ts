@@ -121,9 +121,6 @@ export const updateCacamba = async (
     if (!isAdminUser) {
       return { status: 403, body: { message: 'Somente admin pode atualizar valor da caçamba.' } };
     }
-    if (orderType !== 'retirada') {
-      return { status: 400, body: { message: 'Valor por caçamba é permitido apenas para retirada.' } };
-    }
     if (order.status !== 'concluido') {
       return {
         status: 400,

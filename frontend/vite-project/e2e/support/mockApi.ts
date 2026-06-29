@@ -793,6 +793,26 @@ export const setupMockApi = async (page: Page) => {
       const paymentStatus = searchParams.get('paymentStatus') || 'all';
 
       const buildClosureClientPayload = (range?: { start: Date; end: Date }) => {
+        const latestByNumero = new Map<string, Cacamba>();
+        orders
+          .flatMap((order) => order.cacambas)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .forEach((cacamba) => {
+            if (!latestByNumero.has(cacamba.numero)) latestByNumero.set(cacamba.numero, cacamba);
+          });
+        const isPending = (cacamba: Cacamba) => (cacamba.paymentStatus || 'pendente') === 'pendente';
+        const isGenerated = (cacamba: Cacamba) =>
+          cacamba.paymentStatus === 'nota_fiscal_pendente' ||
+          cacamba.paymentStatus === 'pix_pendente' ||
+          cacamba.paymentStatus === 'paga';
+        const isClosureCacamba = (cacamba: Cacamba) => {
+          if (cacamba.tipo === 'retirada') return true;
+          if (cacamba.tipo !== 'entrega') return false;
+          if (isGenerated(cacamba)) return true;
+          const latest = latestByNumero.get(cacamba.numero);
+          return isPending(cacamba) && latest?._id === cacamba._id && latest.tipo === 'entrega';
+        };
+
         const closureClientMeta = new Map<
           string,
           {
@@ -810,7 +830,7 @@ export const setupMockApi = async (page: Page) => {
 
         orders
           .filter((o) => o.status === 'concluido')
-          .filter((o) => (closure ? o.type === 'retirada' : true))
+          .filter((o) => (closure ? o.type === 'retirada' || o.type === 'entrega' : true))
           .filter((o) => (type ? o.type === type : true))
           .filter((o) => {
             if (!range) return true;
@@ -818,27 +838,26 @@ export const setupMockApi = async (page: Page) => {
             return updated >= range.start.getTime() && updated <= range.end.getTime();
           })
           .forEach((order) => {
-            const retirada = order.cacambas.filter((c) => c.tipo === 'retirada');
-            if (closure && retirada.length === 0) return;
+            const closureCacambas = order.cacambas.filter(isClosureCacamba);
+            if (closure && closureCacambas.length === 0) return;
 
-            const pendingCount = retirada.filter((c) => (c.paymentStatus || 'pendente') === 'pendente').length;
-            const metadataPending = retirada.filter((c) => {
-              if ((c.paymentStatus || 'pendente') !== 'pendente') return false;
+            const pendingCount = closureCacambas.filter(isPending).length;
+            const metadataPending = closureCacambas.filter((c) => {
+              if (!isPending(c)) return false;
               const hasValidPrice = typeof c.price === 'number' && Number.isFinite(c.price) && c.price >= 0;
               const hasValidContentType = typeof c.contentType === 'string' && c.contentType.trim().length > 0;
-              return !hasValidPrice || !hasValidContentType;
+              return !hasValidPrice || (c.tipo === 'retirada' && !hasValidContentType);
             });
-            const generatedCount = retirada.filter((c) =>
-              c.paymentStatus === 'nota_fiscal_pendente' || c.paymentStatus === 'paga',
-            ).length;
-            const invoicePendingCount = retirada.filter((c) => c.paymentStatus === 'nota_fiscal_pendente').length;
-            const paidCount = retirada.filter((c) => c.paymentStatus === 'paga').length;
+            const generatedCount = closureCacambas.filter(isGenerated).length;
+            const invoicePendingCount = closureCacambas.filter((c) => c.paymentStatus === 'nota_fiscal_pendente').length;
+            const pixPendingCount = closureCacambas.filter((c) => c.paymentStatus === 'pix_pendente').length;
+            const paidCount = closureCacambas.filter((c) => c.paymentStatus === 'paga').length;
             const metadataPendingCount = metadataPending.length;
             const missingPriceCount = metadataPending.filter((c) =>
               !(typeof c.price === 'number' && Number.isFinite(c.price) && c.price >= 0),
             ).length;
             const missingContentTypeCount = metadataPending.filter((c) =>
-              !(typeof c.contentType === 'string' && c.contentType.trim().length > 0),
+              c.tipo === 'retirada' && !(typeof c.contentType === 'string' && c.contentType.trim().length > 0),
             ).length;
             const matchesFilter =
               !closure ||
@@ -846,6 +865,7 @@ export const setupMockApi = async (page: Page) => {
               (paymentStatus === 'pending' && pendingCount > 0) ||
               (paymentStatus === 'metadata_pending' && metadataPendingCount > 0) ||
               (paymentStatus === 'invoice_pending' && invoicePendingCount > 0) ||
+              (paymentStatus === 'pix_pending' && pixPendingCount > 0) ||
               (paymentStatus === 'paid' && paidCount > 0);
 
             const current = closureClientMeta.get(order.clientId) || {
@@ -942,19 +962,40 @@ export const setupMockApi = async (page: Page) => {
       const paymentStatus = searchParams.get('paymentStatus') || 'all';
       let filtered = orders.filter((o) => o.clientId === clientId);
       if (closure) {
-        filtered = filtered.filter((o) => o.type === 'retirada' && o.status === 'concluido');
+        const latestByNumero = new Map<string, Cacamba>();
+        orders
+          .flatMap((order) => order.cacambas)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .forEach((cacamba) => {
+            if (!latestByNumero.has(cacamba.numero)) latestByNumero.set(cacamba.numero, cacamba);
+          });
+        const isPending = (cacamba: Cacamba) => (cacamba.paymentStatus || 'pendente') === 'pendente';
+        const isGenerated = (cacamba: Cacamba) =>
+          cacamba.paymentStatus === 'nota_fiscal_pendente' ||
+          cacamba.paymentStatus === 'pix_pendente' ||
+          cacamba.paymentStatus === 'paga';
+        const isClosureCacamba = (cacamba: Cacamba) => {
+          if (cacamba.tipo === 'retirada') return true;
+          if (cacamba.tipo !== 'entrega') return false;
+          if (isGenerated(cacamba)) return true;
+          const latest = latestByNumero.get(cacamba.numero);
+          return isPending(cacamba) && latest?._id === cacamba._id && latest.tipo === 'entrega';
+        };
+
+        filtered = filtered.filter((o) => (o.type === 'retirada' || o.type === 'entrega') && o.status === 'concluido');
         filtered = filtered
           .map((o) => ({
             ...o,
             cacambas: o.cacambas.filter((c) => {
-              if (c.tipo !== 'retirada') return false;
-              if (paymentStatus === 'pending') return (c.paymentStatus || 'pendente') === 'pendente';
+              if (!isClosureCacamba(c)) return false;
+              if (paymentStatus === 'pending') return isPending(c);
               if (paymentStatus === 'metadata_pending') {
                 const hasValidPrice = typeof c.price === 'number' && Number.isFinite(c.price) && c.price >= 0;
                 const hasValidContentType = typeof c.contentType === 'string' && c.contentType.trim().length > 0;
-                return (c.paymentStatus || 'pendente') === 'pendente' && (!hasValidPrice || !hasValidContentType);
+                return isPending(c) && (!hasValidPrice || (c.tipo === 'retirada' && !hasValidContentType));
               }
               if (paymentStatus === 'invoice_pending') return c.paymentStatus === 'nota_fiscal_pendente';
+              if (paymentStatus === 'pix_pending') return c.paymentStatus === 'pix_pendente';
               if (paymentStatus === 'paid') return c.paymentStatus === 'paga';
               return true;
             }),

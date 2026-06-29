@@ -48,7 +48,15 @@ export const enrichWithdrawalCacambasWithDeliveryMetadata = async (
 
     for (const cacamba of order.cacambas || []) {
       const numero = String(cacamba?.numero || '').trim();
-      if (cacamba?.tipo !== 'retirada' || !numero) continue;
+      if (!numero) continue;
+
+      if (cacamba?.tipo === 'entrega') {
+        cacamba.closureDelivery = buildActionMetadata(order, cacamba);
+        cacamba.closureWithdrawal = cacamba.closureWithdrawal || null;
+        continue;
+      }
+
+      if (cacamba?.tipo !== 'retirada') continue;
 
       withdrawalItems.push({ order, cacamba, clientId });
       clientIds.add(clientId);

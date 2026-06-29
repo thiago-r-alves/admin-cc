@@ -4,11 +4,16 @@ import { CacambaModel } from '../../models/Cacamba';
 import { OrderModel } from '../../models/Order';
 import {
   buildClientIdMatch,
+  buildClosureCandidateOrdersQuery,
   buildClosureDateRange,
-  buildClosureOrdersQuery,
   escapeRegExp,
   getNextClosureGroupSequence,
 } from './helpers';
+import {
+  filterOrdersForClosureCandidates,
+  isPendingClosurePaymentStatus,
+  isReadyForClosureSelection,
+} from './candidates';
 import { buildPixCopyPaste, isCnpjPixKey } from '../../utils/pix';
 
 export const createClosureDownload = async (
@@ -33,21 +38,22 @@ export const createClosureDownload = async (
     return { status: 400, body: { message: 'Nenhuma caçamba válida foi selecionada.' } };
   }
 
-  const hasDateRange = Boolean(startDate && endDate);
-  const range = hasDateRange ? buildClosureDateRange(startDate, endDate) : null;
-  if (hasDateRange && !range) {
+  const hasDateFilter = Boolean(startDate || endDate);
+  const range = hasDateFilter ? buildClosureDateRange(startDate, endDate) : null;
+  if (hasDateFilter && !range) {
     return { status: 400, body: { message: 'Período de datas inválido.' } };
   }
 
   const orders = await OrderModel.find({
-    ...(range
-      ? buildClosureOrdersQuery({ start: range.start, end: range.end })
-      : { status: 'concluido', type: 'retirada' }),
+    ...buildClosureCandidateOrdersQuery(range),
     $or: buildClientIdMatch(clientId),
-  }).populate('cacambas');
+  }).populate('cacambas').lean();
+  const closureOrders = await filterOrdersForClosureCandidates(orders as any[], {
+    paymentFilter: 'pending',
+  });
 
   const cacambasById = new Map<string, any>();
-  for (const order of orders as any[]) {
+  for (const order of closureOrders as any[]) {
     for (const cacamba of order.cacambas || []) {
       cacambasById.set(String(cacamba._id), cacamba);
     }
@@ -55,12 +61,12 @@ export const createClosureDownload = async (
 
   const notFoundOrInvalid = uniqueIds.filter((id) => {
     const cacamba = cacambasById.get(id);
-    return !cacamba || cacamba.tipo !== 'retirada' || (cacamba.paymentStatus || 'pendente') !== 'pendente';
+    return !cacamba || !isPendingClosurePaymentStatus(cacamba) || !isReadyForClosureSelection(cacamba);
   });
   if (notFoundOrInvalid.length > 0) {
     return {
       status: 400,
-      body: { message: 'Seleção contém caçambas inválidas, fora do período ou já agrupadas/pagas.' },
+      body: { message: 'Seleção contém caçambas inválidas, sem dados obrigatórios, fora do período ou já agrupadas/pagas.' },
     };
   }
 
@@ -112,7 +118,6 @@ export const createClosureDownload = async (
   await CacambaModel.updateMany(
     {
       _id: { $in: uniqueIds },
-      tipo: 'retirada',
       $or: [
         { paymentStatus: 'pendente' },
         { paymentStatus: { $exists: false } },

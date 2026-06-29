@@ -799,6 +799,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
                   : displayedGroup?.cacambaIds?.length || 0
               }
               compactOnlyTotal={isGeneratedNotesView || step !== 'select'}
+              totalLabel={closureMode ? 'Total do fechamento' : undefined}
             />
           )}
 

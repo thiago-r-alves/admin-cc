@@ -11,10 +11,11 @@ describe('ClientOrdersSummary', () => {
         totalCacambas={4}
         closureMode
         selectedCount={1}
+        totalLabel="Total do fechamento"
       />,
     );
 
-    expect(screen.getByText(/Total do cliente \(Retiradas\):/i)).toBeInTheDocument();
+    expect(screen.getByText(/Total do fechamento:/i)).toBeInTheDocument();
     expect(screen.getByText(/Quantidade total de pedidos: 2/i)).toBeInTheDocument();
     expect(screen.getByText(/Quantidade total de ca.*mbas: 4/i)).toBeInTheDocument();
     expect(screen.getByText(/Ca.*mbas selecionadas: 1/i)).toBeInTheDocument();

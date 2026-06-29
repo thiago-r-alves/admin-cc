@@ -10,6 +10,7 @@ interface ClientOrdersSummaryProps {
   closureMode: boolean;
   selectedCount: number;
   compactOnlyTotal?: boolean;
+  totalLabel?: string;
 }
 
 const ClientOrdersSummary: React.FC<ClientOrdersSummaryProps> = ({
@@ -19,9 +20,10 @@ const ClientOrdersSummary: React.FC<ClientOrdersSummaryProps> = ({
   closureMode,
   selectedCount,
   compactOnlyTotal = false,
+  totalLabel = 'Total do cliente (Retiradas)',
 }) => (
   <div className="mx-5 rounded-ui-lg border border-red-200 bg-[#fffafa] px-[0.9rem] py-[0.8rem] text-[0.92rem] font-extrabold text-gray-950">
-    <div>Total do cliente (Retiradas): {formatCurrency(clientTotal)}</div>
+    <div>{totalLabel}: {formatCurrency(clientTotal)}</div>
     {!compactOnlyTotal && (
       <>
         <div>Quantidade total de pedidos: {totalOrders}</div>

@@ -1,33 +1,23 @@
+import { ObjectId } from 'mongodb';
+
 import { ClientModel } from '../../models/Client';
 import { ClosureGroupModel } from '../../models/ClosureGroup';
 import { OrderModel } from '../../models/Order';
 import { buildLocalDateRange } from '../../utils/order';
 import { enrichWithdrawalCacambasWithDeliveryMetadata } from '../cacambas/enrichment';
 import {
+  filterOrdersForClosureCandidates,
+  summarizeClosureCacambas,
+} from '../closures/candidates';
+import {
   buildClientIdMatch,
+  buildClosureCandidateOrdersQuery,
   buildClosureDateRange,
   buildClosureGroupClientMatch,
-  buildClosureOrdersQuery,
   CLOSURE_DEBUG,
   type ClosureDateRange,
   parseClosurePaymentFilter,
 } from '../closures/helpers';
-
-const buildClosureCacambaAggregationCond = (range: ClosureDateRange | null) => {
-  const conditions: any[] = [{ $eq: ['$$cacamba.tipo', 'retirada'] }];
-  if (range?.start) conditions.push({ $gte: ['$$cacamba.createdAt', range.start] });
-  if (range?.end) conditions.push({ $lte: ['$$cacamba.createdAt', range.end] });
-  return conditions.length === 1 ? conditions[0] : { $and: conditions };
-};
-
-const isCacambaWithinClosureDateRange = (cacamba: any, range: ClosureDateRange | null) => {
-  if (!range?.start && !range?.end) return true;
-  const createdAtMs = new Date(cacamba?.createdAt || '').getTime();
-  if (!Number.isFinite(createdAtMs)) return false;
-  if (range.start && createdAtMs < range.start.getTime()) return false;
-  if (range.end && createdAtMs > range.end.getTime()) return false;
-  return true;
-};
 
 export const listClients = async (query: Record<string, unknown>) => {
   const { startDate, endDate, type, closure, paymentStatus } = query;
@@ -42,318 +32,86 @@ export const listClients = async (query: Record<string, unknown>) => {
       return { status: 400, body: { message: 'Período de datas inválido.' } };
     }
     const metadataPendingDateRange = closurePaymentFilter === 'metadata_pending' ? range : null;
-    const closureCacambaCond = buildClosureCacambaAggregationCond(metadataPendingDateRange);
+    const foundOrders = await OrderModel.find(buildClosureCandidateOrdersQuery(range))
+      .populate('cacambas')
+      .lean();
+    const closureOrders = await filterOrdersForClosureCandidates(foundOrders as any[], {
+      metadataDateRange: metadataPendingDateRange,
+    });
 
-    const aggregated = await OrderModel.aggregate([
-      {
-        $match: range
-          ? buildClosureOrdersQuery(range)
-          : { status: 'concluido', type: 'retirada' },
-      },
-      {
-        $lookup: {
-          from: 'cacambas',
-          localField: 'cacambas',
-          foreignField: '_id',
-          as: 'cacambasDocs',
-        },
-      },
-      {
-        $addFields: {
-          closureCacambas: {
-            $filter: {
-              input: '$cacambasDocs',
-              as: 'cacamba',
-              cond: closureCacambaCond,
-            },
-          },
-        },
-      },
-      {
-        $addFields: {
-          pendingClosureMetadataCount: {
-            $size: {
-              $filter: {
-                input: '$closureCacambas',
-                as: 'cacamba',
-                cond: {
-                  $and: [
-                    {
-                      $or: [
-                        { $eq: ['$$cacamba.paymentStatus', 'pendente'] },
-                        { $eq: ['$$cacamba.paymentStatus', null] },
-                        {
-                          $not: [
-                            {
-                              $ifNull: ['$$cacamba.paymentStatus', false],
-                            },
-                          ],
-                        },
-                      ],
-                    },
-                    {
-                      $or: [
-                        {
-                          $not: [
-                            {
-                              $gte: [
-                                {
-                                  $convert: {
-                                    input: '$$cacamba.price',
-                                    to: 'double',
-                                    onError: -1,
-                                    onNull: -1,
-                                  },
-                                },
-                                0,
-                              ],
-                            },
-                          ],
-                        },
-                        {
-                          $eq: [
-                            {
-                              $trim: {
-                                input: { $ifNull: ['$$cacamba.contentType', ''] },
-                              },
-                            },
-                            '',
-                          ],
-                        },
-                      ],
-                    },
-                  ],
-                },
-              },
-            },
-          },
-          pendingClosureMissingPriceCount: {
-            $size: {
-              $filter: {
-                input: '$closureCacambas',
-                as: 'cacamba',
-                cond: {
-                  $and: [
-                    {
-                      $or: [
-                        { $eq: ['$$cacamba.paymentStatus', 'pendente'] },
-                        { $eq: ['$$cacamba.paymentStatus', null] },
-                        {
-                          $not: [
-                            {
-                              $ifNull: ['$$cacamba.paymentStatus', false],
-                            },
-                          ],
-                        },
-                      ],
-                    },
-                    {
-                      $not: [
-                        {
-                          $gte: [
-                            {
-                              $convert: {
-                                input: '$$cacamba.price',
-                                to: 'double',
-                                onError: -1,
-                                onNull: -1,
-                              },
-                            },
-                            0,
-                          ],
-                        },
-                      ],
-                    },
-                  ],
-                },
-              },
-            },
-          },
-          pendingClosureMissingContentTypeCount: {
-            $size: {
-              $filter: {
-                input: '$closureCacambas',
-                as: 'cacamba',
-                cond: {
-                  $and: [
-                    {
-                      $or: [
-                        { $eq: ['$$cacamba.paymentStatus', 'pendente'] },
-                        { $eq: ['$$cacamba.paymentStatus', null] },
-                        {
-                          $not: [
-                            {
-                              $ifNull: ['$$cacamba.paymentStatus', false],
-                            },
-                          ],
-                        },
-                      ],
-                    },
-                    {
-                      $eq: [
-                        {
-                          $trim: {
-                            input: { $ifNull: ['$$cacamba.contentType', ''] },
-                          },
-                        },
-                        '',
-                      ],
-                    },
-                  ],
-                },
-              },
-            },
-          },
-          pendingClosureCount: {
-            $size: {
-              $filter: {
-                input: '$closureCacambas',
-                as: 'cacamba',
-                cond: {
-                  $or: [
-                    { $eq: ['$$cacamba.paymentStatus', 'pendente'] },
-                    { $eq: ['$$cacamba.paymentStatus', null] },
-                    {
-                      $not: [
-                        {
-                          $ifNull: ['$$cacamba.paymentStatus', false],
-                        },
-                      ],
-                    },
-                  ],
-                },
-              },
-            },
-          },
-          invoicePendingClosureCount: {
-            $size: {
-              $filter: {
-                input: '$closureCacambas',
-                as: 'cacamba',
-                cond: { $eq: ['$$cacamba.paymentStatus', 'nota_fiscal_pendente'] },
-              },
-            },
-          },
-          pixPendingClosureCount: {
-            $size: {
-              $filter: {
-                input: '$closureCacambas',
-                as: 'cacamba',
-                cond: { $eq: ['$$cacamba.paymentStatus', 'pix_pendente'] },
-              },
-            },
-          },
-          paidClosureCount: {
-            $size: {
-              $filter: {
-                input: '$closureCacambas',
-                as: 'cacamba',
-                cond: { $eq: ['$$cacamba.paymentStatus', 'paga'] },
-              },
-            },
-          },
-        },
-      },
-      {
-        $addFields: {
-          generatedClosureGroupsCount: {
-            $add: ['$invoicePendingClosureCount', '$pixPendingClosureCount', '$paidClosureCount'],
-          },
-        },
-      },
-      {
-        $match: {
-          closureCacambas: { $ne: [] },
-        },
-      },
-      ...(closurePaymentFilter === 'pending'
-        ? [{
-          $match: {
-            pendingClosureCount: { $gt: 0 },
-          },
-        }]
-        : closurePaymentFilter === 'invoice_pending'
-          ? [{
-            $match: {
-              invoicePendingClosureCount: { $gt: 0 },
-            },
-          }]
-          : closurePaymentFilter === 'pix_pending'
-            ? [{
-              $match: {
-                pixPendingClosureCount: { $gt: 0 },
-              },
-            }]
-          : closurePaymentFilter === 'metadata_pending'
-            ? [{
-              $match: {
-                pendingClosureMetadataCount: { $gt: 0 },
-              },
-            }]
-          : closurePaymentFilter === 'paid'
-            ? [{
-              $match: {
-                paidClosureCount: { $gt: 0 },
-              },
-            }]
-            : []),
-      {
-        $project: {
-          updatedAt: 1,
-          clientIdString: { $toString: '$clientId' },
-          pendingClosureCount: 1,
-          generatedClosureGroupsCount: 1,
-          pendingClosureMetadataCount: 1,
-          pendingClosureMissingPriceCount: 1,
-          pendingClosureMissingContentTypeCount: 1,
-        },
-      },
-      {
-        $group: {
-          _id: '$clientIdString',
-          latestCompletion: { $max: '$updatedAt' },
-          orderCount: { $sum: 1 },
-          pendingClosureCount: { $sum: '$pendingClosureCount' },
-          generatedClosureGroupsCount: { $sum: '$generatedClosureGroupsCount' },
-          pendingClosureMetadataCount: { $sum: '$pendingClosureMetadataCount' },
-          pendingClosureMissingPriceCount: { $sum: '$pendingClosureMissingPriceCount' },
-          pendingClosureMissingContentTypeCount: { $sum: '$pendingClosureMissingContentTypeCount' },
-        },
-      },
-      {
-        $addFields: {
-          clientObjectId: {
-            $convert: {
-              input: '$_id',
-              to: 'objectId',
-              onError: null,
-              onNull: null,
-            },
-          },
-        },
-      },
-      {
-        $lookup: {
-          from: 'clients',
-          let: { cid: '$_id', oid: '$clientObjectId' },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $or: [
-                    { $eq: ['$_id', '$$oid'] },
-                    { $eq: [{ $toString: '$_id' }, '$$cid'] },
-                  ],
-                },
-              },
-            },
-          ],
-          as: 'client',
-        },
-      },
-      { $unwind: '$client' },
-      { $sort: { latestCompletion: -1, 'client.clientName': 1 } },
-    ]);
+    const statsByClient = new Map<string, any>();
+    for (const order of closureOrders as any[]) {
+      const clientId = String(order.clientId || '').trim();
+      if (!clientId) continue;
+
+      const counts = summarizeClosureCacambas(order.cacambas || []);
+      const generatedClosureGroupsCount =
+        counts.invoicePendingClosureCount + counts.pixPendingClosureCount + counts.paidClosureCount;
+      const updatedAtMs = new Date(order.updatedAt || 0).getTime();
+      const current = statsByClient.get(clientId) || {
+        _id: clientId,
+        latestCompletionMs: 0,
+        orderCount: 0,
+        pendingClosureCount: 0,
+        generatedClosureGroupsCount: 0,
+        pendingClosureMetadataCount: 0,
+        pendingClosureMissingPriceCount: 0,
+        pendingClosureMissingContentTypeCount: 0,
+        invoicePendingClosureCount: 0,
+        pixPendingClosureCount: 0,
+        paidClosureCount: 0,
+      };
+
+      current.latestCompletionMs = Math.max(
+        current.latestCompletionMs,
+        Number.isFinite(updatedAtMs) ? updatedAtMs : 0,
+      );
+      current.orderCount += 1;
+      current.pendingClosureCount += counts.pendingClosureCount;
+      current.generatedClosureGroupsCount += generatedClosureGroupsCount;
+      current.pendingClosureMetadataCount += counts.pendingClosureMetadataCount;
+      current.pendingClosureMissingPriceCount += counts.pendingClosureMissingPriceCount;
+      current.pendingClosureMissingContentTypeCount += counts.pendingClosureMissingContentTypeCount;
+      current.invoicePendingClosureCount += counts.invoicePendingClosureCount;
+      current.pixPendingClosureCount += counts.pixPendingClosureCount;
+      current.paidClosureCount += counts.paidClosureCount;
+      statsByClient.set(clientId, current);
+    }
+
+    const matchesPaymentFilter = (stats: any) => {
+      if (closurePaymentFilter === 'pending') return stats.pendingClosureCount > 0;
+      if (closurePaymentFilter === 'invoice_pending') return stats.invoicePendingClosureCount > 0;
+      if (closurePaymentFilter === 'pix_pending') return stats.pixPendingClosureCount > 0;
+      if (closurePaymentFilter === 'metadata_pending') return stats.pendingClosureMetadataCount > 0;
+      if (closurePaymentFilter === 'paid') return stats.paidClosureCount > 0;
+      return stats.pendingClosureCount > 0 || stats.generatedClosureGroupsCount > 0;
+    };
+
+    const filteredStats = Array.from(statsByClient.values()).filter(matchesPaymentFilter);
+    const clientIds = filteredStats
+      .map((stats) => stats._id)
+      .filter((clientId): clientId is string => Boolean(clientId) && ObjectId.isValid(clientId))
+      .map((clientId) => new ObjectId(clientId));
+    const clients = clientIds.length
+      ? await ClientModel.find({ _id: { $in: clientIds } }).lean()
+      : [];
+    const clientById = new Map(clients.map((client: any) => [String(client._id), client]));
+    const aggregated = filteredStats
+      .map((stats) => ({
+        ...stats,
+        latestCompletion: stats.latestCompletionMs ? new Date(stats.latestCompletionMs) : null,
+        client: clientById.get(stats._id),
+      }))
+      .filter((stats) => Boolean(stats.client))
+      .sort((a, b) => {
+        if (b.latestCompletionMs !== a.latestCompletionMs) {
+          return b.latestCompletionMs - a.latestCompletionMs;
+        }
+        return String(a.client.clientName || '').localeCompare(
+          String(b.client.clientName || ''),
+          'pt-BR',
+        );
+      });
 
     if (CLOSURE_DEBUG) {
       console.log('[CLOSURE_DEBUG] /clients?closure=true', {
@@ -588,12 +346,7 @@ export const listClientOrders = async (clientId: string, query: Record<string, u
     }
     orderQuery.$or = buildClientIdMatch(clientId);
     delete orderQuery.clientId;
-    Object.assign(
-      orderQuery,
-      closureRange
-        ? buildClosureOrdersQuery(closureRange)
-        : { status: 'concluido', type: 'retirada' },
-    );
+    Object.assign(orderQuery, buildClosureCandidateOrdersQuery(closureRange));
   } else {
     if (startDate && endDate) {
       const range = buildLocalDateRange(String(startDate), String(endDate));
@@ -625,44 +378,10 @@ export const listClientOrders = async (clientId: string, query: Record<string, u
   let orders = await enrichWithdrawalCacambasWithDeliveryMetadata(foundOrders as any[], { clientId });
 
   if (isClosureMode) {
-    orders = orders
-      .map((order: any) => {
-        const filteredCacambas = (order.cacambas || []).filter((cacamba: any) => {
-          if (cacamba?.tipo !== 'retirada') return false;
-          if (
-            closurePaymentFilter === 'metadata_pending' &&
-            !isCacambaWithinClosureDateRange(cacamba, closureRange)
-          ) {
-            return false;
-          }
-          const hasValidPrice =
-            typeof cacamba?.price === 'number' && Number.isFinite(cacamba.price);
-          const hasValidContentType =
-            typeof cacamba?.contentType === 'string' && cacamba.contentType.trim().length > 0;
-          if (closurePaymentFilter === 'pending') {
-            return (cacamba?.paymentStatus || 'pendente') === 'pendente';
-          }
-          if (closurePaymentFilter === 'metadata_pending') {
-            return (
-              (cacamba?.paymentStatus || 'pendente') === 'pendente' &&
-              (!hasValidPrice || !hasValidContentType)
-            );
-          }
-          if (closurePaymentFilter === 'invoice_pending') {
-            return cacamba?.paymentStatus === 'nota_fiscal_pendente';
-          }
-          if (closurePaymentFilter === 'pix_pending') {
-            return cacamba?.paymentStatus === 'pix_pendente';
-          }
-          if (closurePaymentFilter === 'paid') {
-            return cacamba?.paymentStatus === 'paga';
-          }
-          return true;
-        });
-        order.cacambas = filteredCacambas;
-        return order;
-      })
-      .filter((order: any) => (order.cacambas || []).length > 0);
+    orders = await filterOrdersForClosureCandidates(orders, {
+      paymentFilter: closurePaymentFilter,
+      metadataDateRange: closurePaymentFilter === 'metadata_pending' ? closureRange : null,
+    });
   } else {
     orders = filterOperationalOrderCacambas(orders, { local, q });
   }
@@ -699,14 +418,13 @@ export const listClosureGroups = async (
     .sort({ createdAt: -1 })
     .lean();
 
-  const withdrawalIds = groups.flatMap((group: any) =>
+  const closureCacambaIds = groups.flatMap((group: any) =>
     (group.cacambaIds || []).map((cacamba: any) => String(cacamba?._id || '')).filter(Boolean),
   );
-  const withdrawalOrders = withdrawalIds.length
+  const closureOrdersForGroups = closureCacambaIds.length
     ? await OrderModel.find({
       $or: buildClientIdMatch(clientId),
-      type: 'retirada',
-      cacambas: { $in: withdrawalIds },
+      cacambas: { $in: closureCacambaIds },
     })
       .populate({
         path: 'motorista',
@@ -715,7 +433,10 @@ export const listClosureGroups = async (
       .populate('cacambas')
       .lean()
     : [];
-  const enrichedOrders = await enrichWithdrawalCacambasWithDeliveryMetadata(withdrawalOrders as any[], { clientId });
+  const enrichedOrders = await enrichWithdrawalCacambasWithDeliveryMetadata(
+    closureOrdersForGroups as any[],
+    { clientId },
+  );
   const enrichedCacambaById = new Map<string, any>();
   for (const order of enrichedOrders as any[]) {
     for (const cacamba of order.cacambas || []) {

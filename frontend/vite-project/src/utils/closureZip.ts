@@ -22,7 +22,11 @@ const toDisplayDate = (value: string) => {
 const getClientTotal = (orders: IOrder[]) =>
   orders.reduce((sum, order) => {
     const orderTotal = (order.cacambas || [])
-      .filter((c) => c.tipo === 'retirada' && typeof c.price === 'number' && Number.isFinite(c.price))
+      .filter((c) =>
+        (c.tipo === 'retirada' || c.tipo === 'entrega') &&
+        typeof c.price === 'number' &&
+        Number.isFinite(c.price),
+      )
       .reduce((localSum, c) => localSum + Number(c.price), 0);
     return sum + orderTotal;
   }, 0);

@@ -152,7 +152,7 @@ const FechamentoPage: React.FC = () => {
       <Header>
         <div>
           <Title>Fechamento</Title>
-          <Subtitle>Retiradas concluidas dentro do periodo selecionado</Subtitle>
+          <Subtitle>Retiradas concluidas e entregas ainda em obra dentro do periodo selecionado</Subtitle>
         </div>
       </Header>
 
@@ -180,7 +180,6 @@ const FechamentoPage: React.FC = () => {
           client={modalClient}
           startDate={startDate}
           endDate={endDate}
-          type="retirada"
           viewMode={modalViewMode}
           paymentStatus={paymentStatus}
           closureMode

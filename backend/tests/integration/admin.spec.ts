@@ -1417,6 +1417,222 @@ describe('Admin APIs', () => {
     expect(modal.body).toHaveLength(1);
     expect(modal.body[0]?.cacambas.map((cacamba: any) => cacamba.numero)).toEqual(['712']);
   });
+
+  it('Fechamento: inclui entrega ainda em obra no período e evita cobrança duplicada na retirada futura', async () => {
+    const app = await loadApp();
+    const { admin, driver } = await ensureUsers();
+    const token = signToken(String(admin._id), 'admin');
+
+    const openClient = await ClientModel.create({
+      clientName: 'Entrega Aberta',
+      contactName: 'Contato A',
+      contactNumber: '111',
+      neighborhood: 'N1',
+      address: 'Rua A',
+      addressNumber: '1',
+    });
+    const missingPriceClient = await ClientModel.create({
+      clientName: 'Entrega Sem Valor',
+      contactName: 'Contato S',
+      contactNumber: '222',
+      neighborhood: 'N2',
+      address: 'Rua S',
+      addressNumber: '2',
+    });
+    const outOfRangeClient = await ClientModel.create({
+      clientName: 'Entrega Fora Periodo',
+      contactName: 'Contato F',
+      contactNumber: '333',
+      neighborhood: 'N3',
+      address: 'Rua F',
+      addressNumber: '3',
+    });
+    const withdrawnClient = await ClientModel.create({
+      clientName: 'Entrega Ja Retirada',
+      contactName: 'Contato R',
+      contactNumber: '444',
+      neighborhood: 'N4',
+      address: 'Rua R',
+      addressNumber: '4',
+    });
+
+    const createDelivery = async (
+      client: any,
+      numero: string,
+      updatedAt: string,
+      price?: number,
+    ) => {
+      const order = await OrderModel.create({
+        orderNumber: nextOrderNumber++,
+        clientId: client._id,
+        clientName: client.clientName,
+        contactName: client.contactName,
+        contactNumber: client.contactNumber,
+        neighborhood: client.neighborhood,
+        address: client.address,
+        addressNumber: client.addressNumber,
+        type: 'entrega',
+        status: 'concluido',
+        motorista: driver._id,
+        placa: 'ENT1A23',
+        updatedAt: new Date(updatedAt),
+        createdAt: new Date(updatedAt),
+      });
+      const cacamba = await CacambaModel.create({
+        numero,
+        tipo: 'entrega',
+        paymentStatus: 'pendente',
+        ...(typeof price === 'number' ? { price } : {}),
+        imageUrl: `/files/507f1f77bcf86cd799439${numero}`,
+        orderId: order._id,
+        local: 'canteiro_obra',
+        createdAt: new Date(updatedAt),
+        horaServicoDigitos: numero,
+      });
+      await OrderModel.findByIdAndUpdate(order._id, { $push: { cacambas: cacamba._id } });
+      return { order, cacamba };
+    };
+
+    const openDelivery = await createDelivery(openClient, '731', '2026-05-16T10:00:00.000Z', 90);
+    await createDelivery(missingPriceClient, '732', '2026-05-16T11:00:00.000Z');
+    await createDelivery(outOfRangeClient, '733', '2026-05-23T10:00:00.000Z', 100);
+    const withdrawnDelivery = await createDelivery(withdrawnClient, '734', '2026-05-16T12:00:00.000Z', 110);
+    const alreadyWithdrawnOrder = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: withdrawnClient._id,
+      clientName: withdrawnClient.clientName,
+      contactName: withdrawnClient.contactName,
+      contactNumber: withdrawnClient.contactNumber,
+      neighborhood: withdrawnClient.neighborhood,
+      address: withdrawnClient.address,
+      addressNumber: withdrawnClient.addressNumber,
+      type: 'retirada',
+      status: 'concluido',
+      updatedAt: new Date('2026-05-25T10:00:00.000Z'),
+      createdAt: new Date('2026-05-25T09:00:00.000Z'),
+    });
+    const alreadyWithdrawnCacamba = await CacambaModel.create({
+      numero: withdrawnDelivery.cacamba.numero,
+      tipo: 'retirada',
+      paymentStatus: 'pendente',
+      contentType: 'Entulho limpo',
+      price: 110,
+      imageUrl: '/files/507f1f77bcf86cd799439734',
+      orderId: alreadyWithdrawnOrder._id,
+      local: 'canteiro_obra',
+      createdAt: new Date('2026-05-25T10:00:00.000Z'),
+      horaServicoDigitos: '734',
+    });
+    await OrderModel.findByIdAndUpdate(alreadyWithdrawnOrder._id, {
+      $push: { cacambas: alreadyWithdrawnCacamba._id },
+    });
+
+    const list = await request(app)
+      .get('/clients?closure=true&startDate=2026-05-15&endDate=2026-05-19')
+      .set('Authorization', `Bearer ${token}`);
+    expect(list.status).toBe(200);
+    const names = list.body.map((client: any) => client.clientName);
+    expect(names).toContain('Entrega Aberta');
+    expect(names).toContain('Entrega Sem Valor');
+    expect(names).not.toContain('Entrega Fora Periodo');
+    expect(names).not.toContain('Entrega Ja Retirada');
+    const openListed = list.body.find((client: any) => String(client._id) === String(openClient._id));
+    expect(openListed?.hasPendingClosureItems).toBe(true);
+    expect(openListed?.hasPendingClosureMetadata).toBe(false);
+    const missingListed = list.body.find((client: any) => String(client._id) === String(missingPriceClient._id));
+    expect(missingListed?.hasPendingClosureMetadata).toBe(true);
+    expect(missingListed?.pendingClosureMissingPriceCount).toBe(1);
+    expect(missingListed?.pendingClosureMissingContentTypeCount).toBe(0);
+
+    const metadataPendingList = await request(app)
+      .get('/clients?closure=true&startDate=2026-05-15&endDate=2026-05-19&paymentStatus=metadata_pending')
+      .set('Authorization', `Bearer ${token}`);
+    expect(metadataPendingList.status).toBe(200);
+    const metadataNames = metadataPendingList.body.map((client: any) => client.clientName);
+    expect(metadataNames).toContain('Entrega Sem Valor');
+    expect(metadataNames).not.toContain('Entrega Aberta');
+
+    const modal = await request(app)
+      .get(`/clients/${openClient._id}/orders?closure=true&startDate=2026-05-15&endDate=2026-05-19`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(modal.status).toBe(200);
+    expect(modal.body).toHaveLength(1);
+    expect(modal.body[0]?.type).toBe('entrega');
+    expect(modal.body[0]?.cacambas[0]).toMatchObject({
+      numero: '731',
+      tipo: 'entrega',
+      price: 90,
+    });
+    expect(modal.body[0]?.cacambas[0]?.closureDelivery).toMatchObject({
+      orderNumber: openDelivery.order.orderNumber,
+      placa: 'ENT1A23',
+      driverName: driver.username,
+    });
+
+    const closeDelivery = await request(app)
+      .post('/closures/download')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        clientId: String(openClient._id),
+        startDate: '2026-05-15',
+        endDate: '2026-05-19',
+        selectedCacambaIds: [String(openDelivery.cacamba._id)],
+      });
+    expect(closeDelivery.status).toBe(200);
+    expect(closeDelivery.body.closureGroup?.totalAmount).toBe(90);
+
+    const openDeliveryAfterClose = await CacambaModel.findById(openDelivery.cacamba._id).lean();
+    expect(openDeliveryAfterClose?.paymentStatus).toBe('nota_fiscal_pendente');
+    expect(String(openDeliveryAfterClose?.closureGroupId || '')).toBe(closeDelivery.body.closureGroup._id);
+
+    const groups = await request(app)
+      .get(`/clients/${openClient._id}/closure-groups?status=all`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(groups.status).toBe(200);
+    expect(groups.body[0]?.cacambaIds[0]?.tipo).toBe('entrega');
+    expect(groups.body[0]?.cacambaIds[0]?.closureDelivery).toMatchObject({
+      orderNumber: openDelivery.order.orderNumber,
+      placa: 'ENT1A23',
+    });
+    expect(groups.body[0]?.cacambaIds[0]?.closureWithdrawal).toBeNull();
+
+    const futureWithdrawalOrder = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: openClient._id,
+      clientName: openClient.clientName,
+      contactName: openClient.contactName,
+      contactNumber: openClient.contactNumber,
+      neighborhood: openClient.neighborhood,
+      address: openClient.address,
+      addressNumber: openClient.addressNumber,
+      type: 'retirada',
+      status: 'concluido',
+      updatedAt: new Date('2026-05-20T10:00:00.000Z'),
+      createdAt: new Date('2026-05-20T09:00:00.000Z'),
+    });
+    const futureWithdrawalCacamba = await CacambaModel.create({
+      numero: openDelivery.cacamba.numero,
+      tipo: 'retirada',
+      paymentStatus: 'pendente',
+      contentType: 'Entulho limpo',
+      price: 90,
+      imageUrl: '/files/507f1f77bcf86cd799439731',
+      orderId: futureWithdrawalOrder._id,
+      local: 'canteiro_obra',
+      createdAt: new Date('2026-05-20T10:00:00.000Z'),
+      horaServicoDigitos: '731',
+    });
+    await OrderModel.findByIdAndUpdate(futureWithdrawalOrder._id, {
+      $push: { cacambas: futureWithdrawalCacamba._id },
+    });
+
+    const duplicatePending = await request(app)
+      .get('/clients?closure=true&startDate=2026-05-20&endDate=2026-05-21&paymentStatus=pending')
+      .set('Authorization', `Bearer ${token}`);
+    expect(duplicatePending.status).toBe(200);
+    expect(duplicatePending.body.some((client: any) => String(client._id) === String(openClient._id))).toBe(false);
+  });
+
   it('inclui metadados de entrega e retirada nos dados de fechamento', async () => {
     const app = await loadApp();
     const { admin, driver } = await ensureUsers();
@@ -1554,6 +1770,7 @@ describe('Admin APIs', () => {
       tipo: 'retirada',
       paymentStatus: 'pendente',
       contentType: 'Entulho limpo',
+      price: 120,
       imageUrl: '/files/507f1f77bcf86cd799439031',
       orderId: order._id,
       local: 'via_publica',
@@ -1564,6 +1781,7 @@ describe('Admin APIs', () => {
       tipo: 'retirada',
       paymentStatus: 'pendente',
       contentType: 'Entulho limpo',
+      price: 80,
       imageUrl: '/files/507f1f77bcf86cd799439032',
       orderId: order._id,
       local: 'via_publica',
