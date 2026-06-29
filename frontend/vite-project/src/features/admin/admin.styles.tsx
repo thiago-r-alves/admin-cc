@@ -9,8 +9,10 @@ type StatusPanelVariant = 'pending' | 'completed';
 
 const primaryButton =
   'cursor-pointer rounded-ui-md border-0 bg-brand text-white transition-colors duration-200 hover:bg-brand-hover disabled:cursor-not-allowed disabled:bg-[#f39aa0]';
+const actionButtonLayout =
+  'cursor-pointer rounded-ui-md border px-4 py-3 text-[0.82rem] font-black uppercase transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-55 max-[768px]:flex-[1_1_140px]';
 const actionButton =
-  'cursor-pointer rounded-ui-md border border-gray-300 bg-white px-4 py-3 text-[0.82rem] font-black uppercase text-gray-700 transition-colors duration-200 hover:border-brand hover:bg-brand-soft hover:text-brand disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:border-gray-300 disabled:hover:bg-white disabled:hover:text-gray-700 max-[768px]:flex-[1_1_140px]';
+  `${actionButtonLayout} border-gray-300 bg-white text-gray-700 hover:border-brand hover:bg-brand-soft hover:text-brand disabled:hover:border-gray-300 disabled:hover:bg-white disabled:hover:text-gray-700`;
 
 const orderStatusBorder: Record<IOrder['status'], string> = {
   pendente: 'border-green-200',
@@ -423,7 +425,7 @@ export const ActionButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement
 export const DownloadOrderButton = ActionButton;
 
 export const WithdrawalCreateButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({ className, ...props }) => (
-  <button className={cn(actionButton, 'flex-none border-brand bg-brand text-white hover:border-brand-hover hover:bg-brand-hover hover:text-white disabled:hover:border-gray-300 disabled:hover:bg-white disabled:hover:text-gray-500 max-[720px]:w-full', className)} {...props} />
+  <button className={cn(actionButtonLayout, 'flex-none border-brand bg-brand text-white hover:border-brand-hover hover:bg-brand-hover hover:text-white disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500 disabled:hover:border-gray-300 disabled:hover:bg-gray-100 disabled:hover:text-gray-500 max-[720px]:w-full', className)} {...props} />
 );
 
 export const DriverTabsBar: React.FC<DivProps> = ({ className, ...props }) => (

@@ -86,7 +86,7 @@ const AdminPage: React.FC = () => {
   });
   const [acompanhamentoSortMode, setAcompanhamentoSortMode] = useState<AcompanhamentoSortMode>('default');
   const [pendingWithdrawalSortMode, setPendingWithdrawalSortMode] =
-    useState<PendingWithdrawalSortMode>('overdueDesc');
+    useState<PendingWithdrawalSortMode>('overdueAsc');
   const clearSessionAndRedirect = useCallback(() => {
     clearStoredSession();
     navigate('/', { replace: true });
