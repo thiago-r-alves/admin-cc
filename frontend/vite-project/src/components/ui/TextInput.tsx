@@ -11,6 +11,8 @@ const TextInput = React.forwardRef<HTMLInputElement, TextInputProps>(function Te
   { invalid = false, startAdornment, endAdornment, className, ...props },
   ref
 ) {
+  const isFileInput = props.type === 'file';
+
   return (
     <div
       className={cn(
@@ -22,7 +24,12 @@ const TextInput = React.forwardRef<HTMLInputElement, TextInputProps>(function Te
       {startAdornment ? <span className="inline-flex items-center text-gray-500">{startAdornment}</span> : null}
       <input
         ref={ref}
-        className="w-full min-w-0 border-0 bg-transparent text-[0.9rem] text-gray-700 placeholder:text-gray-400 focus:outline-none"
+        className={cn(
+          'w-full min-w-0 border-0 bg-transparent text-[0.9rem] text-gray-700 placeholder:text-gray-400 focus:outline-none disabled:opacity-100',
+          isFileInput
+            ? 'file:mr-3 file:rounded-ui-sm file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-[0.82rem] file:font-extrabold file:text-gray-700'
+            : 'appearance-none rounded-none',
+        )}
         {...props}
       />
       {endAdornment ? <span className="inline-flex items-center text-gray-500">{endAdornment}</span> : null}
