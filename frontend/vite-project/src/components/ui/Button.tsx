@@ -29,6 +29,13 @@ const variantClasses: Record<ButtonVariant, string> = {
   ghost: 'border-transparent bg-transparent text-gray-500 hover:not-disabled:bg-brand-soft hover:not-disabled:text-brand',
 };
 
+const ButtonSpinner = () => (
+  <span
+    aria-hidden="true"
+    className="h-4 w-4 flex-none animate-spin rounded-full border-2 border-current border-t-transparent opacity-85 motion-reduce:animate-none"
+  />
+);
+
 const Button: React.FC<ButtonProps> = ({
   variant = 'primary',
   size = 'md',
@@ -52,9 +59,18 @@ const Button: React.FC<ButtonProps> = ({
       className,
     )}
   >
-    {iconLeft}
-    {loading ? 'Carregando...' : children}
-    {iconRight}
+    {loading ? (
+      <>
+        <ButtonSpinner />
+        Carregando...
+      </>
+    ) : (
+      <>
+        {iconLeft}
+        {children}
+        {iconRight}
+      </>
+    )}
   </button>
 );
 

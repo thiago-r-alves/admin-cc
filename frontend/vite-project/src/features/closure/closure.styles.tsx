@@ -93,7 +93,7 @@ export const ActionButtons: React.FC<DivProps> = ({ className, ...props }) => (
 export const ClientActionButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = ({ className, ...props }) => (
   <button
     className={cn(
-      'box-border inline-flex min-h-[38px] max-w-full flex-none cursor-pointer items-center justify-center rounded-ui-md border border-brand-border bg-white px-[0.95rem] py-[0.6rem] text-center text-[0.76rem] font-black uppercase leading-[1.2] text-[#6b1f1f] hover:border-brand hover:bg-brand-soft hover:text-red-900 max-[640px]:w-full',
+      'box-border inline-flex min-h-[38px] max-w-full flex-none cursor-pointer items-center justify-center gap-[0.42rem] rounded-ui-md border border-brand-border bg-white px-[0.95rem] py-[0.6rem] text-center text-[0.76rem] font-black uppercase leading-[1.2] text-[#6b1f1f] transition-[background,border-color,color,opacity] duration-[180ms] hover:border-brand hover:bg-brand-soft hover:text-red-900 disabled:cursor-wait disabled:opacity-70 disabled:hover:border-brand-border disabled:hover:bg-white disabled:hover:text-[#6b1f1f] max-[640px]:w-full',
       className,
     )}
     {...props}

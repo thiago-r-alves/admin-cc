@@ -73,6 +73,7 @@ const AdminPage: React.FC = () => {
   const [confirmState, setConfirmState] = useState<ConfirmState>(null);
   const [acompanhamentoFilters, setAcompanhamentoFilters] = useState<AcompanhamentoFilters>({
     numero: '',
+    cacambaCount: '',
     clientName: '',
     cnpjCpf: '',
     contact: '',

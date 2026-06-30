@@ -4,16 +4,30 @@ import FechamentoPage from './FechamentoPage';
 
 const modalSpy = vi.fn();
 
-vi.mock('../components/ClientOrdersModal', () => ({
-  default: (props: { viewMode?: 'create_closure' | 'generated_notes'; client: { clientName: string } }) => {
-    modalSpy(props);
-    return (
-      <div data-testid="client-orders-modal-mock">
-        {props.client.clientName}::{props.viewMode}
-      </div>
-    );
-  },
-}));
+vi.mock('../components/ClientOrdersModal', async () => {
+  const React = await import('react');
+
+  return {
+    default: function MockClientOrdersModal(props: {
+      viewMode?: 'create_closure' | 'generated_notes';
+      client: { clientName: string };
+      onInitialContentReady?: () => void;
+    }) {
+      const { onInitialContentReady } = props;
+
+      React.useEffect(() => {
+        onInitialContentReady?.();
+      }, [onInitialContentReady]);
+
+      modalSpy(props);
+      return (
+        <div data-testid="client-orders-modal-mock">
+          {props.client.clientName}::{props.viewMode}
+        </div>
+      );
+    },
+  };
+});
 
 const buildJsonResponse = (body: unknown, ok = true) =>
   Promise.resolve({

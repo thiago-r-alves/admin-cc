@@ -250,6 +250,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
   viewMode = 'create_closure',
   paymentStatus = 'all',
   onClosureStateChanged,
+  onInitialContentReady,
 }) => {
   const [step, setStep] = useState<ClosureStep>('select');
   const [showHistory, setShowHistory] = useState(false);
@@ -408,6 +409,12 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
   const isInitialContentLoading =
     Boolean(isInitialOrdersLoading) ||
     (requiresInitialClosureGroups && hasLoadedInitialClosureGroups === false);
+
+  useEffect(() => {
+    if (!isInitialContentLoading) {
+      onInitialContentReady?.();
+    }
+  }, [isInitialContentLoading, onInitialContentReady]);
 
   if (isInitialContentLoading) return null;
 

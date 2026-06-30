@@ -4,6 +4,7 @@ export type CacambaAgeTone = 'low' | 'medium' | 'high' | 'unknown';
 
 export type AcompanhamentoFilters = {
   numero: string;
+  cacambaCount: string;
   clientName: string;
   cnpjCpf: string;
   contact: string;
@@ -22,9 +23,15 @@ export type AcompanhamentoItem = {
   createdAtMs: number;
   order: IOrder;
   cacamba: ICacamba;
+  activeCacambaCount: number;
 };
 
-export type AcompanhamentoSortMode = 'default' | 'clientName';
+export type AcompanhamentoSortMode =
+  | 'default'
+  | 'oldest'
+  | 'clientName'
+  | 'cacambaCountDesc'
+  | 'cacambaCountAsc';
 export type PendingWithdrawalSortMode = 'overdueDesc' | 'overdueAsc' | 'clientName';
 
 export type WithdrawalDueItem = AcompanhamentoItem & {
@@ -259,6 +266,61 @@ export const getOrderDriverId = (order: IOrder) => {
   return driver?._id ?? '';
 };
 
+const getAcompanhamentoGroupKey = (order: IOrder) =>
+  [
+    String(order.clientId || norm(order.clientName)).trim(),
+    norm(order.address).trim(),
+    norm(order.addressNumber).trim(),
+    norm(order.neighborhood).trim(),
+    norm(order.city).trim(),
+    digits(order.cep),
+  ].join('|');
+
+const compareAcompanhamentoNumeroDesc = (a: AcompanhamentoItem, b: AcompanhamentoItem) => {
+  const aNumeric = Number.isFinite(a.numeroValue);
+  const bNumeric = Number.isFinite(b.numeroValue);
+  if (aNumeric && bNumeric && a.numeroValue !== b.numeroValue) return b.numeroValue - a.numeroValue;
+  if (aNumeric !== bNumeric) return aNumeric ? -1 : 1;
+  return b.numero.localeCompare(a.numero, 'pt-BR', { numeric: true, sensitivity: 'base' });
+};
+
+const compareAcompanhamentoNumeroAsc = (a: AcompanhamentoItem, b: AcompanhamentoItem) => {
+  const aNumeric = Number.isFinite(a.numeroValue);
+  const bNumeric = Number.isFinite(b.numeroValue);
+  if (aNumeric && bNumeric && a.numeroValue !== b.numeroValue) return a.numeroValue - b.numeroValue;
+  if (aNumeric !== bNumeric) return aNumeric ? -1 : 1;
+  return a.numero.localeCompare(b.numero, 'pt-BR', { numeric: true, sensitivity: 'base' });
+};
+
+const compareAcompanhamentoByNewest = (a: AcompanhamentoItem, b: AcompanhamentoItem) => {
+  const aHasDate = a.createdAtMs > 0;
+  const bHasDate = b.createdAtMs > 0;
+  if (aHasDate !== bHasDate) return aHasDate ? -1 : 1;
+  if (a.createdAtMs !== b.createdAtMs) return b.createdAtMs - a.createdAtMs;
+  return compareAcompanhamentoNumeroDesc(a, b);
+};
+
+const compareAcompanhamentoByOldest = (a: AcompanhamentoItem, b: AcompanhamentoItem) => {
+  const aHasDate = a.createdAtMs > 0;
+  const bHasDate = b.createdAtMs > 0;
+  if (aHasDate !== bHasDate) return aHasDate ? -1 : 1;
+  if (a.createdAtMs !== b.createdAtMs) return a.createdAtMs - b.createdAtMs;
+  return compareAcompanhamentoNumeroAsc(a, b);
+};
+
+const compareAcompanhamentoByClientName = (a: AcompanhamentoItem, b: AcompanhamentoItem) => {
+  const aClientName = String(a.order.clientName || '').trim();
+  const bClientName = String(b.order.clientName || '').trim();
+
+  if (aClientName && !bClientName) return -1;
+  if (!aClientName && bClientName) return 1;
+
+  const clientNameComparison = comparePtBr(aClientName, bClientName);
+  if (clientNameComparison !== 0) return clientNameComparison;
+
+  return compareAcompanhamentoNumeroAsc(a, b);
+};
+
 export const getAcompanhamentoCacambas = (orders: IOrder[]) => {
   const latestByNumero = new Map<string, AcompanhamentoItem>();
 
@@ -276,6 +338,7 @@ export const getAcompanhamentoCacambas = (orders: IOrder[]) => {
         createdAtMs,
         order,
         cacamba,
+        activeCacambaCount: 1,
       };
 
       const current = latestByNumero.get(numeroKey);
@@ -294,17 +357,20 @@ export const getAcompanhamentoCacambas = (orders: IOrder[]) => {
     }
   }
 
-  return [...latestByNumero.values()]
-    .filter((item) => item.cacamba.tipo === 'entrega')
-    .sort((a, b) => {
-      if (a.createdAtMs !== b.createdAtMs) return b.createdAtMs - a.createdAtMs;
+  const activeItems = [...latestByNumero.values()].filter((item) => item.cacamba.tipo === 'entrega');
+  const groupCounts = new Map<string, number>();
 
-      const aNumeric = Number.isFinite(a.numeroValue);
-      const bNumeric = Number.isFinite(b.numeroValue);
-      if (aNumeric && bNumeric && a.numeroValue !== b.numeroValue) return b.numeroValue - a.numeroValue;
-      if (aNumeric !== bNumeric) return aNumeric ? -1 : 1;
-      return b.numero.localeCompare(a.numero, 'pt-BR', { numeric: true, sensitivity: 'base' });
-    });
+  for (const item of activeItems) {
+    const groupKey = getAcompanhamentoGroupKey(item.order);
+    groupCounts.set(groupKey, (groupCounts.get(groupKey) ?? 0) + 1);
+  }
+
+  return activeItems
+    .map((item) => ({
+      ...item,
+      activeCacambaCount: groupCounts.get(getAcompanhamentoGroupKey(item.order)) ?? 1,
+    }))
+    .sort(compareAcompanhamentoByNewest);
 };
 
 export const filterAcompanhamentoCacambas = (
@@ -313,6 +379,7 @@ export const filterAcompanhamentoCacambas = (
 ) => {
   const filters = {
     numero: norm(acompanhamentoFilters.numero).trim(),
+    cacambaCount: digits(acompanhamentoFilters.cacambaCount),
     clientName: norm(acompanhamentoFilters.clientName).trim(),
     cnpjCpf: norm(acompanhamentoFilters.cnpjCpf).trim(),
     contact: norm(acompanhamentoFilters.contact).trim(),
@@ -328,7 +395,10 @@ export const filterAcompanhamentoCacambas = (
 
   if (!Object.values(filters).some(Boolean)) return items;
 
-  return items.filter(({ numero, order, cacamba }) => {
+  const minCacambaCount = Number.parseInt(filters.cacambaCount, 10);
+  const hasCacambaCountFilter = Number.isFinite(minCacambaCount) && minCacambaCount > 0;
+
+  return items.filter(({ numero, order, cacamba, activeCacambaCount }) => {
     const numeroValue = norm(numero);
     const clientNameValue = norm(order.clientName);
     const cnpjCpfValue = norm(order.cnpjCpf);
@@ -344,6 +414,7 @@ export const filterAcompanhamentoCacambas = (
 
     return (
       (!filters.numero || numeroValue.includes(filters.numero)) &&
+      (!hasCacambaCountFilter || activeCacambaCount >= minCacambaCount) &&
       (!filters.clientName || clientNameValue.includes(filters.clientName)) &&
       (!filters.cnpjCpf || cnpjCpfValue.includes(filters.cnpjCpf)) &&
       (!filters.contact || contactValue.includes(filters.contact)) &&
@@ -367,22 +438,22 @@ export const sortAcompanhamentoCacambas = (
   if (mode === 'default') return items;
 
   return [...items].sort((a, b) => {
-    const aClientName = String(a.order.clientName || '').trim();
-    const bClientName = String(b.order.clientName || '').trim();
+    if (mode === 'oldest') return compareAcompanhamentoByOldest(a, b);
+    if (mode === 'clientName') return compareAcompanhamentoByClientName(a, b);
+    if (mode === 'cacambaCountDesc') {
+      if (a.activeCacambaCount !== b.activeCacambaCount) {
+        return b.activeCacambaCount - a.activeCacambaCount;
+      }
+      return compareAcompanhamentoByOldest(a, b);
+    }
+    if (mode === 'cacambaCountAsc') {
+      if (a.activeCacambaCount !== b.activeCacambaCount) {
+        return a.activeCacambaCount - b.activeCacambaCount;
+      }
+      return compareAcompanhamentoByOldest(a, b);
+    }
 
-    if (aClientName && !bClientName) return -1;
-    if (!aClientName && bClientName) return 1;
-
-    const clientNameComparison = aClientName.localeCompare(bClientName, 'pt-BR', {
-      sensitivity: 'base',
-      numeric: true,
-    });
-    if (clientNameComparison !== 0) return clientNameComparison;
-
-    return a.numero.localeCompare(b.numero, 'pt-BR', {
-      sensitivity: 'base',
-      numeric: true,
-    });
+    return compareAcompanhamentoByNewest(a, b);
   });
 };
 

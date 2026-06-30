@@ -4,19 +4,34 @@ import ClientPage from './ClientPage';
 
 const modalSpy = vi.hoisted(() => vi.fn());
 
-vi.mock('../components/ClientOrdersModal', () => ({
-  default: (props: { client: { clientName: string }; closureMode?: boolean; onClose: () => void }) => {
-    modalSpy(props);
-    return (
-      <div data-testid="client-orders-modal-mock">
-        {props.client.clientName}::{String(props.closureMode)}
-        <button type="button" onClick={props.onClose}>
-          Fechar histórico
-        </button>
-      </div>
-    );
-  },
-}));
+vi.mock('../components/ClientOrdersModal', async () => {
+  const React = await import('react');
+
+  return {
+    default: function MockClientOrdersModal(props: {
+      client: { clientName: string };
+      closureMode?: boolean;
+      onClose: () => void;
+      onInitialContentReady?: () => void;
+    }) {
+      const { onInitialContentReady } = props;
+
+      React.useEffect(() => {
+        onInitialContentReady?.();
+      }, [onInitialContentReady]);
+
+      modalSpy(props);
+      return (
+        <div data-testid="client-orders-modal-mock">
+          {props.client.clientName}::{String(props.closureMode)}
+          <button type="button" onClick={props.onClose}>
+            Fechar histórico
+          </button>
+        </div>
+      );
+    },
+  };
+});
 
 const buildJsonResponse = (body: unknown, ok = true) =>
   Promise.resolve({

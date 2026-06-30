@@ -16,6 +16,11 @@ import {
 } from '../features/closure/closure.styles';
 
 const apiUrl = import.meta.env.VITE_API_URL;
+type OrdersModalViewMode = NonNullable<ClientOrdersModalProps['viewMode']>;
+type OpeningOrdersModal = {
+  clientId: string;
+  viewMode: OrdersModalViewMode;
+} | null;
 
 const FechamentoPage: React.FC = () => {
   const [clients, setClients] = useState<IClient[]>([]);
@@ -27,7 +32,8 @@ const FechamentoPage: React.FC = () => {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [selectedClientSnapshot, setSelectedClientSnapshot] = useState<IClient | null>(null);
   const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(false);
-  const [modalViewMode, setModalViewMode] = useState<ClientOrdersModalProps['viewMode']>('create_closure');
+  const [modalViewMode, setModalViewMode] = useState<OrdersModalViewMode>('create_closure');
+  const [openingOrdersModal, setOpeningOrdersModal] = useState<OpeningOrdersModal>(null);
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
   const isOrdersModalOpenRef = useRef(false);
   const selectedClientIdRef = useRef<string | null>(null);
@@ -112,11 +118,12 @@ const FechamentoPage: React.FC = () => {
 
   const openOrdersModal = (
     client: IClient,
-    viewMode: ClientOrdersModalProps['viewMode'] = 'create_closure',
+    viewMode: OrdersModalViewMode = 'create_closure',
   ) => {
     setSelectedClientId(client._id);
     setSelectedClientSnapshot(client);
     setModalViewMode(viewMode);
+    setOpeningOrdersModal({ clientId: client._id, viewMode });
     setIsOrdersModalOpen(true);
   };
 
@@ -125,7 +132,12 @@ const FechamentoPage: React.FC = () => {
     setSelectedClientId(null);
     setSelectedClientSnapshot(null);
     setModalViewMode('create_closure');
+    setOpeningOrdersModal(null);
   };
+
+  const handleOrdersModalInitialContentReady = useCallback(() => {
+    setOpeningOrdersModal(null);
+  }, []);
 
   const modalClient = useMemo(() => {
     if (!selectedClientId) return null;
@@ -171,6 +183,7 @@ const FechamentoPage: React.FC = () => {
         clients={filteredClients}
         loading={showBlockingLoading}
         paymentStatus={paymentStatus}
+        openingAction={openingOrdersModal}
         onOpenCreateClosure={(client) => openOrdersModal(client, 'create_closure')}
         onOpenGeneratedNotes={(client) => openOrdersModal(client, 'generated_notes')}
       />
@@ -184,6 +197,7 @@ const FechamentoPage: React.FC = () => {
           paymentStatus={paymentStatus}
           closureMode
           onClosureStateChanged={handleClosureStateChanged}
+          onInitialContentReady={handleOrdersModalInitialContentReady}
           onClose={closeOrdersModal}
         />
       )}

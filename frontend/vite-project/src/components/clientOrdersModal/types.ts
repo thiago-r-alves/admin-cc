@@ -24,6 +24,7 @@ export interface ClientOrdersModalProps {
   viewMode?: 'create_closure' | 'generated_notes';
   paymentStatus?: 'all' | 'pending' | 'invoice_pending' | 'pix_pending' | 'paid' | 'metadata_pending';
   onClosureStateChanged?: () => Promise<void> | void;
+  onInitialContentReady?: () => void;
 }
 
 export interface CacambaMetaUpdates {

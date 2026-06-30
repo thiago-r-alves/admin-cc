@@ -57,8 +57,10 @@ const acompanhamentoFilterFields: Array<{
   id: string;
   label: string;
   key: keyof AcompanhamentoFilters;
+  inputMode?: 'numeric';
 }> = [
   { id: 'filtro-numero-cacamba', label: 'Nº caçamba', key: 'numero' },
+  { id: 'filtro-qtd-cacambas', label: 'Qtd. mín. caçambas', key: 'cacambaCount', inputMode: 'numeric' },
   { id: 'filtro-cliente', label: 'Cliente', key: 'clientName' },
   { id: 'filtro-cnpj', label: 'CNPJ/CPF', key: 'cnpjCpf' },
   { id: 'filtro-contato', label: 'Contato', key: 'contact' },
@@ -94,6 +96,7 @@ export const AcompanhamentoTab = ({
             <AcompanhamentoFilterInput
               id={field.id}
               type="text"
+              inputMode={field.inputMode}
               value={filters[field.key]}
               onChange={(event) =>
                 onFiltersChange((prev) => ({
@@ -111,7 +114,10 @@ export const AcompanhamentoTab = ({
             value={sortMode}
             onChange={(event) => onSortModeChange(event.target.value as AcompanhamentoSortMode)}
           >
-            <option value="default">Tempo de entrega</option>
+            <option value="default">Menos tempo na obra</option>
+            <option value="oldest">Mais tempo na obra</option>
+            <option value="cacambaCountDesc">Qtd. caçambas maior</option>
+            <option value="cacambaCountAsc">Qtd. caçambas menor</option>
             <option value="clientName">Cliente A-Z</option>
           </AcompanhamentoSortSelect>
         </AcompanhamentoFilterField>
@@ -119,7 +125,7 @@ export const AcompanhamentoTab = ({
 
       {items.length ? (
         <OrdersGrid>
-          {items.map(({ numero, cacamba, order }) => {
+          {items.map(({ numero, cacamba, order, activeCacambaCount }) => {
             const motoristaNome =
               typeof order.motorista === 'object' && order.motorista !== null
                 ? (order.motorista as { username?: string }).username
@@ -160,6 +166,10 @@ export const AcompanhamentoTab = ({
                     <InfoTile>
                       <InfoLabel>Local</InfoLabel>
                       <InfoValue>{localLabel}</InfoValue>
+                    </InfoTile>
+                    <InfoTile>
+                      <InfoLabel>Qtd. no endereço</InfoLabel>
+                      <InfoValue>{activeCacambaCount}</InfoValue>
                     </InfoTile>
                     <InfoTile>
                       <InfoLabel>Ordem de serviço</InfoLabel>

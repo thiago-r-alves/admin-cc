@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ClientList from '../components/ClientList';
 import ClientForm from '../components/ClientForm';
 import ActionConfirmModal from '../components/ActionConfirmModal';
@@ -25,6 +25,7 @@ const ClientPage: React.FC = () => {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [confirmDeleteClientId, setConfirmDeleteClientId] = useState<string | null>(null);
   const [ordersClient, setOrdersClient] = useState<IClient | null>(null);
+  const [openingOrdersClientId, setOpeningOrdersClientId] = useState<string | null>(null);
   const apiUrl = import.meta.env.VITE_API_URL;
 
   const fetchClients = async () => {
@@ -136,6 +137,20 @@ const ClientPage: React.FC = () => {
     setShowForm(true);
   };
 
+  const handleViewOrders = (client: IClient) => {
+    setOpeningOrdersClientId(client._id);
+    setOrdersClient(client);
+  };
+
+  const handleCloseOrders = () => {
+    setOrdersClient(null);
+    setOpeningOrdersClientId(null);
+  };
+
+  const handleOrdersInitialContentReady = useCallback(() => {
+    setOpeningOrdersClientId(null);
+  }, []);
+
   const filteredClients = useMemo(() => {
     if (!search.trim()) return clients;
 
@@ -199,14 +214,16 @@ const ClientPage: React.FC = () => {
           clients={filteredClients}
           onEdit={handleEditButtonClick}
           onDelete={handleDeleteClient}
-          onViewOrders={setOrdersClient}
+          onViewOrders={handleViewOrders}
+          loadingOrdersClientId={openingOrdersClientId}
         />
       )}
       {ordersClient && (
         <ClientOrdersModal
           client={ordersClient}
-          onClose={() => setOrdersClient(null)}
+          onClose={handleCloseOrders}
           closureMode={false}
+          onInitialContentReady={handleOrdersInitialContentReady}
         />
       )}
       <ActionConfirmModal

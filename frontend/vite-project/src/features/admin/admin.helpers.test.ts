@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { IOrder } from '../../interfaces';
 import {
+  type AcompanhamentoFilters,
   filterAcompanhamentoCacambas,
   formatOrderAddress,
   getAcompanhamentoCacambas,
@@ -28,6 +29,21 @@ const buildOrder = (overrides: Partial<IOrder>): IOrder => ({
   status: 'pendente',
   ...overrides,
 });
+
+const emptyAcompanhamentoFilters: AcompanhamentoFilters = {
+  numero: '',
+  cacambaCount: '',
+  clientName: '',
+  cnpjCpf: '',
+  contact: '',
+  phone: '',
+  serviceOrder: '',
+  serviceOrderDigital: '',
+  address: '',
+  neighborhood: '',
+  city: '',
+  cep: '',
+};
 
 describe('admin.helpers', () => {
   it('formata endereco do pedido com dados disponiveis', () => {
@@ -102,19 +118,62 @@ describe('admin.helpers', () => {
 
     expect(
       filterAcompanhamentoCacambas(items, {
-        numero: '',
+        ...emptyAcompanhamentoFilters,
         clientName: 'joao',
-        cnpjCpf: '',
-        contact: '',
-        phone: '',
-        serviceOrder: '',
-        serviceOrderDigital: '',
-        address: '',
-        neighborhood: '',
         city: 'sao jose',
-        cep: '',
       }),
     ).toHaveLength(1);
+  });
+
+  it('filtra acompanhamentos pela quantidade minima de cacambas no endereco', () => {
+    const orders = [
+      buildOrder({
+        _id: 'ord-grupo',
+        clientName: 'Cliente Grupo',
+        address: 'Rua A',
+        addressNumber: '10',
+        cacambas: [
+          {
+            _id: 'cac-101',
+            numero: '101',
+            tipo: 'entrega',
+            orderId: 'ord-grupo',
+            createdAt: '2026-05-01T10:00:00.000Z',
+          },
+          {
+            _id: 'cac-102',
+            numero: '102',
+            tipo: 'entrega',
+            orderId: 'ord-grupo',
+            createdAt: '2026-05-02T10:00:00.000Z',
+          },
+        ],
+      }),
+      buildOrder({
+        _id: 'ord-solo',
+        clientName: 'Cliente Solo',
+        address: 'Rua B',
+        addressNumber: '20',
+        cacambas: [
+          {
+            _id: 'cac-201',
+            numero: '201',
+            tipo: 'entrega',
+            orderId: 'ord-solo',
+            createdAt: '2026-05-03T10:00:00.000Z',
+          },
+        ],
+      }),
+    ];
+    const items = getAcompanhamentoCacambas(orders);
+
+    expect(items.find((item) => item.numero === '101')?.activeCacambaCount).toBe(2);
+    expect(
+      filterAcompanhamentoCacambas(items, {
+        ...emptyAcompanhamentoFilters,
+        cacambaCount: '2',
+      }).map((item) => item.numero),
+    ).toEqual(['102', '101']);
   });
 
   it('ordena acompanhamentos por cliente em ordem alfabetica quando solicitado', () => {
@@ -150,6 +209,54 @@ describe('admin.helpers', () => {
 
     expect(items.map((item) => item.numero)).toEqual(['201', '101']);
     expect(sortAcompanhamentoCacambas(items, 'clientName').map((item) => item.numero)).toEqual(['101', '201']);
+  });
+
+  it('ordena acompanhamentos por mais tempo e por quantidade de cacambas', () => {
+    const orders = [
+      buildOrder({
+        _id: 'ord-grupo',
+        clientName: 'Cliente Grupo',
+        address: 'Rua A',
+        addressNumber: '10',
+        cacambas: [
+          {
+            _id: 'cac-101',
+            numero: '101',
+            tipo: 'entrega',
+            orderId: 'ord-grupo',
+            createdAt: '2026-05-01T10:00:00.000Z',
+          },
+          {
+            _id: 'cac-102',
+            numero: '102',
+            tipo: 'entrega',
+            orderId: 'ord-grupo',
+            createdAt: '2026-05-02T10:00:00.000Z',
+          },
+        ],
+      }),
+      buildOrder({
+        _id: 'ord-solo',
+        clientName: 'Cliente Solo',
+        address: 'Rua B',
+        addressNumber: '20',
+        cacambas: [
+          {
+            _id: 'cac-301',
+            numero: '301',
+            tipo: 'entrega',
+            orderId: 'ord-solo',
+            createdAt: '2026-05-03T10:00:00.000Z',
+          },
+        ],
+      }),
+    ];
+    const items = getAcompanhamentoCacambas(orders);
+
+    expect(items.map((item) => item.numero)).toEqual(['301', '102', '101']);
+    expect(sortAcompanhamentoCacambas(items, 'oldest').map((item) => item.numero)).toEqual(['101', '102', '301']);
+    expect(sortAcompanhamentoCacambas(items, 'cacambaCountDesc').map((item) => item.numero)).toEqual(['101', '102', '301']);
+    expect(sortAcompanhamentoCacambas(items, 'cacambaCountAsc').map((item) => item.numero)).toEqual(['301', '101', '102']);
   });
 
   it('desempata a ordenacao alfabetica de acompanhamentos pelo numero da cacamba', () => {
