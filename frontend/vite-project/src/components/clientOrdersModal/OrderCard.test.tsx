@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { IOrder } from '../../interfaces';
 import OrderCard from './OrderCard';
@@ -67,5 +67,28 @@ describe('OrderCard', () => {
 
     expect(screen.getByText(/Motorista Pedido/)).toBeInTheDocument();
     expect(screen.getByText(/PED1A23/)).toBeInTheDocument();
+  });
+
+  it('abre edicao da caçamba com o tipo do pedido no fechamento', () => {
+    const onEditCacamba = vi.fn();
+    render(
+      <OrderCard
+        order={baseOrder}
+        closureMode
+        selectedCacambaIds={[]}
+        onToggleSelect={vi.fn()}
+        onImageClick={vi.fn()}
+        onEditPrice={vi.fn()}
+        onEditContentType={vi.fn()}
+        onEditCacamba={onEditCacamba}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar caçamba' }));
+
+    expect(onEditCacamba).toHaveBeenCalledWith({
+      cacamba: expect.objectContaining({ _id: 'cac-1' }),
+      orderType: 'retirada',
+    });
   });
 });

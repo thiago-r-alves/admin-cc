@@ -187,7 +187,7 @@ describe('FechamentoPage', () => {
             clientName: 'Cliente Pendencia',
             hasPendingClosureItems: true,
             hasPendingClosureMetadata: true,
-            hasGeneratedClosureGroups: false,
+            hasGeneratedClosureGroups: true,
           },
         ]);
       }
@@ -211,6 +211,41 @@ describe('FechamentoPage', () => {
       ),
     );
     expect(screen.queryByRole('button', { name: 'Gerar fechamento do cliente' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ver notas geradas' })).not.toBeInTheDocument();
+  });
+
+  it('no filtro de pagas mostra apenas consulta de notas geradas', async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/clients?')) {
+        return buildJsonResponse([
+          {
+            _id: 'cli-1',
+            clientName: 'Cliente Pago',
+            hasPendingClosureItems: true,
+            hasGeneratedClosureGroups: true,
+          },
+        ]);
+      }
+      return buildJsonResponse([]);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<FechamentoPage />);
+
+    fireEvent.change(screen.getByLabelText('Pagamento'), {
+      target: { value: 'paid' },
+    });
+
+    expect(await screen.findByText('Cliente Pago')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Gerar fechamento do cliente' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Ver notas geradas' }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('client-orders-modal-mock')).toHaveTextContent(
+        'Cliente Pago::generated_notes',
+      ),
+    );
   });
   it('mantém o modal aberto sem loading bloqueante durante refetch da página', async () => {
     let clientsRequestCount = 0;

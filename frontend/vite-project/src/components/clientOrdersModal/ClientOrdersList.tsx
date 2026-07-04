@@ -1,5 +1,5 @@
 import React from 'react';
-import type { ICacamba, IOrder } from '../../interfaces';
+import type { ICacamba, IOrder, OrderType } from '../../interfaces';
 import { cn } from '../../utils/cn';
 import OrderCard from './OrderCard';
 
@@ -12,6 +12,7 @@ interface ClientOrdersListProps {
   onImageClick: (url: string) => void;
   onEditPrice: (cacamba: ICacamba) => void;
   onEditContentType: (cacamba: ICacamba) => void;
+  onEditCacamba?: (payload: { cacamba: ICacamba; orderType: OrderType }) => void;
   compact?: boolean;
 }
 
@@ -24,6 +25,7 @@ const ClientOrdersList: React.FC<ClientOrdersListProps> = ({
   onImageClick,
   onEditPrice,
   onEditContentType,
+  onEditCacamba,
   compact = false,
 }) => (
   <div className={cn('min-h-0 flex-auto overflow-y-auto', compact ? 'px-0 pb-0 pt-0' : 'px-5 pb-5 pt-4')}>
@@ -38,6 +40,7 @@ const ClientOrdersList: React.FC<ClientOrdersListProps> = ({
           onImageClick={onImageClick}
           onEditPrice={onEditPrice}
           onEditContentType={onEditContentType}
+          onEditCacamba={onEditCacamba}
           compact={compact}
         />
       ))

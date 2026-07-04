@@ -1,5 +1,5 @@
 import React from 'react';
-import type { ICacamba, IOrder } from '../../interfaces';
+import type { ICacamba, IOrder, OrderType } from '../../interfaces';
 import { cn } from '../../utils/cn';
 import CacambaList from '../CacambaList';
 
@@ -21,6 +21,7 @@ interface OrderCardProps {
   onImageClick: (url: string) => void;
   onEditPrice: (cacamba: ICacamba) => void;
   onEditContentType: (cacamba: ICacamba) => void;
+  onEditCacamba?: (payload: { cacamba: ICacamba; orderType: OrderType }) => void;
   compact?: boolean;
 }
 
@@ -32,6 +33,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
   onImageClick,
   onEditPrice,
   onEditContentType,
+  onEditCacamba,
   compact = false,
 }) => {
   const responsibility = {
@@ -57,6 +59,8 @@ const OrderCard: React.FC<OrderCardProps> = ({
             selectable={closureMode}
             canEditPrice={closureMode}
             adminMetaActions={closureMode}
+            onEdit={onEditCacamba ? (cacamba) => onEditCacamba({ cacamba, orderType: order.type }) : undefined}
+            editLabel="Editar caçamba"
             onEditPrice={onEditPrice}
             onEditContentType={onEditContentType}
             selectedCacambaIds={selectedCacambaIds}

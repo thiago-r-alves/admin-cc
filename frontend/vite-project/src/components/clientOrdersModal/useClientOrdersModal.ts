@@ -333,6 +333,47 @@ export const useClientOrdersModal = ({
     );
   };
 
+  const handleUpdateCacambaFull = async (
+    cacambaId: string,
+    updates: Partial<ICacamba> & { image?: File | null },
+  ) => {
+    const formData = new FormData();
+    Object.entries(updates).forEach(([key, value]) => {
+      if (key === 'image' || value === undefined || value === null) return;
+      formData.append(key, String(value));
+    });
+    if (updates.image) {
+      formData.append('image', updates.image);
+    }
+
+    const response = await fetch(`${apiUrl}/cacambas/${cacambaId}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: formData,
+    });
+    const data = await response.json().catch(() => ({} as Record<string, unknown>));
+    if (!response.ok) {
+      throw new Error((data as { message?: string }).message || 'Erro ao corrigir caçamba.');
+    }
+
+    const updated = (data as { cacamba?: ICacamba }).cacamba;
+    if (!updated?._id) {
+      throw new Error('Resposta inválida ao corrigir caçamba.');
+    }
+
+    setEligibleOrders((prev) => replaceCacambaInOrders(prev, updated));
+    setCurrentClosureGroup((prev) => replaceCacambaInGroup(prev, updated));
+    setExistingClosureGroups((prev) =>
+      prev.map((group) =>
+        group.cacambaIds?.some((cacamba) => cacamba._id === updated._id)
+          ? (replaceCacambaInGroup(group, updated) as IClosureGroup)
+          : group,
+      ),
+    );
+  };
+
   const handleDownload = async () => {
     const payloadOrders = closureMode ? selectedOrders : eligibleOrders;
     if (payloadOrders.length === 0) return null;
@@ -678,6 +719,7 @@ export const useClientOrdersModal = ({
     fetchExistingClosureGroups,
     toggleSelectCacamba,
     handleUpdateCacambaMeta,
+    handleUpdateCacambaFull,
     handleDownload,
     downloadExistingClosureGroup,
     shareClosureGroupOnWhatsApp,

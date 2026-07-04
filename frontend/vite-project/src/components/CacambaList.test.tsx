@@ -116,6 +116,25 @@ describe('CacambaList', () => {
     expect(onEdit).toHaveBeenCalledWith(baseCacamba);
   });
 
+  it('exibe acao de edicao em lista selecionavel de fechamento', () => {
+    const onEdit = vi.fn();
+    render(
+      <CacambaList
+        cacambas={[{ ...baseCacamba, paymentStatus: 'pendente', price: 180 }]}
+        showTitle={false}
+        selectable
+        selectedCacambaIds={[]}
+        onToggleSelect={vi.fn()}
+        onEdit={onEdit}
+        editLabel="Editar caçamba"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar caçamba' }));
+
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ _id: 'cac-1' }));
+  });
+
   it('exibe acao para voltar caçamba para pendente quando callback é informado', () => {
     const onReturnToPending = vi.fn();
     const paidCacamba: ICacamba = {
@@ -134,6 +153,32 @@ describe('CacambaList', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Voltar para pendente' }));
 
+    expect(onReturnToPending).toHaveBeenCalledWith(paidCacamba);
+  });
+
+  it('exibe edicao junto da acao de voltar para pendente em grupos de fechamento', () => {
+    const onEdit = vi.fn();
+    const onReturnToPending = vi.fn();
+    const paidCacamba: ICacamba = {
+      ...baseCacamba,
+      tipo: 'retirada',
+      paymentStatus: 'paga',
+    };
+
+    render(
+      <CacambaList
+        cacambas={[paidCacamba]}
+        showTitle={false}
+        onEdit={onEdit}
+        editLabel="Editar caçamba"
+        onReturnToPending={onReturnToPending}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar caçamba' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar para pendente' }));
+
+    expect(onEdit).toHaveBeenCalledWith(paidCacamba);
     expect(onReturnToPending).toHaveBeenCalledWith(paidCacamba);
   });
 

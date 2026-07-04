@@ -41,6 +41,14 @@ const ActionContent = ({ loading, children }: { loading: boolean; children: Reac
   </>
 );
 
+const generatedOnlyPaymentStatuses: ClosurePaymentStatus[] = ['invoice_pending', 'pix_pending', 'paid'];
+const generatedNotesPaymentStatuses: ClosurePaymentStatus[] = [
+  'all',
+  'invoice_pending',
+  'pix_pending',
+  'paid',
+];
+
 export const ClosureClientList = ({
   clients,
   loading,
@@ -69,6 +77,13 @@ export const ClosureClientList = ({
         const isGeneratedNotesOpening =
           openingAction?.clientId === client._id && openingAction.viewMode === 'generated_notes';
         const isAnyActionOpening = Boolean(openingAction);
+        const canCreateClosure =
+          !generatedOnlyPaymentStatuses.includes(paymentStatus) &&
+          (paymentStatus === 'metadata_pending'
+            ? client.hasPendingClosureMetadata
+            : client.hasPendingClosureItems);
+        const canViewGeneratedNotes =
+          generatedNotesPaymentStatuses.includes(paymentStatus) && client.hasGeneratedClosureGroups;
 
         return (
           <ClientRow key={client._id} data-testid={`closure-client-row-${client._id}`}>
@@ -76,9 +91,7 @@ export const ClosureClientList = ({
               <ClientName>{client.clientName}</ClientName>
             </ClientInfo>
             <ActionButtons>
-              {(paymentStatus === 'metadata_pending'
-                ? client.hasPendingClosureMetadata
-                : client.hasPendingClosureItems) && (
+              {canCreateClosure && (
                 <ClientActionButton
                   type="button"
                   disabled={isAnyActionOpening}
@@ -90,7 +103,7 @@ export const ClosureClientList = ({
                   </ActionContent>
                 </ClientActionButton>
               )}
-              {client.hasGeneratedClosureGroups && (
+              {canViewGeneratedNotes && (
                 <ClientActionButton
                   type="button"
                   disabled={isAnyActionOpening}

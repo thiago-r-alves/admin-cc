@@ -16,12 +16,13 @@ import type {
 } from './clientOrdersModal/types';
 import CacambaList from './CacambaList';
 import ToastPopup from './ToastPopup';
-import type { ICacamba, IClosureGroup } from '../interfaces';
+import type { ICacamba, IClosureGroup, OrderType } from '../interfaces';
 import { cn } from '../utils/cn';
 import { twComponent } from '../utils/twComponent';
 import { normalizeBrazilianWhatsAppNumber, normalizeEmailAddress } from '../utils/whatsapp';
 
 const ModalOverlay = twComponent('div', 'fixed inset-0 z-[1100] flex items-center justify-center bg-gray-900/70 p-4 max-md:p-0');
+const EditCacambaModal = React.lazy(() => import('./EditCacambaModal'));
 
 const ModalContent = twComponent(
   'div',
@@ -274,6 +275,10 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     group: IClosureGroup;
     cacamba: ICacamba;
   } | null>(null);
+  const [editingCacamba, setEditingCacamba] = useState<{
+    cacamba: ICacamba;
+    orderType: OrderType;
+  } | null>(null);
   const [isReturningCacamba, setIsReturningCacamba] = useState(false);
   const shouldCloseOnMouseUpRef = useRef(false);
   const isHistoryMode = !closureMode;
@@ -323,6 +328,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     fetchExistingClosureGroups,
     toggleSelectCacamba,
     handleUpdateCacambaMeta,
+    handleUpdateCacambaFull,
     handleDownload,
     downloadExistingClosureGroup,
     shareClosureGroupOnWhatsApp,
@@ -678,6 +684,8 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
           cacambas={group.cacambaIds || []}
           onImageClick={setModalImage}
           showTitle={false}
+          onEdit={(cacamba) => setEditingCacamba({ cacamba, orderType: cacamba.tipo })}
+          editLabel="Editar caçamba"
           onReturnToPending={(cacamba) => setPendingReturn({ group, cacamba })}
           showDeliveryDateForRetirada
         />
@@ -831,6 +839,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
                   onEditContentType={(cacamba) =>
                     setCacambaMetaModal({ mode: 'contentType', cacamba })
                   }
+                  onEditCacamba={setEditingCacamba}
                   compact
                 />
               </ClosureMain>
@@ -961,6 +970,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
                     onEditContentType={(cacamba) =>
                       setCacambaMetaModal({ mode: 'contentType', cacamba })
                     }
+                    onEditCacamba={setEditingCacamba}
                   />
                 ) : step === 'paid' || showHistory ? (
                   <GroupsLayout>
@@ -1009,6 +1019,17 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
             }}
           />
         )}
+
+        <React.Suspense fallback={null}>
+          {editingCacamba && (
+            <EditCacambaModal
+              cacamba={editingCacamba.cacamba}
+              orderType={editingCacamba.orderType}
+              onClose={() => setEditingCacamba(null)}
+              onUpdate={(updates) => handleUpdateCacambaFull(editingCacamba.cacamba._id, updates)}
+            />
+          )}
+        </React.Suspense>
 
         <ActionConfirmModal
           open={Boolean(pendingReturn)}

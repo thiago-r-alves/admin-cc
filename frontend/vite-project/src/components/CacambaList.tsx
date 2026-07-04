@@ -345,7 +345,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
                   Selecionar para pagamento
                 </SelectionLabel>
               )}
-              {!selectable && onEdit && (
+              {onEdit && (
                 <ActionButton $variant="secondary" onClick={() => onEdit(cacamba)}>
                   {editLabel}
                 </ActionButton>

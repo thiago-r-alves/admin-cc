@@ -276,6 +276,138 @@ describe('useClientOrdersModal', () => {
     );
   });
 
+  it('atualiza caçamba editada no grupo atual e na lista de grupos', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            _id: 'ord-1',
+            orderNumber: 4001,
+            clientId: 'cli-1',
+            clientName: 'Cliente Teste',
+            contactName: '',
+            contactNumber: '',
+            neighborhood: '',
+            address: '',
+            addressNumber: '',
+            type: 'retirada',
+            priority: 0,
+            status: 'concluido',
+            cacambas: [
+              {
+                _id: 'cac-1',
+                numero: '101',
+                tipo: 'retirada',
+                paymentStatus: 'pendente',
+                contentType: 'Entulho limpo',
+                price: 120,
+                local: 'via_publica',
+                horaServicoDigitos: '123',
+                orderId: 'ord-1',
+                createdAt: '2026-05-10T10:00:00.000Z',
+              },
+            ],
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          closureGroup: {
+            _id: 'grp-1',
+            clientId: 'cli-1',
+            clientSequenceNumber: 1,
+            status: 'nota_fiscal_pendente',
+            invoiceNumber: '',
+            startDate: '2026-05-01T00:00:00.000Z',
+            endDate: '2026-05-31T23:59:59.999Z',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          cacamba: {
+            _id: 'cac-1',
+            numero: '202',
+            tipo: 'retirada',
+            paymentStatus: 'nota_fiscal_pendente',
+            contentType: 'Terra',
+            price: 120,
+            local: 'canteiro_obra',
+            horaServicoDigitos: '456',
+            orderId: 'ord-1',
+            createdAt: '2026-05-10T10:00:00.000Z',
+          },
+        }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() =>
+      useClientOrdersModal({
+        client,
+        startDate: '2026-05-01',
+        endDate: '2026-05-31',
+        closureMode: true,
+      }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      result.current.toggleSelectCacamba(
+        {
+          _id: 'cac-1',
+          numero: '101',
+          tipo: 'retirada',
+          paymentStatus: 'pendente',
+          contentType: 'Entulho limpo',
+          price: 120,
+          local: 'via_publica',
+          horaServicoDigitos: '123',
+          orderId: 'ord-1',
+          createdAt: '2026-05-10T10:00:00.000Z',
+        },
+        true,
+      );
+    });
+
+    await act(async () => {
+      await result.current.handleDownload();
+    });
+
+    await act(async () => {
+      await result.current.handleUpdateCacambaFull('cac-1', {
+        numero: '202',
+        tipo: 'retirada',
+        local: 'canteiro_obra',
+        horaServicoDigitos: '456',
+        contentType: 'Terra',
+      });
+    });
+
+    expect(result.current.currentClosureGroup?.cacambaIds[0]).toMatchObject({
+      _id: 'cac-1',
+      numero: '202',
+      local: 'canteiro_obra',
+      horaServicoDigitos: '456',
+      contentType: 'Terra',
+    });
+    expect(result.current.closureGroups[0]?.cacambaIds[0]).toMatchObject({
+      _id: 'cac-1',
+      numero: '202',
+      local: 'canteiro_obra',
+      horaServicoDigitos: '456',
+      contentType: 'Terra',
+    });
+  });
+
   it('permite reimprimir grupo pago e editar NF sem alterar o status local', async () => {
     const fetchMock = vi
       .fn()
@@ -582,6 +714,94 @@ describe('useClientOrdersModal', () => {
       price: 180,
     });
   });
+
+  it('atualiza dados completos da caçamba com FormData e preserva estado local', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            _id: 'ord-1',
+            orderNumber: 4001,
+            clientId: 'cli-1',
+            clientName: 'Cliente Teste',
+            contactName: '',
+            contactNumber: '',
+            neighborhood: '',
+            address: '',
+            addressNumber: '',
+            type: 'retirada',
+            priority: 0,
+            status: 'concluido',
+            cacambas: [
+              {
+                _id: 'cac-1',
+                numero: '101',
+                tipo: 'retirada',
+                paymentStatus: 'pendente',
+                contentType: 'Entulho limpo',
+                price: 180,
+                local: 'via_publica',
+                horaServicoDigitos: '123',
+                orderId: 'ord-1',
+                createdAt: '2026-05-10T10:00:00.000Z',
+              },
+            ],
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          cacamba: {
+            _id: 'cac-1',
+            numero: '202',
+            tipo: 'retirada',
+            paymentStatus: 'pendente',
+            contentType: 'Terra',
+            price: 180,
+            local: 'canteiro_obra',
+            horaServicoDigitos: '456',
+            orderId: 'ord-1',
+            createdAt: '2026-05-10T10:00:00.000Z',
+          },
+        }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() =>
+      useClientOrdersModal({
+        client,
+        closureMode: true,
+      }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await result.current.handleUpdateCacambaFull('cac-1', {
+        numero: '202',
+        tipo: 'retirada',
+        local: 'canteiro_obra',
+        horaServicoDigitos: '456',
+        contentType: 'Terra',
+      });
+    });
+
+    const [, patchOptions] = fetchMock.mock.calls[1];
+    expect(patchOptions.body).toBeInstanceOf(FormData);
+    expect((patchOptions.body as FormData).get('numero')).toBe('202');
+    expect((patchOptions.headers as Record<string, string>)['Content-Type']).toBeUndefined();
+    expect(result.current.orders[0]?.cacambas?.[0]).toMatchObject({
+      _id: 'cac-1',
+      numero: '202',
+      local: 'canteiro_obra',
+      horaServicoDigitos: '456',
+      contentType: 'Terra',
+    });
+  });
+
   it('usa paymentStatus metadata_pending no modal de informações pendentes', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,

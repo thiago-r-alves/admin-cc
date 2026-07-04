@@ -73,4 +73,48 @@ describe('EditCacambaModal', () => {
     );
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('salva valor da caçamba quando informado', async () => {
+    const onClose = vi.fn();
+    const onUpdate = vi.fn().mockResolvedValue(undefined);
+    render(
+      <EditCacambaModal
+        cacamba={{ ...baseCacamba, contentType: 'Entulho limpo', price: 120 }}
+        onClose={onClose}
+        onUpdate={onUpdate}
+      />,
+    );
+
+    const priceInput = screen.getByLabelText('Valor da caçamba (R$)');
+    expect(priceInput).toHaveValue(120);
+    fireEvent.change(priceInput, { target: { value: '180.50' } });
+    submitForm();
+
+    await waitFor(() => expect(onUpdate).toHaveBeenCalled());
+    expect(onUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        price: 180.5,
+      }),
+    );
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('valida valor invalido da caçamba', async () => {
+    const onUpdate = vi.fn();
+    render(
+      <EditCacambaModal
+        cacamba={{ ...baseCacamba, contentType: 'Entulho limpo' }}
+        onClose={vi.fn()}
+        onUpdate={onUpdate}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Valor da caçamba (R$)'), {
+      target: { value: '-1' },
+    });
+    submitForm();
+
+    expect(await screen.findByText('Informe um valor válido para a caçamba.')).toBeInTheDocument();
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
 });

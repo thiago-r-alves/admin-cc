@@ -41,6 +41,7 @@ const returnCacambaToPendingMock = vi.fn(async () => undefined);
 const shareClosureGroupOnWhatsAppMock = vi.fn(async () => undefined);
 const shareClosureGroupByEmailMock = vi.fn(async () => undefined);
 const markPixGroupPaidMock = vi.fn(async () => undefined);
+const handleUpdateCacambaFullMock = vi.fn(async () => undefined);
 const setInvoiceNumberMock = vi.fn();
 const setIsEditingInvoiceMock = vi.fn();
 const hookOverrides: { current: Record<string, unknown> } = { current: {} };
@@ -176,6 +177,7 @@ vi.mock('./useClientOrdersModal', () => ({
     fetchExistingClosureGroups: vi.fn(async () => undefined),
     toggleSelectCacamba: vi.fn(),
     handleUpdateCacambaMeta: vi.fn(async () => undefined),
+    handleUpdateCacambaFull: handleUpdateCacambaFullMock,
     handleDownload: handleDownloadMock,
     downloadExistingClosureGroup: downloadExistingClosureGroupMock,
     shareClosureGroupOnWhatsApp: shareClosureGroupOnWhatsAppMock,
@@ -340,6 +342,37 @@ describe('ClientOrdersModal (closure flow)', () => {
     await waitFor(() =>
       expect(returnCacambaToPendingMock).toHaveBeenCalledWith('grp-1', 'cac-1'),
     );
+  });
+
+  it('permite editar caçamba em grupo pago sem sair da etapa atual', async () => {
+    render(
+      <ClientOrdersModal
+        client={{ _id: 'client-1', clientName: 'Cliente Teste' }}
+        onClose={vi.fn()}
+        closureMode
+        paymentStatus="paid"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar caçamba' }));
+    expect(await screen.findByText('Editar Caçamba #101')).toBeInTheDocument();
+
+    fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: '202' } });
+    fireEvent.change(screen.getAllByRole('textbox')[1], { target: { value: '456' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar Alterações' }));
+
+    await waitFor(() =>
+      expect(handleUpdateCacambaFullMock).toHaveBeenCalledWith(
+        'cac-1',
+        expect.objectContaining({
+          numero: '202',
+          horaServicoDigitos: '456',
+          tipo: 'retirada',
+          contentType: 'Entulho limpo',
+        }),
+      ),
+    );
+    expect(screen.getByTestId('closure-groups-list')).toBeInTheDocument();
   });
 
   it('avança para a etapa de NF no mesmo modal após gerar o fechamento', async () => {
