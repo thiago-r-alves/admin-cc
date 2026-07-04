@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ICacamba, IClosureGroup, IOrder } from '../../interfaces';
 import { buildClientOrdersPdf, downloadClientOrdersPdf } from '../../utils/clientOrdersPdf';
+import { downloadClosureReceiptPdf } from '../../utils/receiptPdf';
 import {
   buildClosureShareMessage,
   buildEmailUrl,
@@ -466,6 +467,14 @@ export const useClientOrdersModal = ({
     });
   };
 
+  const downloadClosureReceipt = async (group: IClosureGroup, recipientName: string) => {
+    await downloadClosureReceiptPdf({
+      client,
+      group,
+      recipientName,
+    });
+  };
+
   const downloadGroupPdfBlob = async (group: IClosureGroup, totalAmount: number) => {
     const { filename, blob } = await buildClientOrdersPdf(
       {
@@ -722,6 +731,7 @@ export const useClientOrdersModal = ({
     handleUpdateCacambaFull,
     handleDownload,
     downloadExistingClosureGroup,
+    downloadClosureReceipt,
     shareClosureGroupOnWhatsApp,
     shareClosureGroupByEmail,
     saveInvoiceForGroup,

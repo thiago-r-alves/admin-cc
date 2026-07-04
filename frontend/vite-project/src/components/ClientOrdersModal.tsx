@@ -118,6 +118,21 @@ const SaveInvoiceButton = twComponent(
   'min-h-10 cursor-pointer rounded-md border border-[#e30613] bg-[#e30613] px-[0.8rem] font-extrabold text-white',
 );
 
+const ReceiptOverlay = twComponent(
+  'div',
+  'fixed inset-0 z-[1200] flex items-center justify-center bg-gray-900/60 p-4',
+);
+
+const ReceiptDialog = twComponent(
+  'form',
+  'flex w-[min(460px,92vw)] flex-col gap-4 rounded-lg border border-red-100 bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.28)]',
+);
+
+const ReceiptInput = twComponent(
+  'input',
+  'box-border min-h-11 w-full rounded-md border border-red-200 px-[0.75rem] py-2 text-[0.92rem] text-gray-900 focus:border-brand focus:outline-none focus:ring-3 focus:ring-brand-focus',
+);
+
 const HighlightButton = twComponent(
   'button',
   'min-h-10 cursor-pointer rounded-lg border border-[#e30613] bg-[#e30613] px-[0.9rem] py-[0.55rem] text-[0.78rem] font-black text-white hover:border-red-700 hover:bg-red-700',
@@ -275,6 +290,9 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     group: IClosureGroup;
     cacamba: ICacamba;
   } | null>(null);
+  const [receiptGroup, setReceiptGroup] = useState<IClosureGroup | null>(null);
+  const [receiptRecipientName, setReceiptRecipientName] = useState('');
+  const [isDownloadingReceipt, setIsDownloadingReceipt] = useState(false);
   const [editingCacamba, setEditingCacamba] = useState<{
     cacamba: ICacamba;
     orderType: OrderType;
@@ -331,6 +349,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     handleUpdateCacambaFull,
     handleDownload,
     downloadExistingClosureGroup,
+    downloadClosureReceipt,
     shareClosureGroupOnWhatsApp,
     shareClosureGroupByEmail,
     saveInvoiceForGroup,
@@ -517,6 +536,28 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     }
   };
 
+  const handleConfirmReceiptDownload = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const recipientName = receiptRecipientName.trim();
+    if (!receiptGroup || !recipientName) return;
+
+    try {
+      setIsDownloadingReceipt(true);
+      setInvoiceFeedback(null);
+      await downloadClosureReceipt(receiptGroup, recipientName);
+      setReceiptGroup(null);
+      setReceiptRecipientName('');
+      setToastFeedback({ tone: 'success', message: 'Recibo baixado com sucesso.' });
+    } catch (error) {
+      setInvoiceFeedback({
+        tone: 'error',
+        message: error instanceof Error ? error.message : 'Não foi possível baixar o recibo.',
+      });
+    } finally {
+      setIsDownloadingReceipt(false);
+    }
+  };
+
   const handleShareOnWhatsApp = async (group: IClosureGroup) => {
     try {
       setInvoiceFeedback(null);
@@ -621,6 +662,18 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
           >
             Baixar nota
           </HighlightButton>
+          {group.status === 'paga' && (
+            <SecondaryButton
+              type="button"
+              data-testid="closure-group-receipt-download"
+              onClick={() => {
+                setReceiptGroup(group);
+                setReceiptRecipientName('');
+              }}
+            >
+              Baixar recibo
+            </SecondaryButton>
+          )}
           {canShareOnWhatsApp && (
             <SecondaryButton
               type="button"
@@ -1030,6 +1083,56 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
             />
           )}
         </React.Suspense>
+
+        {receiptGroup && (
+          <ReceiptOverlay
+            data-testid="closure-receipt-modal"
+            onMouseDown={(event) => event.stopPropagation()}
+            onMouseUp={(event) => event.stopPropagation()}
+          >
+            <ReceiptDialog
+              onSubmit={handleConfirmReceiptDownload}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div>
+                <h3 className="m-0 text-[1rem] font-black text-gray-900">Baixar recibo</h3>
+                <p className="mb-0 mt-1 text-[0.86rem] font-semibold text-gray-600">
+                  Informe o nome completo de quem vai receber o recibo.
+                </p>
+              </div>
+              <label className="grid gap-2 text-[0.72rem] font-black uppercase text-gray-600">
+                Nome completo
+                <ReceiptInput
+                  autoFocus
+                  value={receiptRecipientName}
+                  onChange={(event) => setReceiptRecipientName(event.target.value)}
+                  placeholder="Nome completo"
+                  data-testid="closure-receipt-recipient-input"
+                />
+              </label>
+              <ActionButtonsRow className="justify-end">
+                <SecondaryButton
+                  type="button"
+                  onClick={() => {
+                    if (isDownloadingReceipt) return;
+                    setReceiptGroup(null);
+                    setReceiptRecipientName('');
+                  }}
+                >
+                  Cancelar
+                </SecondaryButton>
+                <HighlightButton
+                  type="submit"
+                  data-testid="closure-receipt-confirm"
+                  disabled={!receiptRecipientName.trim() || isDownloadingReceipt}
+                  className="disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isDownloadingReceipt ? 'Baixando...' : 'Baixar recibo'}
+                </HighlightButton>
+              </ActionButtonsRow>
+            </ReceiptDialog>
+          </ReceiptOverlay>
+        )}
 
         <ActionConfirmModal
           open={Boolean(pendingReturn)}

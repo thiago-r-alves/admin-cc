@@ -36,6 +36,7 @@ const handleDownloadMock = vi.fn(async () => ({
 }));
 
 const downloadExistingClosureGroupMock = vi.fn(async () => undefined);
+const downloadClosureReceiptMock = vi.fn(async () => undefined);
 const saveInvoiceForGroupMock = vi.fn(async () => undefined);
 const returnCacambaToPendingMock = vi.fn(async () => undefined);
 const shareClosureGroupOnWhatsAppMock = vi.fn(async () => undefined);
@@ -180,6 +181,7 @@ vi.mock('./useClientOrdersModal', () => ({
     handleUpdateCacambaFull: handleUpdateCacambaFullMock,
     handleDownload: handleDownloadMock,
     downloadExistingClosureGroup: downloadExistingClosureGroupMock,
+    downloadClosureReceipt: downloadClosureReceiptMock,
     shareClosureGroupOnWhatsApp: shareClosureGroupOnWhatsAppMock,
     shareClosureGroupByEmail: shareClosureGroupByEmailMock,
     saveInvoiceForGroup: saveInvoiceForGroupMock,
@@ -210,6 +212,7 @@ describe('ClientOrdersModal (closure flow)', () => {
     expect(screen.getByText('Detalhes da nota fiscal')).toBeInTheDocument();
     expect(screen.getByTestId('closure-groups-list')).toBeInTheDocument();
     expect(screen.getByTestId('closure-group-download')).toBeInTheDocument();
+    expect(screen.getByTestId('closure-group-receipt-download')).toBeInTheDocument();
     expect(screen.getByTestId('closure-group-edit-invoice')).toBeInTheDocument();
     expect(screen.queryByTestId('closure-group-save-invoice')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /ver grupos anteriores/i })).not.toBeInTheDocument();
@@ -224,6 +227,36 @@ describe('ClientOrdersModal (closure flow)', () => {
     fireEvent.click(screen.getByTestId('closure-group-edit-invoice'));
     expect(setInvoiceNumberMock).toHaveBeenCalledWith('NF-0001');
     expect(setIsEditingInvoiceMock).toHaveBeenCalledWith(true);
+  });
+
+  it('abre modal de recibo, exige nome e confirma download do grupo pago', async () => {
+    render(
+      <ClientOrdersModal
+        client={{ _id: 'client-1', clientName: 'Cliente Teste' }}
+        onClose={vi.fn()}
+        closureMode
+        paymentStatus="paid"
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('closure-group-receipt-download'));
+
+    expect(screen.getByTestId('closure-receipt-modal')).toBeInTheDocument();
+    expect(screen.getByTestId('closure-receipt-confirm')).toBeDisabled();
+
+    fireEvent.change(screen.getByTestId('closure-receipt-recipient-input'), {
+      target: { value: 'Maria Cliente Completo' },
+    });
+    expect(screen.getByTestId('closure-receipt-confirm')).not.toBeDisabled();
+
+    fireEvent.click(screen.getByTestId('closure-receipt-confirm'));
+
+    await waitFor(() =>
+      expect(downloadClosureReceiptMock).toHaveBeenCalledWith(
+        expect.objectContaining({ _id: 'grp-1' }),
+        'Maria Cliente Completo',
+      ),
+    );
   });
 
   it('exibe envio por WhatsApp e email para grupo de NF quando existem contato e email', async () => {
@@ -322,6 +355,7 @@ describe('ClientOrdersModal (closure flow)', () => {
     expect(screen.getByTestId('closure-group-mark-pix-paid')).toBeInTheDocument();
     expect(screen.getByTestId('closure-group-share-whatsapp')).toBeInTheDocument();
     expect(screen.getByTestId('closure-group-share-email')).toBeInTheDocument();
+    expect(screen.queryByTestId('closure-group-receipt-download')).not.toBeInTheDocument();
   });
 
   it('confirma volta da caçamba do grupo para pendente', async () => {

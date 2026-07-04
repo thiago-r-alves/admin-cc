@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useClientOrdersModal } from './useClientOrdersModal';
 import { buildClientOrdersPdf, downloadClientOrdersPdf } from '../../utils/clientOrdersPdf';
+import { downloadClosureReceiptPdf } from '../../utils/receiptPdf';
 import type { ClientOrdersHistoryFilters } from './types';
 
 vi.mock('../../utils/clientOrdersPdf', () => ({
@@ -10,6 +11,10 @@ vi.mock('../../utils/clientOrdersPdf', () => ({
     blob: new Blob(['pdf'], { type: 'application/pdf' }),
   })),
   downloadClientOrdersPdf: vi.fn(async () => undefined),
+}));
+
+vi.mock('../../utils/receiptPdf', () => ({
+  downloadClosureReceiptPdf: vi.fn(async () => undefined),
 }));
 
 const client = { _id: 'cli-1', clientName: 'Cliente Teste' };
@@ -56,6 +61,7 @@ describe('useClientOrdersModal', () => {
       blob: new Blob(['pdf'], { type: 'application/pdf' }),
     } as never);
     vi.mocked(downloadClientOrdersPdf).mockResolvedValue(undefined);
+    vi.mocked(downloadClosureReceiptPdf).mockResolvedValue(undefined);
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
     Object.defineProperty(URL, 'createObjectURL', {
       configurable: true,
@@ -482,6 +488,38 @@ describe('useClientOrdersModal', () => {
       expect.stringContaining('/closure-groups/grp-1/invoice'),
       expect.objectContaining({ method: 'PATCH' }),
     );
+  });
+
+  it('baixa recibo do grupo pago sem chamar endpoints ou alterar status local', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => [],
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() =>
+      useClientOrdersModal({
+        client,
+        startDate: '2026-05-01',
+        endDate: '2026-05-31',
+        type: 'retirada',
+        closureMode: true,
+      }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await result.current.downloadClosureReceipt(paidGroup, 'Maria Cliente');
+    });
+
+    expect(downloadClosureReceiptPdf).toHaveBeenCalledWith({
+      client,
+      group: paidGroup,
+      recipientName: 'Maria Cliente',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.current.currentClosureGroup).toBeNull();
   });
 
   it('compartilha NF por WhatsApp baixando o PDF e abrindo mensagem pronta', async () => {
