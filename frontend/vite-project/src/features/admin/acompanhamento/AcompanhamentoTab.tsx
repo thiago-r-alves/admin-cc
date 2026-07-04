@@ -59,9 +59,9 @@ const acompanhamentoFilterFields: Array<{
   key: keyof AcompanhamentoFilters;
   inputMode?: 'numeric';
 }> = [
+  { id: 'filtro-cliente', label: 'Cliente', key: 'clientName' },
   { id: 'filtro-numero-cacamba', label: 'Nº caçamba', key: 'numero' },
   { id: 'filtro-qtd-cacambas', label: 'Qtd. mín. caçambas', key: 'cacambaCount', inputMode: 'numeric' },
-  { id: 'filtro-cliente', label: 'Cliente', key: 'clientName' },
   { id: 'filtro-cnpj', label: 'CNPJ/CPF', key: 'cnpjCpf' },
   { id: 'filtro-contato', label: 'Contato', key: 'contact' },
   { id: 'filtro-telefone', label: 'Telefone', key: 'phone' },
