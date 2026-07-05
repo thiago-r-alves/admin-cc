@@ -41,6 +41,7 @@ const CreateDriverModal: React.FC<CreateDriverModalProps> = ({ onClose, onDriver
       setFeedback({ tone: 'error', message: 'Acesso negado ou sessão inválida. Faça login novamente.' });
       localStorage.removeItem('token');
       localStorage.removeItem('role');
+      localStorage.removeItem('username');
       localStorage.removeItem('token_expires_at');
       window.location.href = '/';
       throw new Error('Authentication failed');

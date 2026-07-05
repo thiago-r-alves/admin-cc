@@ -5,20 +5,27 @@ import {
   HeaderText,
   NotificationError,
   NotificationStatus,
-  PageSubtitle,
   PageTitle,
 } from './driver.styles';
 
 type DriverHeaderPanelProps = {
   role: string | null;
+  driverName: string;
   isSubscribed: boolean;
   pushError: string | null;
   onSubscribe: () => void;
   onLogout: () => void;
 };
 
+const formatDriverTitle = (driverName: string) => {
+  const trimmedName = driverName.trim();
+  if (!trimmedName) return 'Painel do Motorista';
+  return `Painel do ${trimmedName.charAt(0).toUpperCase()}${trimmedName.slice(1)}`;
+};
+
 export const DriverHeaderPanel = ({
   role,
+  driverName,
   isSubscribed,
   pushError,
   onSubscribe,
@@ -26,8 +33,7 @@ export const DriverHeaderPanel = ({
 }: DriverHeaderPanelProps) => (
   <DriverHeader>
     <HeaderText>
-      <PageTitle>Painel do Motorista</PageTitle>
-      <PageSubtitle>Acompanhe seus pedidos ativos e registre as caçambas em campo.</PageSubtitle>
+      <PageTitle>{formatDriverTitle(driverName)}</PageTitle>
     </HeaderText>
     <HeaderActions>
       {role === 'motorista' && (

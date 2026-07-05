@@ -33,6 +33,7 @@ const DriverPage: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingOrderType, setEditingOrderType] = useState<OrderType | undefined>(undefined);
   const [role] = useState<string | null>(() => localStorage.getItem('role'));
+  const [driverName] = useState<string>(() => localStorage.getItem('username') || '');
   const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
   const [pushError, setPushError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<DriverFeedbackState>(null);
@@ -397,6 +398,7 @@ const DriverPage: React.FC = () => {
         />
         <DriverHeaderPanel
           role={role}
+          driverName={driverName}
           isSubscribed={isSubscribed}
           pushError={pushError}
           onSubscribe={() => registerServiceWorkerAndSubscribe(true)}

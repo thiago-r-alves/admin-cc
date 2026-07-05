@@ -61,6 +61,7 @@ const LoginPage: React.FC = () => {
   const clearSession = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
+    localStorage.removeItem('username');
     localStorage.removeItem('token_expires_at');
   };
 
@@ -87,6 +88,7 @@ const LoginPage: React.FC = () => {
       // Persistência 30 dias
       localStorage.setItem('token', data.token);
       localStorage.setItem('role', data.role);
+      localStorage.setItem('username', String(data.username || username));
       const expiresAt = Date.now() + 30 * 24 * 60 * 60 * 1000;
       localStorage.setItem('token_expires_at', String(expiresAt));
 

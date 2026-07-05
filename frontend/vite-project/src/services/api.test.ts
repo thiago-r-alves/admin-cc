@@ -66,12 +66,14 @@ describe('api service', () => {
   it('limpa a sessao armazenada', () => {
     localStorage.setItem('token', 'token-123');
     localStorage.setItem('role', 'admin');
+    localStorage.setItem('username', 'Motorista Teste');
     localStorage.setItem('token_expires_at', '123');
 
     clearStoredSession();
 
     expect(localStorage.getItem('token')).toBeNull();
     expect(localStorage.getItem('role')).toBeNull();
+    expect(localStorage.getItem('username')).toBeNull();
     expect(localStorage.getItem('token_expires_at')).toBeNull();
   });
 });

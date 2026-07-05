@@ -3,6 +3,7 @@ export const apiUrl = import.meta.env.VITE_API_URL as string;
 export const clearStoredSession = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('role');
+  localStorage.removeItem('username');
   localStorage.removeItem('token_expires_at');
 };
 
