@@ -1,9 +1,29 @@
 import { Router } from 'express';
-import { authenticateToken, AuthenticatedRequest } from '../../shared/auth';
+import { authenticateToken, AuthenticatedRequest, isAdmin } from '../../shared/auth';
 import { upload } from '../../shared/upload';
-import { deleteCacamba, updateCacamba } from './service';
+import { deleteCacamba, getCacambaTrack, listTrackedCacambaNumbers, updateCacamba } from './service';
 
 export const cacambasRouter = Router();
+
+cacambasRouter.get('/cacambas/track', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const result = await getCacambaTrack(req.query.numero);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error('Erro ao buscar histórico da caçamba:', error);
+    return res.status(500).json({ message: 'Erro ao buscar histórico da caçamba' });
+  }
+});
+
+cacambasRouter.get('/cacambas/tracked-numbers', authenticateToken, isAdmin, async (_req, res) => {
+  try {
+    const result = await listTrackedCacambaNumbers();
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error('Erro ao buscar caçambas rastreadas:', error);
+    return res.status(500).json({ message: 'Erro ao buscar caçambas rastreadas' });
+  }
+});
 
 cacambasRouter.patch(
   '/cacambas/:id',

@@ -341,6 +341,7 @@ const AdminPage: React.FC = () => {
               onEditCacamba={setEditingCacamba}
               onDeleteCacamba={handleDeleteAcompanhamentoCacamba}
               onOpenImage={setModalImage}
+              authenticatedFetch={authenticatedFetch}
             />
           )}
 

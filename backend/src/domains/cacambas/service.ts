@@ -13,6 +13,9 @@ const hideDriverCacambaPrice = (cacamba: any) => {
   return plain;
 };
 
+const compareCacambaNumbers = (a: string, b: string) =>
+  a.localeCompare(b, 'pt-BR', { numeric: true, sensitivity: 'base' });
+
 export const updateCacamba = async (
   id: string,
   userData: { userId: string; role: 'admin' | 'motorista' } | undefined,
@@ -173,4 +176,92 @@ export const deleteCacamba = async (id: string) => {
   }
 
   return { status: 200, body: { message: 'Caçamba excluída.' } };
+};
+
+export const listTrackedCacambaNumbers = async () => {
+  const rawNumbers = await CacambaModel.distinct('numero');
+  const numbers = rawNumbers
+    .map((numero) => String(numero ?? '').trim())
+    .filter(Boolean)
+    .sort(compareCacambaNumbers);
+
+  return { status: 200, body: { numbers } };
+};
+
+export const getCacambaTrack = async (numero: unknown) => {
+  const normalizedNumero = String(numero ?? '').trim();
+  if (!normalizedNumero) {
+    return { status: 400, body: { message: 'Número da caçamba é obrigatório.' } };
+  }
+
+  const cacambas = await CacambaModel.find({ numero: normalizedNumero })
+    .sort({ createdAt: 1, _id: 1 })
+    .lean();
+
+  const orderIds = Array.from(
+    new Set(cacambas.map((cacamba) => String(cacamba.orderId)).filter(Boolean)),
+  );
+  const orders = await OrderModel.find({ _id: { $in: orderIds } })
+    .populate('motorista', 'username')
+    .lean();
+  const orderById = new Map(orders.map((order: any) => [String(order._id), order]));
+
+  const events = cacambas.map((cacamba) => {
+    const order = orderById.get(String(cacamba.orderId));
+    const motorista =
+      typeof order?.motorista === 'object' && order.motorista !== null
+        ? { _id: String(order.motorista._id), username: String(order.motorista.username || '') }
+        : order?.motorista
+          ? String(order.motorista)
+          : undefined;
+
+    return {
+      _id: String(cacamba._id),
+      numero: cacamba.numero,
+      tipo: cacamba.tipo,
+      paymentStatus: cacamba.paymentStatus,
+      closureGroupId: cacamba.closureGroupId ? String(cacamba.closureGroupId) : undefined,
+      contentType: cacamba.contentType,
+      price: cacamba.price,
+      local: cacamba.local,
+      imageUrl: cacamba.imageUrl,
+      createdAt: cacamba.createdAt,
+      horaServicoDigitos: cacamba.horaServicoDigitos,
+      order: order
+        ? {
+            _id: String(order._id),
+            orderNumber: order.orderNumber ?? null,
+            clientId: order.clientId ? String(order.clientId) : undefined,
+            clientName: order.clientName || '',
+            cnpjCpf: order.cnpjCpf || '',
+            contactName: order.contactName || '',
+            contactNumber: order.contactNumber || '',
+            neighborhood: order.neighborhood || '',
+            address: order.address || '',
+            addressNumber: order.addressNumber || '',
+            city: order.city || '',
+            cep: order.cep || '',
+            type: order.type,
+            status: order.status,
+            motorista,
+            placa: order.placa || '',
+          }
+        : null,
+    };
+  });
+
+  const first = events[0];
+  const last = events[events.length - 1];
+
+  return {
+    status: 200,
+    body: {
+      numero: normalizedNumero,
+      total: events.length,
+      currentStatus: last?.tipo === 'entrega' ? 'em_obra' : last?.tipo === 'retirada' ? 'retirada' : null,
+      firstRegisteredAt: first?.createdAt ?? null,
+      lastRegisteredAt: last?.createdAt ?? null,
+      events,
+    },
+  };
 };

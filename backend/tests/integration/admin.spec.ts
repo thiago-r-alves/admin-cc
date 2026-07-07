@@ -120,6 +120,195 @@ describe('Admin APIs', () => {
     expect(del404.status).toBe(404);
   });
 
+  it('GET /cacambas/track retorna histórico cronológico enriquecido para admin', async () => {
+    const app = await loadApp();
+    const { admin, driver } = await ensureUsers();
+    const adminToken = signToken(String(admin._id), 'admin');
+    const driverToken = signToken(String(driver._id), 'motorista');
+    const client = await ClientModel.create({
+      clientName: 'Cliente Track',
+      cnpjCpf: '12345678000199',
+      contactName: 'Ana',
+      contactNumber: '11999990000',
+      neighborhood: 'Centro',
+      address: 'Rua Track',
+      addressNumber: '45',
+      city: 'Sao Jose dos Campos',
+      cep: '12200-000',
+    });
+    const deliveryOrder = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: client._id,
+      clientName: client.clientName,
+      cnpjCpf: client.cnpjCpf,
+      contactName: client.contactName,
+      contactNumber: client.contactNumber,
+      neighborhood: client.neighborhood,
+      address: client.address,
+      addressNumber: client.addressNumber,
+      city: client.city,
+      cep: client.cep,
+      motorista: driver._id,
+      placa: 'abc1234',
+      type: 'entrega',
+      status: 'concluido',
+      priority: 0,
+    });
+    const withdrawalOrder = await OrderModel.create({
+      orderNumber: nextOrderNumber++,
+      clientId: client._id,
+      clientName: client.clientName,
+      cnpjCpf: client.cnpjCpf,
+      contactName: client.contactName,
+      contactNumber: client.contactNumber,
+      neighborhood: client.neighborhood,
+      address: client.address,
+      addressNumber: client.addressNumber,
+      city: client.city,
+      cep: client.cep,
+      motorista: driver._id,
+      placa: 'def5678',
+      type: 'retirada',
+      status: 'concluido',
+      priority: 0,
+    });
+    const withdrawal = await CacambaModel.create({
+      numero: '777',
+      tipo: 'retirada',
+      orderId: withdrawalOrder._id,
+      imageUrl: '/files/retirada',
+      local: 'canteiro_obra',
+      contentType: 'Entulho limpo',
+      price: 210,
+      horaServicoDigitos: '002',
+      createdAt: new Date('2026-05-04T10:00:00.000Z'),
+    });
+    const delivery = await CacambaModel.create({
+      numero: '777',
+      tipo: 'entrega',
+      orderId: deliveryOrder._id,
+      imageUrl: '/files/entrega',
+      local: 'via_publica',
+      horaServicoDigitos: '001',
+      createdAt: new Date('2026-05-01T10:00:00.000Z'),
+    });
+    await OrderModel.findByIdAndUpdate(deliveryOrder._id, { $push: { cacambas: delivery._id } });
+    await OrderModel.findByIdAndUpdate(withdrawalOrder._id, { $push: { cacambas: withdrawal._id } });
+
+    const noToken = await request(app).get('/cacambas/track?numero=777');
+    expect(noToken.status).toBe(401);
+
+    const driverForbidden = await request(app)
+      .get('/cacambas/track?numero=777')
+      .set('Authorization', `Bearer ${driverToken}`);
+    expect(driverForbidden.status).toBe(403);
+
+    const missingNumero = await request(app)
+      .get('/cacambas/track')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(missingNumero.status).toBe(400);
+
+    const track = await request(app)
+      .get('/cacambas/track?numero=777')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(track.status).toBe(200);
+    expect(track.body).toMatchObject({
+      numero: '777',
+      total: 2,
+      currentStatus: 'retirada',
+      firstRegisteredAt: '2026-05-01T10:00:00.000Z',
+      lastRegisteredAt: '2026-05-04T10:00:00.000Z',
+    });
+    expect(track.body.events.map((event: any) => event.tipo)).toEqual(['entrega', 'retirada']);
+    expect(track.body.events[0]).toMatchObject({
+      numero: '777',
+      local: 'via_publica',
+      horaServicoDigitos: '001',
+      order: {
+        clientName: 'Cliente Track',
+        contactName: 'Ana',
+        address: 'Rua Track',
+        orderNumber: deliveryOrder.orderNumber,
+        type: 'entrega',
+        status: 'concluido',
+        placa: 'abc1234',
+        motorista: { username: 'driver-test' },
+      },
+    });
+    expect(track.body.events[1]).toMatchObject({
+      contentType: 'Entulho limpo',
+      price: 210,
+      order: { orderNumber: withdrawalOrder.orderNumber, type: 'retirada' },
+    });
+
+    const empty = await request(app)
+      .get('/cacambas/track?numero=999')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(empty.status).toBe(200);
+    expect(empty.body).toMatchObject({
+      numero: '999',
+      total: 0,
+      currentStatus: null,
+      firstRegisteredAt: null,
+      lastRegisteredAt: null,
+      events: [],
+    });
+  });
+
+  it('GET /cacambas/tracked-numbers retorna números distintos ordenados para admin', async () => {
+    const app = await loadApp();
+    const { admin, driver } = await ensureUsers();
+    const adminToken = signToken(String(admin._id), 'admin');
+    const driverToken = signToken(String(driver._id), 'motorista');
+    const orderId = new OrderModel()._id;
+    const duplicateOrderId = new OrderModel()._id;
+
+    await CacambaModel.create([
+      {
+        numero: '10',
+        tipo: 'entrega',
+        orderId,
+        imageUrl: '/files/10',
+        local: 'via_publica',
+      },
+      {
+        numero: '2',
+        tipo: 'entrega',
+        orderId,
+        imageUrl: '/files/2',
+        local: 'via_publica',
+      },
+      {
+        numero: '10',
+        tipo: 'retirada',
+        orderId: duplicateOrderId,
+        imageUrl: '/files/10-retirada',
+        local: 'canteiro_obra',
+      },
+      {
+        numero: 'A1',
+        tipo: 'entrega',
+        orderId,
+        imageUrl: '/files/a1',
+        local: 'via_publica',
+      },
+    ]);
+
+    const noToken = await request(app).get('/cacambas/tracked-numbers');
+    expect(noToken.status).toBe(401);
+
+    const driverForbidden = await request(app)
+      .get('/cacambas/tracked-numbers')
+      .set('Authorization', `Bearer ${driverToken}`);
+    expect(driverForbidden.status).toBe(403);
+
+    const response = await request(app)
+      .get('/cacambas/tracked-numbers')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ numbers: ['2', '10', 'A1'] });
+  });
+
   it('POST /orders valida caçambas planejadas para retirada', async () => {
     const app = await loadApp();
     const { admin, driver } = await ensureUsers();

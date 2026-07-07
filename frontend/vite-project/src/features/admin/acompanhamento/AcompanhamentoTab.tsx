@@ -1,5 +1,14 @@
-import type { Dispatch, SetStateAction } from 'react';
-import type { ICacamba, OrderType } from '../../../interfaces';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentType,
+  type Dispatch,
+  type FormEvent,
+  type SetStateAction,
+} from 'react';
+import type { Props as ReactSelectProps, SingleValue, StylesConfig } from 'react-select';
+import type { ICacamba, ICacambaTrackResponse, OrderType } from '../../../interfaces';
 import { apiUrl } from '../../../services/api';
 import {
   formatDaysOnSite,
@@ -41,6 +50,14 @@ import {
   SectionContainer,
   SummaryBadge,
 } from '../admin.styles';
+import { CacambaTrackModal } from './CacambaTrackModal';
+
+type CacambaHistoryOption = {
+  value: string;
+  label: string;
+};
+
+type HistorySelectComponent = ComponentType<ReactSelectProps<CacambaHistoryOption, false>>;
 
 type AcompanhamentoTabProps = {
   items: AcompanhamentoItem[];
@@ -51,6 +68,7 @@ type AcompanhamentoTabProps = {
   onEditCacamba: (payload: { cacamba: ICacamba; orderType: OrderType }) => void;
   onDeleteCacamba: (cacambaId: string, numero: string) => void;
   onOpenImage: (url: string) => void;
+  authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response>;
 };
 
 const acompanhamentoFilterFields: Array<{
@@ -73,6 +91,20 @@ const acompanhamentoFilterFields: Array<{
   { id: 'filtro-cep', label: 'CEP', key: 'cep' },
 ];
 
+const historySelectStyles: StylesConfig<CacambaHistoryOption, false> = {
+  control: (base, state) => ({
+    ...base,
+    minHeight: 44,
+    borderColor: state.isFocused ? '#ef4444' : '#fecaca',
+    borderRadius: 10,
+    boxShadow: state.isFocused ? '0 0 0 3px rgba(239, 68, 68, 0.16)' : 'none',
+    '&:hover': {
+      borderColor: state.isFocused ? '#ef4444' : '#fecaca',
+    },
+  }),
+  menuPortal: (base) => ({ ...base, zIndex: 1400 }),
+};
+
 export const AcompanhamentoTab = ({
   items,
   filters,
@@ -82,181 +114,351 @@ export const AcompanhamentoTab = ({
   onEditCacamba,
   onDeleteCacamba,
   onOpenImage,
-}: AcompanhamentoTabProps) => (
-  <OrdersPage>
-    <SectionContainer>
-      <AcompanhamentoToolbar>
-        <OrdersSectionTitle>Acompanhamentos</OrdersSectionTitle>
-        <SummaryBadge>TOTAL: {items.length}</SummaryBadge>
-      </AcompanhamentoToolbar>
-      <AcompanhamentoFiltersGrid>
-        {acompanhamentoFilterFields.map((field) => (
-          <AcompanhamentoFilterField key={field.key}>
-            <AcompanhamentoFilterLabel htmlFor={field.id}>{field.label}</AcompanhamentoFilterLabel>
-            <AcompanhamentoFilterInput
-              id={field.id}
-              type="text"
-              inputMode={field.inputMode}
-              value={filters[field.key]}
-              onChange={(event) =>
-                onFiltersChange((prev) => ({
-                  ...prev,
-                  [field.key]: event.target.value,
-                }))
-              }
-            />
+  authenticatedFetch,
+}: AcompanhamentoTabProps) => {
+  const [SelectComponent, setSelectComponent] = useState<HistorySelectComponent | null>(null);
+  const [trackedNumbers, setTrackedNumbers] = useState<string[]>([]);
+  const [numbersLoading, setNumbersLoading] = useState(false);
+  const [numbersError, setNumbersError] = useState('');
+  const [selectedHistoryNumero, setSelectedHistoryNumero] = useState('');
+  const [trackOpen, setTrackOpen] = useState(false);
+  const [trackLoading, setTrackLoading] = useState(false);
+  const [trackError, setTrackError] = useState<string | null>(null);
+  const [trackResult, setTrackResult] = useState<ICacambaTrackResponse | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    import('react-select')
+      .then((mod) => {
+        if (mounted) setSelectComponent(() => mod.default as HistorySelectComponent);
+      })
+      .catch(() => {});
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchTrackedNumbers = async () => {
+      setNumbersLoading(true);
+      setNumbersError('');
+      try {
+        const response = await authenticatedFetch(`${apiUrl}/cacambas/tracked-numbers`);
+        const data = await response.json();
+        if (!mounted) return;
+        if (!response.ok) {
+          setNumbersError(data?.message || 'Erro ao carregar caçambas já registradas.');
+          return;
+        }
+        setTrackedNumbers(Array.isArray(data?.numbers) ? data.numbers.map(String) : []);
+      } catch (error) {
+        if (mounted) {
+          setNumbersError(error instanceof Error ? error.message : 'Erro ao carregar caçambas já registradas.');
+        }
+      } finally {
+        if (mounted) setNumbersLoading(false);
+      }
+    };
+
+    void fetchTrackedNumbers();
+    return () => {
+      mounted = false;
+    };
+  }, [authenticatedFetch]);
+
+  const historyOptions = useMemo<CacambaHistoryOption[]>(
+    () => trackedNumbers.map((numero) => ({ value: numero, label: `Caçamba #${numero}` })),
+    [trackedNumbers],
+  );
+
+  const selectedHistoryOption = useMemo(
+    () => historyOptions.find((option) => option.value === selectedHistoryNumero) || null,
+    [historyOptions, selectedHistoryNumero],
+  );
+
+  const handleHistoryOptionChange = (option: SingleValue<CacambaHistoryOption>) => {
+    setSelectedHistoryNumero(option?.value || '');
+    setTrackError(null);
+  };
+
+  const searchTrack = async (numero: string) => {
+    const normalizedNumero = numero.trim();
+    setTrackOpen(true);
+    setTrackResult(null);
+
+    if (!normalizedNumero) {
+      setTrackLoading(false);
+      setTrackError('Selecione uma caçamba para buscar o histórico.');
+      return;
+    }
+
+    setTrackLoading(true);
+    setTrackError(null);
+    setSelectedHistoryNumero(normalizedNumero);
+
+    try {
+      const response = await authenticatedFetch(
+        `${apiUrl}/cacambas/track?numero=${encodeURIComponent(normalizedNumero)}`,
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        setTrackError(data?.message || 'Erro ao buscar histórico da caçamba.');
+        return;
+      }
+      setTrackResult(data as ICacambaTrackResponse);
+    } catch (error) {
+      setTrackError(error instanceof Error ? error.message : 'Erro ao buscar histórico da caçamba.');
+    } finally {
+      setTrackLoading(false);
+    }
+  };
+
+  const handleTrackSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void searchTrack(selectedHistoryNumero);
+  };
+
+  return (
+    <OrdersPage>
+      <SectionContainer>
+        <AcompanhamentoToolbar>
+          <OrdersSectionTitle>Acompanhamentos</OrdersSectionTitle>
+          <SummaryBadge>TOTAL: {items.length}</SummaryBadge>
+        </AcompanhamentoToolbar>
+
+        <form onSubmit={handleTrackSubmit} className="mb-4 grid grid-cols-[minmax(220px,360px)_auto] items-end gap-[0.65rem] max-[560px]:grid-cols-1">
+          <AcompanhamentoFilterField>
+            <AcompanhamentoFilterLabel htmlFor="historico-cacamba-select">Histórico da caçamba</AcompanhamentoFilterLabel>
+            {SelectComponent ? (
+              <SelectComponent
+                inputId="historico-cacamba-select"
+                options={historyOptions}
+                value={selectedHistoryOption}
+                onChange={handleHistoryOptionChange}
+                placeholder="Selecione ou pesquise a caçamba..."
+                isSearchable
+                isClearable
+                isLoading={numbersLoading}
+                loadingMessage={() => 'Carregando caçambas...'}
+                noOptionsMessage={() => (numbersError ? numbersError : 'Nenhuma caçamba registrada.')}
+                menuPortalTarget={document.body}
+                styles={historySelectStyles}
+              />
+            ) : (
+              <AcompanhamentoSortSelect
+                id="historico-cacamba-select"
+                value={selectedHistoryNumero}
+                onChange={(event) => {
+                  setSelectedHistoryNumero(event.target.value);
+                  setTrackError(null);
+                }}
+                disabled={numbersLoading}
+              >
+                <option value="">
+                  {numbersLoading ? 'Carregando caçambas...' : numbersError || 'Selecione...'}
+                </option>
+                {historyOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </AcompanhamentoSortSelect>
+            )}
+            {numbersError && <span className="text-[0.76rem] font-bold text-red-700">{numbersError}</span>}
           </AcompanhamentoFilterField>
-        ))}
-        <AcompanhamentoFilterField>
-          <AcompanhamentoFilterLabel htmlFor="acompanhamento-sort-mode">Ordenar por</AcompanhamentoFilterLabel>
-          <AcompanhamentoSortSelect
-            id="acompanhamento-sort-mode"
-            value={sortMode}
-            onChange={(event) => onSortModeChange(event.target.value as AcompanhamentoSortMode)}
-          >
-            <option value="default">Menos tempo na obra</option>
-            <option value="oldest">Mais tempo na obra</option>
-            <option value="cacambaCountDesc">Qtd. caçambas maior</option>
-            <option value="cacambaCountAsc">Qtd. caçambas menor</option>
-            <option value="clientName">Cliente A-Z</option>
-          </AcompanhamentoSortSelect>
-        </AcompanhamentoFilterField>
-      </AcompanhamentoFiltersGrid>
+          <ActionButton type="submit" disabled={trackLoading || numbersLoading || !selectedHistoryNumero}>
+            {trackLoading ? 'Buscando...' : 'Buscar histórico da caçamba'}
+          </ActionButton>
+        </form>
 
-      {items.length ? (
-        <OrdersGrid>
-          {items.map(({ numero, cacamba, order, activeCacambaCount }) => {
-            const motoristaNome =
-              typeof order.motorista === 'object' && order.motorista !== null
-                ? (order.motorista as { username?: string }).username
-                : '';
-            const contato = [order.contactName, order.contactNumber].filter(Boolean).join(' - ');
-            const localLabel =
-              cacamba.local === 'via_publica'
-                ? 'Via pública'
-                : cacamba.local === 'canteiro_obra'
-                  ? 'Canteiro de obra'
-                  : '-';
-            const daysOnSite = getDaysOnSite(cacamba.createdAt);
-            const daysOnSiteTone = getDaysOnSiteTone(daysOnSite);
+        <AcompanhamentoFiltersGrid>
+          {acompanhamentoFilterFields.map((field) => (
+            <AcompanhamentoFilterField key={field.key}>
+              <AcompanhamentoFilterLabel htmlFor={field.id}>{field.label}</AcompanhamentoFilterLabel>
+              <AcompanhamentoFilterInput
+                id={field.id}
+                type="text"
+                inputMode={field.inputMode}
+                value={filters[field.key]}
+                onChange={(event) =>
+                  onFiltersChange((prev) => ({
+                    ...prev,
+                    [field.key]: event.target.value,
+                  }))
+                }
+              />
+            </AcompanhamentoFilterField>
+          ))}
+          <AcompanhamentoFilterField>
+            <AcompanhamentoFilterLabel htmlFor="acompanhamento-sort-mode">Ordenar por</AcompanhamentoFilterLabel>
+            <AcompanhamentoSortSelect
+              id="acompanhamento-sort-mode"
+              value={sortMode}
+              onChange={(event) => onSortModeChange(event.target.value as AcompanhamentoSortMode)}
+            >
+              <option value="default">Menos tempo na obra</option>
+              <option value="oldest">Mais tempo na obra</option>
+              <option value="cacambaCountDesc">Qtd. caçambas maior</option>
+              <option value="cacambaCountAsc">Qtd. caçambas menor</option>
+              <option value="clientName">Cliente A-Z</option>
+            </AcompanhamentoSortSelect>
+          </AcompanhamentoFilterField>
+        </AcompanhamentoFiltersGrid>
 
-            return (
-              <OrderCard key={cacamba._id} status={order.status} data-testid={`acompanhamento-card-${cacamba._id}`}>
-                <OrderCardHeader>
-                  <OrderHeaderMeta>
-                    <OrderNumber>Caçamba #{numero}</OrderNumber>
-                  </OrderHeaderMeta>
-                  <OrderHeaderBadges>
-                    <CacambaAgeBadge
-                      $tone={daysOnSiteTone}
-                      data-testid="cacamba-age-badge"
-                      data-age-tone={daysOnSiteTone}
-                    >
-                      {formatDaysOnSite(daysOnSite)}
-                    </CacambaAgeBadge>
-                  </OrderHeaderBadges>
-                </OrderCardHeader>
+        {items.length ? (
+          <OrdersGrid>
+            {items.map(({ numero, cacamba, order, activeCacambaCount }) => {
+              const motoristaNome =
+                typeof order.motorista === 'object' && order.motorista !== null
+                  ? (order.motorista as { username?: string }).username
+                  : '';
+              const contato = [order.contactName, order.contactNumber].filter(Boolean).join(' - ');
+              const localLabel =
+                cacamba.local === 'via_publica'
+                  ? 'Via pública'
+                  : cacamba.local === 'canteiro_obra'
+                    ? 'Canteiro de obra'
+                    : '-';
+              const daysOnSite = getDaysOnSite(cacamba.createdAt);
+              const daysOnSiteTone = getDaysOnSiteTone(daysOnSite);
 
-                <OrderCardBody>
-                  <InfoGrid>
-                    <InfoTile>
-                      <InfoLabel>Última entrega</InfoLabel>
-                      <InfoValue>{cacamba.createdAt ? new Date(cacamba.createdAt).toLocaleString('pt-BR') : '-'}</InfoValue>
-                    </InfoTile>
-                    <InfoTile>
-                      <InfoLabel>Local</InfoLabel>
-                      <InfoValue>{localLabel}</InfoValue>
-                    </InfoTile>
-                    <InfoTile>
-                      <InfoLabel>Qtd. no endereço</InfoLabel>
-                      <InfoValue>{activeCacambaCount}</InfoValue>
-                    </InfoTile>
-                    <InfoTile>
-                      <InfoLabel>Ordem de serviço</InfoLabel>
-                      <InfoValue>{cacamba.horaServicoDigitos || '-'}</InfoValue>
-                    </InfoTile>
-                    <InfoTile>
-                      <InfoLabel>Ordem de serviço digital</InfoLabel>
-                      <InfoValue>{order.orderNumber ?? '-'}</InfoValue>
-                    </InfoTile>
-                    <InfoTile>
-                      <InfoLabel>Placa do caminhão</InfoLabel>
-                      <InfoValue style={{ textTransform: 'uppercase' }}>{order.placa || '-'}</InfoValue>
-                    </InfoTile>
-                    {cacamba.imageUrl && (
+              return (
+                <OrderCard key={cacamba._id} status={order.status} data-testid={`acompanhamento-card-${cacamba._id}`}>
+                  <OrderCardHeader>
+                    <OrderHeaderMeta>
+                      <OrderNumber>Caçamba #{numero}</OrderNumber>
+                    </OrderHeaderMeta>
+                    <OrderHeaderBadges>
+                      <CacambaAgeBadge
+                        $tone={daysOnSiteTone}
+                        data-testid="cacamba-age-badge"
+                        data-age-tone={daysOnSiteTone}
+                      >
+                        {formatDaysOnSite(daysOnSite)}
+                      </CacambaAgeBadge>
+                    </OrderHeaderBadges>
+                  </OrderCardHeader>
+
+                  <OrderCardBody>
+                    <InfoGrid>
                       <InfoTile>
-                        <InfoLabel>Imagem da caçamba</InfoLabel>
-                        <div style={{ marginTop: '0.4rem' }}>
-                          <AcompanhamentoImage
-                            src={cacamba.imageUrl.startsWith('http') ? cacamba.imageUrl : `${apiUrl}${cacamba.imageUrl}`}
-                            alt="Foto da caçamba"
-                            data-testid={`acompanhamento-image-${cacamba._id}`}
-                            onClick={async () => {
-                              const full = cacamba.imageUrl!.startsWith('http') ? cacamba.imageUrl! : `${apiUrl}${cacamba.imageUrl}`;
-                              try {
-                                const mod = await import('../../../utils/image');
-                                const large = await mod.resizeImage(full, 1200, 0.8);
-                                onOpenImage(large);
-                              } catch (error) {
-                                console.error('Erro redimensionando imagem:', error);
-                                onOpenImage(full);
-                              }
-                            }}
-                          />
-                        </div>
+                        <InfoLabel>Última entrega</InfoLabel>
+                        <InfoValue>{cacamba.createdAt ? new Date(cacamba.createdAt).toLocaleString('pt-BR') : '-'}</InfoValue>
                       </InfoTile>
-                    )}
-                  </InfoGrid>
+                      <InfoTile>
+                        <InfoLabel>Local</InfoLabel>
+                        <InfoValue>{localLabel}</InfoValue>
+                      </InfoTile>
+                      <InfoTile>
+                        <InfoLabel>Qtd. no endereço</InfoLabel>
+                        <InfoValue>{activeCacambaCount}</InfoValue>
+                      </InfoTile>
+                      <InfoTile>
+                        <InfoLabel>Ordem de serviço</InfoLabel>
+                        <InfoValue>{cacamba.horaServicoDigitos || '-'}</InfoValue>
+                      </InfoTile>
+                      <InfoTile>
+                        <InfoLabel>Ordem de serviço digital</InfoLabel>
+                        <InfoValue>{order.orderNumber ?? '-'}</InfoValue>
+                      </InfoTile>
+                      <InfoTile>
+                        <InfoLabel>Placa do caminhão</InfoLabel>
+                        <InfoValue style={{ textTransform: 'uppercase' }}>{order.placa || '-'}</InfoValue>
+                      </InfoTile>
+                      {cacamba.imageUrl && (
+                        <InfoTile>
+                          <InfoLabel>Imagem da caçamba</InfoLabel>
+                          <div style={{ marginTop: '0.4rem' }}>
+                            <AcompanhamentoImage
+                              src={cacamba.imageUrl.startsWith('http') ? cacamba.imageUrl : `${apiUrl}${cacamba.imageUrl}`}
+                              alt="Foto da caçamba"
+                              data-testid={`acompanhamento-image-${cacamba._id}`}
+                              onClick={async () => {
+                                const full = cacamba.imageUrl!.startsWith('http') ? cacamba.imageUrl! : `${apiUrl}${cacamba.imageUrl}`;
+                                try {
+                                  const mod = await import('../../../utils/image');
+                                  const large = await mod.resizeImage(full, 1200, 0.8);
+                                  onOpenImage(large);
+                                } catch (error) {
+                                  console.error('Erro redimensionando imagem:', error);
+                                  onOpenImage(full);
+                                }
+                              }}
+                            />
+                          </div>
+                        </InfoTile>
+                      )}
+                    </InfoGrid>
 
-                  <OrderDetailsDivider />
+                    <OrderDetailsDivider />
 
-                  <OrderClientName>{order.clientName || '-'}</OrderClientName>
-                  <InfoGrid>
-                    <InfoTile>
-                      <InfoLabel>Motorista</InfoLabel>
-                      <InfoValue>{motoristaNome || '-'}</InfoValue>
-                    </InfoTile>
-                    <InfoTile>
-                      <InfoLabel>CNPJ/CPF</InfoLabel>
-                      <InfoValue>{order.cnpjCpf || '-'}</InfoValue>
-                    </InfoTile>
-                    <InfoTile>
-                      <InfoLabel>Contato</InfoLabel>
-                      <InfoValue>{contato || '-'}</InfoValue>
-                    </InfoTile>
-                    <InfoTile>
-                      <InfoLabel>Endereço</InfoLabel>
-                      <InfoValue>{formatOrderAddress(order)}</InfoValue>
-                    </InfoTile>
-                  </InfoGrid>
-                  <AcompanhamentoActions>
-                    <ActionButton
-                      type="button"
-                      data-testid={`acompanhamento-edit-${cacamba._id}`}
-                      onClick={() => onEditCacamba({ cacamba, orderType: order.type })}
-                    >
-                      Editar caçamba
-                    </ActionButton>
-                    <DeleteOrderButton
-                      type="button"
-                      data-testid={`acompanhamento-delete-${cacamba._id}`}
-                      onClick={() => onDeleteCacamba(cacamba._id, numero)}
-                    >
-                      Excluir caçamba
-                    </DeleteOrderButton>
-                  </AcompanhamentoActions>
-                </OrderCardBody>
-              </OrderCard>
-            );
-          })}
-        </OrdersGrid>
-      ) : (
-        <EmptyState>
-          {Object.values(filters).some((value) => String(value).trim())
-            ? 'Nenhuma caçamba encontrada para este filtro.'
-            : 'Nenhuma caçamba em colocação pendente de retirada.'}
-        </EmptyState>
-      )}
-    </SectionContainer>
-  </OrdersPage>
-);
+                    <OrderClientName>{order.clientName || '-'}</OrderClientName>
+                    <InfoGrid>
+                      <InfoTile>
+                        <InfoLabel>Motorista</InfoLabel>
+                        <InfoValue>{motoristaNome || '-'}</InfoValue>
+                      </InfoTile>
+                      <InfoTile>
+                        <InfoLabel>CNPJ/CPF</InfoLabel>
+                        <InfoValue>{order.cnpjCpf || '-'}</InfoValue>
+                      </InfoTile>
+                      <InfoTile>
+                        <InfoLabel>Contato</InfoLabel>
+                        <InfoValue>{contato || '-'}</InfoValue>
+                      </InfoTile>
+                      <InfoTile>
+                        <InfoLabel>Endereço</InfoLabel>
+                        <InfoValue>{formatOrderAddress(order)}</InfoValue>
+                      </InfoTile>
+                    </InfoGrid>
+                    <AcompanhamentoActions>
+                      <ActionButton
+                        type="button"
+                        data-testid={`acompanhamento-track-${cacamba._id}`}
+                        onClick={() => void searchTrack(numero)}
+                      >
+                        Ver track
+                      </ActionButton>
+                      <ActionButton
+                        type="button"
+                        data-testid={`acompanhamento-edit-${cacamba._id}`}
+                        onClick={() => onEditCacamba({ cacamba, orderType: order.type })}
+                      >
+                        Editar caçamba
+                      </ActionButton>
+                      <DeleteOrderButton
+                        type="button"
+                        data-testid={`acompanhamento-delete-${cacamba._id}`}
+                        onClick={() => onDeleteCacamba(cacamba._id, numero)}
+                      >
+                        Excluir caçamba
+                      </DeleteOrderButton>
+                    </AcompanhamentoActions>
+                  </OrderCardBody>
+                </OrderCard>
+              );
+            })}
+          </OrdersGrid>
+        ) : (
+          <EmptyState>
+            {Object.values(filters).some((value) => String(value).trim())
+              ? 'Nenhuma caçamba encontrada para este filtro.'
+              : 'Nenhuma caçamba em colocação pendente de retirada.'}
+          </EmptyState>
+        )}
+      </SectionContainer>
+
+      <CacambaTrackModal
+        open={trackOpen}
+        loading={trackLoading}
+        error={trackError}
+        track={trackResult}
+        onClose={() => setTrackOpen(false)}
+        onOpenImage={onOpenImage}
+      />
+    </OrdersPage>
+  );
+};

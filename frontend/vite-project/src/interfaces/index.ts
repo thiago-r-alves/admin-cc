@@ -79,6 +79,47 @@ export interface ICacamba {
   closureWithdrawal?: IClosureActionMetadata | null;
 }
 
+export interface ICacambaTrackEvent {
+  _id: string;
+  numero: string;
+  tipo: 'entrega' | 'retirada';
+  paymentStatus?: ICacamba['paymentStatus'];
+  closureGroupId?: string;
+  contentType?: CacambaContentType;
+  price?: number;
+  local?: string;
+  imageUrl?: string;
+  createdAt: string;
+  horaServicoDigitos?: string;
+  order: {
+    _id: string;
+    orderNumber: number | null;
+    clientId?: string;
+    clientName: string;
+    cnpjCpf?: string;
+    contactName?: string;
+    contactNumber?: string;
+    neighborhood?: string;
+    address?: string;
+    addressNumber?: string;
+    city?: string;
+    cep?: string;
+    type: OrderType;
+    status: IOrder['status'];
+    motorista?: DriverRef;
+    placa?: string;
+  } | null;
+}
+
+export interface ICacambaTrackResponse {
+  numero: string;
+  total: number;
+  currentStatus: 'em_obra' | 'retirada' | null;
+  firstRegisteredAt: string | null;
+  lastRegisteredAt: string | null;
+  events: ICacambaTrackEvent[];
+}
+
 export interface IClosureGroup {
   _id: string;
   clientId: string;
