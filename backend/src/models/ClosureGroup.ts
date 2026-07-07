@@ -15,6 +15,7 @@ export interface IClosureGroup extends Document {
   totalAmount: number;
   pixCopyPaste?: string;
   pixTxid?: string;
+  pixInfo?: string;
   createdBy: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -38,6 +39,7 @@ const ClosureGroupSchema = new Schema<IClosureGroup>(
     totalAmount: { type: Number, min: 0, required: true, default: 0 },
     pixCopyPaste: { type: String, required: false },
     pixTxid: { type: String, required: false },
+    pixInfo: { type: String, trim: true, required: false },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   },
   { timestamps: true },

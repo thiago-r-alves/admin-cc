@@ -191,9 +191,9 @@ const ClearFiltersButton = twComponent(
   'min-h-[38px] cursor-pointer whitespace-nowrap rounded-md border border-gray-300 bg-white px-[0.9rem] py-[0.55rem] text-[0.78rem] font-black text-gray-700 hover:border-[#e30613] hover:bg-rose-50 hover:text-[#e30613] max-[980px]:w-full',
 );
 
-const PixCode = twComponent(
+const PixInfoInput = twComponent(
   'textarea',
-  'box-border min-h-[110px] w-full resize-y rounded-lg border border-red-200 bg-[#fffafa] p-3 text-[0.78rem] text-gray-700 [overflow-wrap:anywhere]',
+  'box-border min-h-[84px] w-full resize-y rounded-lg border border-gray-200 bg-white p-3 text-[0.86rem] text-gray-900 focus:border-brand focus:outline-none focus:ring-3 focus:ring-brand-focus',
 );
 
 const EmptyState = twComponent(
@@ -293,6 +293,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
   const [receiptGroup, setReceiptGroup] = useState<IClosureGroup | null>(null);
   const [receiptRecipientName, setReceiptRecipientName] = useState('');
   const [isDownloadingReceipt, setIsDownloadingReceipt] = useState(false);
+  const [editingPixInfoGroup, setEditingPixInfoGroup] = useState<IClosureGroup | null>(null);
   const [editingCacamba, setEditingCacamba] = useState<{
     cacamba: ICacamba;
     orderType: OrderType;
@@ -328,6 +329,8 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     selectedGroup,
     invoiceNumber,
     setInvoiceNumber,
+    pixInfo,
+    setPixInfo,
     paymentMethod,
     setPaymentMethod,
     isEditingInvoice,
@@ -353,6 +356,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     shareClosureGroupOnWhatsApp,
     shareClosureGroupByEmail,
     saveInvoiceForGroup,
+    savePixInfoForGroup,
     markPixGroupPaid,
     returnCacambaToPending,
   } = useClientOrdersModal({
@@ -379,6 +383,12 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     if (showHistory && selectedGroup) return selectedGroup;
     return currentClosureGroup || selectedGroup || null;
   }, [currentClosureGroup, selectedGroup, showHistory]);
+
+  useEffect(() => {
+    if (displayedGroup?.paymentMethod === 'pix') {
+      setPixInfo(displayedGroup.pixInfo || '');
+    }
+  }, [displayedGroup?._id, displayedGroup?.paymentMethod, displayedGroup?.pixInfo, setPixInfo]);
 
   const stepItems = [
     { key: 'select' as const, label: 'Etapa 1', title: 'Selecionar caçambas' },
@@ -499,6 +509,27 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     }
   };
 
+  const handleSavePixInfo = async () => {
+    const targetGroup = editingPixInfoGroup || displayedGroup;
+    if (!targetGroup?._id) return;
+
+    try {
+      setInvoiceFeedback(null);
+      await savePixInfoForGroup(targetGroup._id, pixInfo);
+      setEditingPixInfoGroup(null);
+      setToastFeedback({
+        tone: 'success',
+        message: 'Informações do Pix salvas com sucesso.',
+      });
+    } catch (error) {
+      setInvoiceFeedback({
+        tone: 'error',
+        message:
+          error instanceof Error ? error.message : 'Não foi possível salvar as informações do Pix.',
+      });
+    }
+  };
+
   const handleConfirmReturnToPending = async () => {
     if (!pendingReturn) return;
 
@@ -603,6 +634,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
 
     const canShareOnWhatsApp = Boolean(normalizeBrazilianWhatsAppNumber(client.contactNumber));
     const canShareByEmail = Boolean(normalizeEmailAddress(client.email));
+    const isFinalizedPixGroup = group.paymentMethod === 'pix' && group.status === 'paga';
 
     return (
       <>
@@ -615,14 +647,14 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
         </MetaRow>
         <div>Pagamento: {group.paymentMethod === 'pix' ? 'Pix' : 'NF'}</div>
         {group.paymentMethod !== 'pix' && <div>NF atual: {group.invoiceNumber || '-'}</div>}
-        <ValueHighlight>
-          {group.paymentMethod === 'pix' ? 'Valor total do Pix' : 'Valor total da nota'}:{' '}
-          {formatCurrency(group.totalAmount ?? getGroupTotal(group))}
-        </ValueHighlight>
-        {group.paymentMethod === 'pix' && group.pixCopyPaste && (
-          <>
-            <PixCode readOnly value={group.pixCopyPaste} aria-label="Pix copia e cola" />
-            <ActionButtonsRow>
+        {group.paymentMethod !== 'pix' && (
+          <ValueHighlight>
+            Valor total da nota: {formatCurrency(group.totalAmount ?? getGroupTotal(group))}
+          </ValueHighlight>
+        )}
+        {group.paymentMethod === 'pix' && (
+          <ActionButtonsRow>
+            {group.pixCopyPaste && (
               <SecondaryButton
                 type="button"
                 data-testid="closure-group-copy-pix"
@@ -639,19 +671,49 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
                   }
                 }}
               >
-                Copiar Pix
+                Copiar código do Pix
               </SecondaryButton>
-              {group.status === 'pix_pendente' && (
-                <HighlightButton
-                  type="button"
-                  data-testid="closure-group-mark-pix-paid"
-                  onClick={() => handleMarkPixPaid(group)}
-                >
-                  Marcar Pix como pago
-                </HighlightButton>
-              )}
-            </ActionButtonsRow>
-          </>
+            )}
+            {isFinalizedPixGroup && (
+              <SecondaryButton
+                type="button"
+                data-testid="closure-group-edit-pix-info"
+                onClick={() => {
+                  setPixInfo(group.pixInfo || '');
+                  setEditingPixInfoGroup(group);
+                }}
+              >
+                Editar informações do Pix
+              </SecondaryButton>
+            )}
+            {group.status === 'pix_pendente' && (
+              <HighlightButton
+                type="button"
+                data-testid="closure-group-mark-pix-paid"
+                onClick={() => handleMarkPixPaid(group)}
+              >
+                Marcar Pix como pago
+              </HighlightButton>
+            )}
+          </ActionButtonsRow>
+        )}
+        {group.paymentMethod === 'pix' && !isFinalizedPixGroup && (
+          <InvoiceRow>
+            <PixInfoInput
+              value={pixInfo}
+              onChange={(event) => setPixInfo(event.target.value)}
+              placeholder="Informações do Pix"
+              aria-label="Informações do Pix"
+              data-testid="closure-group-pix-info-input"
+            />
+            <SaveInvoiceButton
+              type="button"
+              data-testid="closure-group-save-pix-info"
+              onClick={handleSavePixInfo}
+            >
+              Salvar informações do Pix
+            </SaveInvoiceButton>
+          </InvoiceRow>
         )}
         <ActionButtonsRow>
           <HighlightButton
@@ -1037,6 +1099,7 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
                             setSelectedGroupId(group._id);
                             setIsEditingInvoice(false);
                             setInvoiceNumber(group.invoiceNumber || '');
+                            setPixInfo(group.pixInfo || '');
                           }}
                           data-testid={`closure-group-item-${group._id}`}
                         >
@@ -1045,8 +1108,12 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
                               Grupo #{getGroupDisplayNumber(group, index, closureGroups.length)}
                             </strong>
                           </div>
-                          <div>NF: {group.invoiceNumber || '-'}</div>
-                          <div>{group.paymentMethod === 'pix' ? 'Pix' : 'NF'}</div>
+                          <div>
+                            {group.paymentMethod === 'pix'
+                              ? `Pix: ${group.pixInfo || '-'}`
+                              : `NF: ${group.invoiceNumber || '-'}`}
+                          </div>
+                          {group.paymentMethod !== 'pix' && <div>NF</div>}
                         </GroupItem>
                       ))}
                     </GroupList>
@@ -1128,6 +1195,53 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
                   className="disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isDownloadingReceipt ? 'Baixando...' : 'Baixar recibo'}
+                </HighlightButton>
+              </ActionButtonsRow>
+            </ReceiptDialog>
+          </ReceiptOverlay>
+        )}
+
+        {editingPixInfoGroup && (
+          <ReceiptOverlay
+            data-testid="closure-group-pix-info-modal"
+            onMouseDown={(event) => event.stopPropagation()}
+            onMouseUp={(event) => event.stopPropagation()}
+          >
+            <ReceiptDialog
+              onSubmit={(event) => {
+                event.preventDefault();
+                void handleSavePixInfo();
+              }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div>
+                <h3 className="m-0 text-[1rem] font-black text-gray-900">
+                  Editar informações do Pix
+                </h3>
+                <p className="mb-0 mt-1 text-[0.86rem] font-semibold text-gray-600">
+                  Atualize as informações internas deste Pix.
+                </p>
+              </div>
+              <label className="grid gap-2 text-[0.72rem] font-black uppercase text-gray-600">
+                Informações do Pix
+                <PixInfoInput
+                  autoFocus
+                  value={pixInfo}
+                  onChange={(event) => setPixInfo(event.target.value)}
+                  placeholder="Informações do Pix"
+                  aria-label="Informações do Pix"
+                  data-testid="closure-group-pix-info-input"
+                />
+              </label>
+              <ActionButtonsRow className="justify-end">
+                <SecondaryButton
+                  type="button"
+                  onClick={() => setEditingPixInfoGroup(null)}
+                >
+                  Cancelar
+                </SecondaryButton>
+                <HighlightButton type="submit" data-testid="closure-group-save-pix-info">
+                  Salvar informações do Pix
                 </HighlightButton>
               </ActionButtonsRow>
             </ReceiptDialog>

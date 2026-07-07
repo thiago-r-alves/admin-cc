@@ -140,6 +140,7 @@ export const createClosureDownload = async (
         totalAmount: closureGroup.totalAmount,
         pixCopyPaste: closureGroup.pixCopyPaste || '',
         pixTxid: closureGroup.pixTxid || '',
+        pixInfo: closureGroup.pixInfo || '',
         startDate: closureGroup.startDate,
         endDate: closureGroup.endDate,
       },
@@ -200,6 +201,32 @@ export const saveClosureGroupInvoice = async (id: string, invoiceNumber?: string
   };
 };
 
+export const saveClosureGroupPixInfo = async (id: string, pixInfo?: string) => {
+  const group = await ClosureGroupModel.findById(id);
+  if (!group) {
+    return { status: 404, body: { message: 'Grupo de fechamento não encontrado.' } };
+  }
+  if (group.paymentMethod !== 'pix') {
+    return { status: 400, body: { message: 'Este fechamento não é Pix.' } };
+  }
+
+  group.pixInfo = String(pixInfo || '').trim();
+  await group.save();
+
+  return {
+    status: 200,
+    body: {
+      closureGroup: {
+        _id: group._id,
+        clientSequenceNumber: group.clientSequenceNumber,
+        status: group.status,
+        paymentMethod: group.paymentMethod,
+        pixInfo: group.pixInfo || '',
+      },
+    },
+  };
+};
+
 export const markPixClosureGroupPaid = async (id: string) => {
   const group = await ClosureGroupModel.findById(id);
   if (!group) {
@@ -227,6 +254,7 @@ export const markPixClosureGroupPaid = async (id: string) => {
         totalAmount: group.totalAmount,
         pixCopyPaste: group.pixCopyPaste,
         pixTxid: group.pixTxid,
+        pixInfo: group.pixInfo || '',
       },
     },
   };
@@ -295,6 +323,7 @@ export const reopenClosureGroupCacamba = async (groupId: string, cacambaId: stri
             totalAmount: group.totalAmount,
             pixCopyPaste: group.pixCopyPaste || '',
             pixTxid: group.pixTxid || '',
+            pixInfo: group.pixInfo || '',
             startDate: group.startDate,
             endDate: group.endDate,
             cacambaIds: remainingIds,

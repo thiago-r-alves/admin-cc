@@ -130,6 +130,7 @@ export interface IClosureGroup {
   totalAmount?: number;
   pixCopyPaste?: string;
   pixTxid?: string;
+  pixInfo?: string;
   startDate: string;
   endDate: string;
   cacambaIds: ICacamba[];

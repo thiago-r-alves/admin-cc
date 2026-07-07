@@ -62,6 +62,7 @@ export const useClientOrdersModal = ({
   const currentClosureGroupRef = useRef<IClosureGroup | null>(null);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [pixInfo, setPixInfo] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'invoice' | 'pix'>('invoice');
   const [isEditingInvoice, setIsEditingInvoice] = useState(false);
   const [modalImage, setModalImage] = useState<string | null>(null);
@@ -204,6 +205,7 @@ export const useClientOrdersModal = ({
     setCurrentClosureGroup(null);
     setSelectedGroupId(null);
     setInvoiceNumber('');
+    setPixInfo('');
     setIsEditingInvoice(false);
   }, [fetchEligibleOrders]);
 
@@ -434,6 +436,7 @@ export const useClientOrdersModal = ({
       ]);
       setSelectedGroupId(createdGroup._id);
       setInvoiceNumber('');
+      setPixInfo(createdGroup.pixInfo || '');
 
       await downloadClientOrdersPdf({
         client,
@@ -644,6 +647,54 @@ export const useClientOrdersModal = ({
     await fetchEligibleOrders();
   };
 
+  const savePixInfoForGroup = async (groupId: string, info: string) => {
+    const response = await fetch(`${apiUrl}/closure-groups/${groupId}/pix-info`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ pixInfo: info }),
+    });
+    const data = await response.json().catch(() => ({} as Record<string, unknown>));
+    if (!response.ok) {
+      throw new Error((data as { message?: string }).message || 'Erro ao salvar informações do Pix.');
+    }
+
+    const updatedAt = new Date().toISOString();
+    const nextPixInfo = String(
+      ((data as { closureGroup?: { pixInfo?: string } }).closureGroup?.pixInfo ?? info),
+    );
+
+    setCurrentClosureGroup((prev) =>
+      prev && prev._id === groupId
+        ? {
+            ...prev,
+            ...((data as { closureGroup?: Partial<IClosureGroup> }).closureGroup || {}),
+            pixInfo: nextPixInfo,
+            updatedAt,
+          }
+        : prev,
+    );
+
+    setExistingClosureGroups((prev) =>
+      prev.map((group) =>
+        group._id === groupId
+          ? {
+              ...group,
+              ...((data as { closureGroup?: Partial<IClosureGroup> }).closureGroup || {}),
+              pixInfo: nextPixInfo,
+              updatedAt,
+            }
+          : group,
+      ),
+    );
+
+    setSelectedGroupId(groupId);
+    setPixInfo(nextPixInfo);
+    await onClosureStateChanged?.();
+  };
+
   const returnCacambaToPending = async (groupId: string, cacambaId: string) => {
     const response = await fetch(`${apiUrl}/closure-groups/${groupId}/cacambas/${cacambaId}/reopen`, {
       method: 'PATCH',
@@ -704,6 +755,8 @@ export const useClientOrdersModal = ({
     selectedGroup,
     invoiceNumber,
     setInvoiceNumber,
+    pixInfo,
+    setPixInfo,
     paymentMethod,
     setPaymentMethod,
     isEditingInvoice,
@@ -735,6 +788,7 @@ export const useClientOrdersModal = ({
     shareClosureGroupOnWhatsApp,
     shareClosureGroupByEmail,
     saveInvoiceForGroup,
+    savePixInfoForGroup,
     markPixGroupPaid,
     returnCacambaToPending,
   };

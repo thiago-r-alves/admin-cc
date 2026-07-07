@@ -2067,6 +2067,45 @@ describe('Admin APIs', () => {
       .set('Authorization', `Bearer ${token}`);
     expect(groupsWithoutDate.status).toBe(200);
     expect(groupsWithoutDate.body[0]?.clientSequenceNumber).toBeDefined();
+
+    const pixCacamba = await CacambaModel.create({
+      numero: '902',
+      tipo: 'retirada',
+      contentType: 'Entulho limpo',
+      paymentStatus: 'pendente',
+      price: 75,
+      imageUrl: '/files/507f1f77bcf86cd799439902',
+      orderId: order._id,
+      local: 'via_publica',
+      createdAt: new Date('2026-05-17T10:00:00.000Z'),
+      horaServicoDigitos: '902',
+    });
+    await OrderModel.findByIdAndUpdate(order._id, { $push: { cacambas: pixCacamba._id } });
+
+    const pixClose = await request(app)
+      .post('/closures/download')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        clientId: String(client._id),
+        startDate: '2026-05-15',
+        endDate: '2026-05-19',
+        selectedCacambaIds: [String(pixCacamba._id)],
+        paymentMethod: 'pix',
+      });
+    expect(pixClose.status).toBe(200);
+
+    const savePixInfo = await request(app)
+      .patch(`/closure-groups/${pixClose.body.closureGroup._id}/pix-info`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ pixInfo: 'Pix recebido via banco em 17/05' });
+    expect(savePixInfo.status).toBe(200);
+    expect(savePixInfo.body.closureGroup?.pixInfo).toBe('Pix recebido via banco em 17/05');
+
+    const groupsWithPixInfo = await request(app)
+      .get(`/clients/${client._id}/closure-groups?status=all`)
+      .set('Authorization', `Bearer ${token}`);
+    const pixGroup = groupsWithPixInfo.body.find((group: any) => String(group._id) === String(pixClose.body.closureGroup._id));
+    expect(pixGroup?.pixInfo).toBe('Pix recebido via banco em 17/05');
   });
 
   it('PATCH /closure-groups/:groupId/cacambas/:cacambaId/reopen volta caçamba para pendente e remove grupo vazio', async () => {

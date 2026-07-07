@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ClientOrdersModal from '../ClientOrdersModal';
 
@@ -38,12 +38,14 @@ const handleDownloadMock = vi.fn(async () => ({
 const downloadExistingClosureGroupMock = vi.fn(async () => undefined);
 const downloadClosureReceiptMock = vi.fn(async () => undefined);
 const saveInvoiceForGroupMock = vi.fn(async () => undefined);
+const savePixInfoForGroupMock = vi.fn(async () => undefined);
 const returnCacambaToPendingMock = vi.fn(async () => undefined);
 const shareClosureGroupOnWhatsAppMock = vi.fn(async () => undefined);
 const shareClosureGroupByEmailMock = vi.fn(async () => undefined);
 const markPixGroupPaidMock = vi.fn(async () => undefined);
 const handleUpdateCacambaFullMock = vi.fn(async () => undefined);
 const setInvoiceNumberMock = vi.fn();
+const setPixInfoMock = vi.fn();
 const setIsEditingInvoiceMock = vi.fn();
 const hookOverrides: { current: Record<string, unknown> } = { current: {} };
 
@@ -161,6 +163,8 @@ vi.mock('./useClientOrdersModal', () => ({
     },
     invoiceNumber: 'NF-0001',
     setInvoiceNumber: setInvoiceNumberMock,
+    pixInfo: '',
+    setPixInfo: setPixInfoMock,
     isEditingInvoice: false,
     setIsEditingInvoice: setIsEditingInvoiceMock,
     modalImage: null,
@@ -185,6 +189,7 @@ vi.mock('./useClientOrdersModal', () => ({
     shareClosureGroupOnWhatsApp: shareClosureGroupOnWhatsAppMock,
     shareClosureGroupByEmail: shareClosureGroupByEmailMock,
     saveInvoiceForGroup: saveInvoiceForGroupMock,
+    savePixInfoForGroup: savePixInfoForGroupMock,
     markPixGroupPaid: markPixGroupPaidMock,
     returnCacambaToPending: returnCacambaToPendingMock,
     };
@@ -303,7 +308,7 @@ describe('ClientOrdersModal (closure flow)', () => {
     expect(screen.queryByTestId('closure-group-share-email')).not.toBeInTheDocument();
   });
 
-  it('exibe WhatsApp e email em grupo Pix mantendo ações Pix', () => {
+  it('exibe WhatsApp, email e informações em grupo Pix mantendo ações Pix', async () => {
     const pixGroup = {
       _id: 'grp-pix',
       clientId: 'client-1',
@@ -312,6 +317,7 @@ describe('ClientOrdersModal (closure flow)', () => {
       invoiceNumber: '',
       totalAmount: 100,
       pixCopyPaste: 'PIX-COPIA-E-COLA',
+      pixInfo: 'Comprovante enviado pelo cliente',
       startDate: '2026-05-01T00:00:00.000Z',
       endDate: '2026-05-31T23:59:59.999Z',
       createdAt: '2026-05-10T12:00:00.000Z',
@@ -334,6 +340,7 @@ describe('ClientOrdersModal (closure flow)', () => {
       closureGroups: [pixGroup],
       selectedGroupId: 'grp-pix',
       selectedGroup: pixGroup,
+      pixInfo: 'Comprovante enviado pelo cliente',
     };
 
     render(
@@ -352,10 +359,80 @@ describe('ClientOrdersModal (closure flow)', () => {
 
     expect(screen.getByText('Detalhes do Pix')).toBeInTheDocument();
     expect(screen.getByTestId('closure-group-copy-pix')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copiar código do Pix' })).toBeInTheDocument();
+    expect(screen.queryByTestId('closure-group-edit-pix-info')).not.toBeInTheDocument();
     expect(screen.getByTestId('closure-group-mark-pix-paid')).toBeInTheDocument();
+    expect(screen.queryByText('Informações do Pix: Comprovante enviado pelo cliente')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Valor total do Pix/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Pix copia e cola')).not.toBeInTheDocument();
+    const pixGroupItem = screen.getByTestId('closure-group-item-grp-pix');
+    expect(within(pixGroupItem).getByText('Pix: Comprovante enviado pelo cliente')).toBeInTheDocument();
+    expect(within(pixGroupItem).queryByText('Pix')).not.toBeInTheDocument();
+    expect(screen.queryByText('NF: -')).not.toBeInTheDocument();
+    expect(screen.getByTestId('closure-group-pix-info-input')).toHaveValue(
+      'Comprovante enviado pelo cliente',
+    );
+    fireEvent.change(screen.getByTestId('closure-group-pix-info-input'), {
+      target: { value: 'Pix recebido em 12/05' },
+    });
+    expect(setPixInfoMock).toHaveBeenCalledWith('Pix recebido em 12/05');
+    fireEvent.click(screen.getByTestId('closure-group-save-pix-info'));
+    await waitFor(() =>
+      expect(savePixInfoForGroupMock).toHaveBeenCalledWith('grp-pix', 'Comprovante enviado pelo cliente'),
+    );
     expect(screen.getByTestId('closure-group-share-whatsapp')).toBeInTheDocument();
     expect(screen.getByTestId('closure-group-share-email')).toBeInTheDocument();
     expect(screen.queryByTestId('closure-group-receipt-download')).not.toBeInTheDocument();
+  });
+
+  it('usa modal para editar informações do Pix quando o grupo está finalizado', async () => {
+    const pixGroup = {
+      _id: 'grp-pix-paid',
+      clientId: 'client-1',
+      status: 'paga' as const,
+      paymentMethod: 'pix' as const,
+      invoiceNumber: '',
+      totalAmount: 100,
+      pixCopyPaste: 'PIX-COPIA-E-COLA',
+      pixInfo: 'Pix identificado no banco',
+      startDate: '2026-05-01T00:00:00.000Z',
+      endDate: '2026-05-31T23:59:59.999Z',
+      createdAt: '2026-05-10T12:00:00.000Z',
+      updatedAt: '2026-05-11T12:00:00.000Z',
+      cacambaIds: [],
+    };
+    hookOverrides.current = {
+      currentClosureGroup: pixGroup,
+      closureGroups: [pixGroup],
+      selectedGroupId: 'grp-pix-paid',
+      selectedGroup: pixGroup,
+      pixInfo: 'Pix identificado no banco',
+    };
+
+    render(
+      <ClientOrdersModal
+        client={{ _id: 'client-1', clientName: 'Cliente Teste' }}
+        onClose={vi.fn()}
+        closureMode
+        paymentStatus="paid"
+      />,
+    );
+
+    expect(screen.getByTestId('closure-group-copy-pix')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copiar código do Pix' })).toBeInTheDocument();
+    expect(screen.getByTestId('closure-group-edit-pix-info')).toBeInTheDocument();
+    expect(screen.queryByTestId('closure-group-pix-info-input')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Valor total do Pix/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Pix copia e cola')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('closure-group-edit-pix-info'));
+    expect(screen.getByTestId('closure-group-pix-info-modal')).toBeInTheDocument();
+    expect(screen.getByTestId('closure-group-pix-info-input')).toHaveValue('Pix identificado no banco');
+
+    fireEvent.click(screen.getByTestId('closure-group-save-pix-info'));
+    await waitFor(() =>
+      expect(savePixInfoForGroupMock).toHaveBeenCalledWith('grp-pix-paid', 'Pix identificado no banco'),
+    );
   });
 
   it('confirma volta da caçamba do grupo para pendente', async () => {

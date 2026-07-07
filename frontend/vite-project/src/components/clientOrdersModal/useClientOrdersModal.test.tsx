@@ -490,6 +490,52 @@ describe('useClientOrdersModal', () => {
     );
   });
 
+  it('salva informações do Pix sem alterar o status local', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          closureGroup: {
+            _id: 'grp-1',
+            status: 'pix_pendente',
+            paymentMethod: 'pix',
+            pixInfo: 'Pix identificado no banco',
+          },
+        }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() =>
+      useClientOrdersModal({
+        client,
+        startDate: '2026-05-01',
+        endDate: '2026-05-31',
+        type: 'retirada',
+        closureMode: true,
+      }),
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await result.current.savePixInfoForGroup('grp-1', 'Pix identificado no banco');
+    });
+
+    expect(result.current.pixInfo).toBe('Pix identificado no banco');
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/closure-groups/grp-1/pix-info'),
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ pixInfo: 'Pix identificado no banco' }),
+      }),
+    );
+  });
+
   it('baixa recibo do grupo pago sem chamar endpoints ou alterar status local', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
