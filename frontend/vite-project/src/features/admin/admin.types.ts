@@ -32,4 +32,5 @@ export type AdminCacambaMetaModalState = {
 export type AdminEditingCacambaState = {
   cacamba: ICacamba;
   orderType: OrderType;
+  onUpdated?: () => Promise<void> | void;
 } | null;

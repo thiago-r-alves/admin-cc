@@ -1,10 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import ClientList from '../components/ClientList';
 import ClientForm from '../components/ClientForm';
 import ActionConfirmModal from '../components/ActionConfirmModal';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import LoadingScreen from '../components/LoadingScreen';
-import ClientOrdersModal from '../components/ClientOrdersModal';
 import type { IClient } from '../interfaces';
 import { ClientToolbar } from '../features/clients/ClientToolbar';
 import { normClientSearch } from '../features/clients/client.helpers';
@@ -24,8 +23,6 @@ const ClientPage: React.FC = () => {
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [confirmDeleteClientId, setConfirmDeleteClientId] = useState<string | null>(null);
-  const [ordersClient, setOrdersClient] = useState<IClient | null>(null);
-  const [openingOrdersClientId, setOpeningOrdersClientId] = useState<string | null>(null);
   const apiUrl = import.meta.env.VITE_API_URL;
 
   const fetchClients = async () => {
@@ -137,20 +134,6 @@ const ClientPage: React.FC = () => {
     setShowForm(true);
   };
 
-  const handleViewOrders = (client: IClient) => {
-    setOpeningOrdersClientId(client._id);
-    setOrdersClient(client);
-  };
-
-  const handleCloseOrders = () => {
-    setOrdersClient(null);
-    setOpeningOrdersClientId(null);
-  };
-
-  const handleOrdersInitialContentReady = useCallback(() => {
-    setOpeningOrdersClientId(null);
-  }, []);
-
   const filteredClients = useMemo(() => {
     if (!search.trim()) return clients;
 
@@ -214,16 +197,6 @@ const ClientPage: React.FC = () => {
           clients={filteredClients}
           onEdit={handleEditButtonClick}
           onDelete={handleDeleteClient}
-          onViewOrders={handleViewOrders}
-          loadingOrdersClientId={openingOrdersClientId}
-        />
-      )}
-      {ordersClient && (
-        <ClientOrdersModal
-          client={ordersClient}
-          onClose={handleCloseOrders}
-          closureMode={false}
-          onInitialContentReady={handleOrdersInitialContentReady}
         />
       )}
       <ActionConfirmModal

@@ -23,6 +23,8 @@ type CacambaTrackModalProps = {
   track: ICacambaTrackResponse | null;
   onClose: () => void;
   onOpenImage: (url: string) => void;
+  onEditEvent: (event: ICacambaTrackEvent) => void;
+  onDeleteEvent: (event: ICacambaTrackEvent) => void;
 };
 
 const formatDateTime = (value?: string | null) => {
@@ -93,6 +95,8 @@ export const CacambaTrackModal = ({
   track,
   onClose,
   onOpenImage,
+  onEditEvent,
+  onDeleteEvent,
 }: CacambaTrackModalProps) => {
   const [sortMode, setSortMode] = useState<HistorySortMode>('newest');
   const hasEvents = Boolean(track?.events.length);
@@ -138,9 +142,9 @@ export const CacambaTrackModal = ({
           {track && (
             <div className="mt-4 flex flex-wrap gap-2">
               <SummaryBadge>Status: {formatTrackStatus(track.currentStatus)}</SummaryBadge>
-              <SummaryBadge>Total: {track.total}</SummaryBadge>
-              <SummaryBadge>Primeiro: {formatDateTime(track.firstRegisteredAt)}</SummaryBadge>
-              <SummaryBadge>Atual: {formatDateTime(track.lastRegisteredAt)}</SummaryBadge>
+              <SummaryBadge>Total de movimentações: {track.total}</SummaryBadge>
+              <SummaryBadge>Primeira locação: {formatDateTime(track.firstRegisteredAt)}</SummaryBadge>
+              <SummaryBadge>Última locação: {formatDateTime(track.lastRegisteredAt)}</SummaryBadge>
             </div>
           )}
 
@@ -241,6 +245,23 @@ export const CacambaTrackModal = ({
                         <InfoValue>{formatCurrency(event.price)}</InfoValue>
                       </InfoTile>
                     </InfoGrid>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="min-h-9 cursor-pointer rounded-ui-md border border-gray-300 bg-white px-3 py-2 text-[0.78rem] font-black uppercase text-gray-700 hover:border-brand hover:bg-brand-soft hover:text-brand"
+                        onClick={() => onEditEvent(event)}
+                      >
+                        Editar número da caçamba
+                      </button>
+                      <button
+                        type="button"
+                        className="min-h-9 cursor-pointer rounded-ui-md border border-transparent bg-red-600 px-3 py-2 text-[0.78rem] font-black uppercase text-white hover:bg-red-800"
+                        onClick={() => onDeleteEvent(event)}
+                      >
+                        Excluir caçamba
+                      </button>
+                    </div>
 
                     {imageUrl && (
                       <>

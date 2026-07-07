@@ -58,7 +58,12 @@ export const useAdminActions = ({
     });
   }, [authenticatedFetch, fetchData, openConfirm, setConfirmLoading, setConfirmState, setFeedback]);
 
-  const handleDeleteAcompanhamentoCacamba = useCallback((cacambaId: string, numero: string) => {
+  const handleDeleteAcompanhamentoCacamba = useCallback((
+    cacambaId: string,
+    numero: string,
+    onDeleted?: () => Promise<void> | void,
+    options?: { skipRefresh?: boolean },
+  ) => {
     openConfirm({
       title: 'Excluir caçamba do acompanhamento',
       description: `Tem certeza que deseja excluir definitivamente a caçamba #${numero}?`,
@@ -72,7 +77,10 @@ export const useAdminActions = ({
           });
           if (response.ok) {
             setFeedback({ tone: 'success', message: `Caçamba #${numero} excluída com sucesso.` });
-            await fetchData();
+            if (!options?.skipRefresh) {
+              await fetchData();
+            }
+            await onDeleted?.();
             setConfirmState(null);
           } else {
             const data = await response.json();

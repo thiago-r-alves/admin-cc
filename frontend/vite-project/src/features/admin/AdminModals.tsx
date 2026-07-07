@@ -91,7 +91,10 @@ export const AdminModals = ({
           cacamba={editingCacamba.cacamba}
           orderType={editingCacamba.orderType}
           onClose={onCloseEditingCacamba}
-          onUpdate={(updates) => onUpdateCacamba(editingCacamba.cacamba._id, updates)}
+          onUpdate={async (updates) => {
+            await onUpdateCacamba(editingCacamba.cacamba._id, updates);
+            await editingCacamba.onUpdated?.();
+          }}
         />
       )}
 

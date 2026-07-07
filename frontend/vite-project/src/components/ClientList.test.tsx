@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import ClientList from './ClientList';
 
@@ -31,20 +31,15 @@ describe('ClientList', () => {
     expect(screen.getByText('IE-123')).toBeInTheDocument();
   });
 
-  it('mostra botão Pedidos quando onViewOrders é informado', () => {
-    const onViewOrders = vi.fn();
-
+  it('não exibe botão de pedidos na lista de clientes', () => {
     render(
       <ClientList
         clients={[client]}
         onEdit={vi.fn()}
         onDelete={vi.fn()}
-        onViewOrders={onViewOrders}
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /pedidos/i }));
-
-    expect(onViewOrders).toHaveBeenCalledWith(client);
+    expect(screen.queryByRole('button', { name: /pedidos/i })).not.toBeInTheDocument();
   });
 });

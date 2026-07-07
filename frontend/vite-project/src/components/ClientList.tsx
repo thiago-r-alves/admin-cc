@@ -10,8 +10,6 @@ interface ClientListProps {
   clients: IClient[];
   onEdit: (client: IClient) => void;
   onDelete: (id: string) => void;
-  onViewOrders?: (client: IClient) => void;
-  loadingOrdersClientId?: string | null;
 }
 
 const UserIcon = () => (
@@ -48,21 +46,6 @@ const EditIcon = () => (
   </svg>
 );
 
-const ClipboardIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path d="M9 5h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    <path d="M9 12h6M9 16h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    <path d="M8 3h8l1 2h3v16H4V5h3Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-  </svg>
-);
-
-const ButtonSpinner = () => (
-  <span
-    aria-hidden="true"
-    className="h-4 w-4 flex-none animate-spin rounded-full border-2 border-brand-border border-t-brand motion-reduce:animate-none"
-  />
-);
-
 const TrashIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
     <path d="M3 6h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -80,8 +63,6 @@ const ClientList: React.FC<ClientListProps> = ({
   clients,
   onEdit,
   onDelete,
-  onViewOrders,
-  loadingOrdersClientId = null,
 }) => {
   if (!clients.length) {
     return (
@@ -93,10 +74,7 @@ const ClientList: React.FC<ClientListProps> = ({
 
   return (
     <div className="w-full overflow-hidden rounded-ui-lg border border-red-200 bg-white">
-      {clients.map((client) => {
-        const isLoadingOrders = loadingOrdersClientId === client._id;
-
-        return (
+      {clients.map((client) => (
           <div key={client._id} className="flex items-center justify-between gap-5 border-b border-red-100 bg-white px-5 py-4 last:border-b-0 max-[760px]:flex-col max-[760px]:items-stretch max-[760px]:gap-4 max-[760px]:p-4">
             <div className="min-w-0 flex-auto">
               <h3 className="m-0 mb-1 text-base font-black uppercase leading-tight text-gray-800 [overflow-wrap:anywhere]">{client.clientName}</h3>
@@ -139,26 +117,13 @@ const ClientList: React.FC<ClientListProps> = ({
                 <EditIcon />
                 Editar
               </button>
-              {onViewOrders && (
-                <button
-                  type="button"
-                  disabled={Boolean(loadingOrdersClientId)}
-                  aria-busy={isLoadingOrders}
-                  onClick={() => onViewOrders(client)}
-                  className={cn(actionButtonClass, 'border border-brand-border bg-white text-gray-700 hover:border-brand hover:bg-brand-soft hover:text-brand disabled:hover:border-brand-border disabled:hover:bg-white disabled:hover:text-gray-700')}
-                >
-                  {isLoadingOrders ? <ButtonSpinner /> : <ClipboardIcon />}
-                  Pedidos
-                </button>
-              )}
               <button type="button" onClick={() => onDelete(client._id)} className={cn(actionButtonClass, 'border border-transparent bg-red-600 text-white hover:bg-red-800')}>
                 <TrashIcon />
                 Excluir
               </button>
             </div>
           </div>
-        );
-      })}
+      ))}
     </div>
   );
 };
