@@ -61,8 +61,6 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
   const errorRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
@@ -86,13 +84,6 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
       previouslyFocused?.focus();
     };
   }, [onClose]);
-
-  useEffect(() => {
-    if (files.length === 0) { setPhotoPreview(null); return; }
-    const url = URL.createObjectURL(files[0]);
-    setPhotoPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [files]);
 
   useEffect(() => {
     if (!error) return;
@@ -261,14 +252,10 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
             <Section>
               <SectionTitle>Imagem</SectionTitle>
               <FileInputWrap>
-                <p className="m-0 text-sm font-bold text-gray-700">Foto da caçamba *</p>
-                <FileHint>Fotografe a caçamba inteira e deixe o número visível.</FileHint>
-                <input ref={fileInputRef} id="cacamba-imagem" className="sr-only" type="file" accept="image/*" capture="environment" onChange={handleFileChange} onClick={() => setError('')} aria-label="Foto da caçamba" />
-                {photoPreview && <img src={photoPreview} alt="Prévia da foto da caçamba" className="max-h-64 w-full rounded-ui-lg border border-gray-300 bg-gray-50 object-contain" />}
-                <UIButton type="button" variant={photoPreview ? 'secondary' : 'primary'} size="lg" fullWidth onClick={() => fileInputRef.current?.click()}>
-                  {photoPreview ? 'Tirar outra foto' : 'Tirar foto'}
-                </UIButton>
-                {photoPreview && <p role="status" className="m-0 text-sm font-bold text-green-700">✓ Foto pronta para envio.</p>}
+                <UIField label="Foto da caçamba" htmlFor="cacamba-imagem" required>
+                  <TextInput id="cacamba-imagem" type="file" accept="image/*" onChange={handleFileChange} onClick={() => setError('')} />
+                </UIField>
+                <FileHint>{files.length > 0 ? 'Foto pronta para envio.' : 'Selecione uma imagem para registrar a caçamba.'}</FileHint>
               </FileInputWrap>
             </Section>
           </ModalBody>

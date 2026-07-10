@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import CacambaForm from './CacambaForm';
 
 describe('CacambaForm', () => {
-  it('solicita a camera traseira ao adicionar a foto', () => {
+  it('permite selecionar uma imagem para upload', () => {
     render(
       <CacambaForm
         orderId="ord-1"
@@ -13,15 +13,13 @@ describe('CacambaForm', () => {
       />,
     );
 
-    const imageInput = screen.getByLabelText('Foto da caçamba');
+    const imageInput = screen.getByLabelText(/Foto da caçamba/);
     expect(imageInput).toHaveAttribute('accept', 'image/*');
-    expect(imageInput).toHaveAttribute('capture', 'environment');
+    expect(imageInput).not.toHaveAttribute('capture');
     expect(imageInput).not.toHaveAttribute('multiple');
   });
 
   it('libera o botao registrar somente quando todos os campos obrigatorios forem preenchidos', () => {
-    URL.createObjectURL = vi.fn(() => 'blob:preview');
-    URL.revokeObjectURL = vi.fn();
     render(
       <CacambaForm
         orderId="ord-1"
@@ -38,7 +36,7 @@ describe('CacambaForm', () => {
     fireEvent.change(screen.getByLabelText(/3 Últimos Dígitos da OS/), { target: { value: '123' } });
     expect(registerButton).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText('Foto da caçamba'), {
+    fireEvent.change(screen.getByLabelText(/Foto da caçamba/), {
       target: { files: [new File(['foto'], 'cacamba.jpg', { type: 'image/jpeg' })] },
     });
 

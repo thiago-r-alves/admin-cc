@@ -34,8 +34,6 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
   const [saving, setSaving] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
@@ -59,13 +57,6 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
       previouslyFocused?.focus();
     };
   }, [onClose]);
-
-  useEffect(() => {
-    if (!file) { setPhotoPreview(null); return; }
-    const url = URL.createObjectURL(file);
-    setPhotoPreview(url);
-    return () => URL.revokeObjectURL(url);
-  }, [file]);
 
   const showEntrega = !props.orderType || props.orderType === 'entrega';
   const showRetirada = !props.orderType || props.orderType === 'retirada';
@@ -182,13 +173,8 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
           </div>
 
           <div className="flex flex-col">
-            <label htmlFor="edit-cacamba-imagem" className="mb-1 text-sm font-medium">Trocar foto (opcional)</label>
-            <p className="m-0 mb-2 text-sm text-gray-600">Fotografe a caçamba inteira e deixe o número visível.</p>
-            <input ref={fileInputRef} id="edit-cacamba-imagem" type="file" accept="image/*" capture="environment" onChange={handleFileChange} onClick={() => setImgError(null)} className="sr-only" />
-            {photoPreview && <img src={photoPreview} alt="Prévia da nova foto da caçamba" className="mb-2 max-h-56 w-full rounded-ui-lg border border-gray-300 object-contain" />}
-            <button type="button" onClick={() => fileInputRef.current?.click()} className="min-h-11 rounded-ui-md border border-brand-border bg-white px-4 text-base font-black text-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-focus-strong">
-              {photoPreview ? 'Tirar outra foto' : 'Tirar nova foto'}
-            </button>
+            <label htmlFor="edit-cacamba-imagem" className="mb-1 text-sm font-medium">Trocar imagem (opcional)</label>
+            <input id="edit-cacamba-imagem" type="file" accept="image/*" onChange={handleFileChange} onClick={() => setImgError(null)} className={fieldClass} />
             {imgError && <p className="m-0 mt-2 text-sm text-red-500">{imgError}</p>}
           </div>
           </div>
