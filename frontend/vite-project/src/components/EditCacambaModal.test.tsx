@@ -24,7 +24,7 @@ describe('EditCacambaModal', () => {
   it('solicita a camera traseira ao trocar a imagem', () => {
     render(<EditCacambaModal cacamba={{ ...baseCacamba, contentType: 'Entulho limpo' }} onClose={vi.fn()} onUpdate={vi.fn()} />);
 
-    const imageInput = screen.getByLabelText('Trocar Imagem (Opcional)');
+    const imageInput = screen.getByLabelText('Trocar foto (opcional)');
     expect(imageInput).toHaveAttribute('accept', 'image/*');
     expect(imageInput).toHaveAttribute('capture', 'environment');
   });
@@ -82,7 +82,7 @@ describe('EditCacambaModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('salva valor da caçamba quando informado', async () => {
+  it('nao exibe nem altera valor administrativo da caçamba', async () => {
     const onClose = vi.fn();
     const onUpdate = vi.fn().mockResolvedValue(undefined);
     render(
@@ -93,36 +93,11 @@ describe('EditCacambaModal', () => {
       />,
     );
 
-    const priceInput = screen.getByLabelText('Valor da caçamba (R$)');
-    expect(priceInput).toHaveValue(120);
-    fireEvent.change(priceInput, { target: { value: '180.50' } });
+    expect(screen.queryByLabelText('Valor da caçamba (R$)')).not.toBeInTheDocument();
     submitForm();
 
     await waitFor(() => expect(onUpdate).toHaveBeenCalled());
-    expect(onUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        price: 180.5,
-      }),
-    );
+    expect(onUpdate.mock.calls[0][0]).not.toHaveProperty('price');
     expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it('valida valor invalido da caçamba', async () => {
-    const onUpdate = vi.fn();
-    render(
-      <EditCacambaModal
-        cacamba={{ ...baseCacamba, contentType: 'Entulho limpo' }}
-        onClose={vi.fn()}
-        onUpdate={onUpdate}
-      />,
-    );
-
-    fireEvent.change(screen.getByLabelText('Valor da caçamba (R$)'), {
-      target: { value: '-1' },
-    });
-    submitForm();
-
-    expect(await screen.findByText('Informe um valor válido para a caçamba.')).toBeInTheDocument();
-    expect(onUpdate).not.toHaveBeenCalled();
   });
 });

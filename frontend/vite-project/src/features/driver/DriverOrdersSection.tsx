@@ -25,7 +25,7 @@ import {
 
 type DriverOrdersSectionProps = {
   orders: IOrder[];
-  onOpenRoute: (address: string, number: string, neighborhood: string) => void;
+  onOpenRoute: (address: string, number: string, neighborhood: string, city?: string, cep?: string) => void;
   onCompleteOrder: (orderId: string) => void;
   onAddCacamba: (orderId: string, orderType: OrderType) => void;
   onOpenImage: (url: string) => void;
@@ -52,6 +52,9 @@ export const DriverOrdersSection = ({
       {orders.map((order) => {
         const canConclude = (order.cacambas?.length ?? 0) >= 1;
         const canManage = order.status !== 'cancelado';
+        const cacambaCount = order.cacambas?.length ?? 0;
+        const fullAddress = `${order.address}, ${order.addressNumber} - ${order.neighborhood} - ${order.city || ''} - CEP ${order.cep || ''}`;
+        const actionLabel = order.type === 'entrega' ? 'Registrar entrega' : 'Registrar retirada';
 
         return (
           <OrderCard key={order._id}>
@@ -68,40 +71,29 @@ export const DriverOrdersSection = ({
               <InfoGrid>
                 <InfoBlock $span={2}>
                   <InfoLabel>Endereço da obra</InfoLabel>
-                  <InfoValue>
-                    {order.address}, {order.addressNumber} - {order.neighborhood} - {order.city} - CEP {order.cep}
-                  </InfoValue>
+                  <InfoValue>{fullAddress}</InfoValue>
                 </InfoBlock>
                 <InfoBlock>
                   <InfoLabel>Contato</InfoLabel>
-                  <InfoValue>{order.contactName} ({order.contactNumber})</InfoValue>
+                  <InfoValue><strong>{order.contactName}</strong><br />{order.contactNumber}</InfoValue>
                 </InfoBlock>
               </InfoGrid>
 
               <ActionRow>
                 <CacambaButton
                   type="button"
-                  $variant="danger"
-                  onClick={() => onOpenRoute(order.address, order.addressNumber, order.neighborhood)}
+                  $variant="route"
+                  onClick={() => onOpenRoute(order.address, order.addressNumber, order.neighborhood, order.city, order.cep)}
                 >
-                  Ver rota
+                  Abrir no Maps
                 </CacambaButton>
-                {canManage && canConclude && (
-                  <CacambaButton
-                    type="button"
-                    $variant="success"
-                    onClick={() => onCompleteOrder(order._id)}
-                  >
-                    Concluir Pedido
-                  </CacambaButton>
-                )}
               </ActionRow>
 
               {canManage && (
                 <CacambaSection>
                   <CacambaHeader>
                     <CacambaButton type="button" $variant="primary" onClick={() => onAddCacamba(order._id, order.type)}>
-                      + Adicionar Caçamba
+                      {actionLabel}
                     </CacambaButton>
                   </CacambaHeader>
                   <CacambaList
@@ -110,7 +102,24 @@ export const DriverOrdersSection = ({
                     onEdit={(cacamba) => onEditCacamba(cacamba, order.type)}
                     onDelete={onDeleteCacamba}
                     responsibility={{ motorista: order.motorista, placa: order.placa }}
+                    showTypeBadge={false}
+                    showResponsibility={false}
                   />
+                  <div className="mt-4 rounded-ui-md bg-slate-100 px-4 py-3 text-sm font-bold text-gray-700" role="status">
+                    {cacambaCount === 0
+                      ? `Nenhuma caçamba registrada. Registre a ${order.type} para liberar a conclusão.`
+                      : `${cacambaCount} caçamba${cacambaCount > 1 ? 's' : ''} registrada${cacambaCount > 1 ? 's' : ''} • Pronto para concluir`}
+                  </div>
+                  {canConclude && (
+                    <CacambaButton
+                      type="button"
+                      $variant="success"
+                      className="mt-3 w-full"
+                      onClick={() => onCompleteOrder(order._id)}
+                    >
+                      Concluir pedido
+                    </CacambaButton>
+                  )}
                 </CacambaSection>
               )}
             </OrderCardBody>

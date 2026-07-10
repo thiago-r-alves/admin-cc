@@ -27,10 +27,10 @@ const CacambaNumber: React.FC<React.HTMLAttributes<HTMLSpanElement>> = ({ classN
     {...props}
   />
 );
-const TypeBadge = twComponent<'span', { tipo: 'entrega' | 'retirada' }>('span', 'rounded-full px-[0.45rem] py-[0.15rem] text-[0.66rem] font-black uppercase tracking-[0.04em]', ({ tipo }) =>
+const TypeBadge = twComponent<'span', { tipo: 'entrega' | 'retirada' }>('span', 'rounded-full px-[0.55rem] py-[0.25rem] text-xs font-black uppercase tracking-[0.04em]', ({ tipo }) =>
   tipo === 'entrega' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700',
 );
-const PaymentBadge = twComponent('span', 'rounded-full bg-green-100 px-[0.45rem] py-[0.15rem] text-[0.66rem] font-black uppercase tracking-[0.04em] text-green-700');
+const PaymentBadge = twComponent('span', 'rounded-full bg-green-100 px-[0.55rem] py-[0.25rem] text-xs font-black uppercase tracking-[0.04em] text-green-700');
 
 export type CacambaStatusBadgeTone = 'warning' | 'danger';
 
@@ -58,7 +58,7 @@ export interface CacambaResponsibility {
   placa?: string;
 }
 
-const infoTextClass = 'm-0 mt-[0.2rem] text-[0.82rem] leading-[1.35] text-gray-700 [&_strong]:text-gray-950';
+const infoTextClass = 'm-0 mt-[0.3rem] text-sm leading-[1.4] text-gray-700 [&_strong]:text-gray-950';
 const DateInfo = twComponent('p', infoTextClass);
 const LocalInfo = twComponent('span', 'mt-[0.18rem] block text-[0.82rem] text-gray-700 [&_strong]:text-gray-950');
 const ServiceOrder = twComponent('p', infoTextClass);
@@ -67,11 +67,12 @@ const PriceInfo = twComponent('p', infoTextClass);
 const ResponsibilityInfo = twComponent('p', `${infoTextClass} flex flex-wrap gap-[0.55rem]`);
 const BlockedWarning = twComponent('div', 'mt-2 whitespace-pre-line rounded-ui-lg border border-red-300 bg-red-50 px-[0.7rem] py-[0.55rem] text-[0.9rem] font-bold text-red-900');
 const ImageContainer = twComponent('div', 'ml-[0.35rem] flex-none');
-const CacambaImage = twComponent('img', 'h-[66px] w-[66px] rounded-ui-md border border-gray-300 bg-white object-cover');
+const ImageButton = twComponent('button', 'relative min-h-11 min-w-11 cursor-pointer rounded-ui-md border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-focus-strong');
+const CacambaImage = twComponent('img', 'h-[76px] w-[76px] rounded-ui-md border border-gray-300 bg-white object-cover');
 const ActionRow = twComponent('div', 'flex flex-wrap gap-2');
-const ActionButton = twComponent<'button', { $variant?: 'danger' | 'secondary' }>('button', 'cursor-pointer rounded-ui-md border px-[0.9rem] py-[0.42rem] text-[0.9rem] font-extrabold shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background,box-shadow] duration-200', ({ $variant }) =>
+const ActionButton = twComponent<'button', { $variant?: 'danger' | 'secondary' }>('button', 'min-h-11 cursor-pointer rounded-ui-md border px-[0.9rem] py-[0.55rem] text-[0.92rem] font-extrabold shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-focus-strong', ({ $variant }) =>
   $variant === 'danger'
-    ? 'border-brand bg-brand text-white hover:border-brand-hover hover:bg-brand-hover'
+    ? 'border-red-300 bg-white text-red-700 hover:border-red-700 hover:bg-red-50'
     : 'border-gray-300 bg-white text-gray-700 hover:border-brand hover:bg-brand-soft hover:text-brand',
 );
 
@@ -94,6 +95,7 @@ interface CacambaListProps {
   showDeliveryDateForRetirada?: boolean;
   statusBadges?: Record<string, CacambaStatusBadge | CacambaStatusBadge[]>;
   responsibility?: CacambaResponsibility;
+  showResponsibility?: boolean;
 }
 
 const formatDateTime = (value?: string | null) => {
@@ -158,6 +160,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
   showDeliveryDateForRetirada = false,
   statusBadges,
   responsibility,
+  showResponsibility = true,
 }) => {
   const apiUrl = import.meta.env.VITE_API_URL;
   const requestedThumbsRef = React.useRef<Set<string>>(new Set());
@@ -228,7 +231,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
         const thumbKey = cacamba.imageUrl ? `${cacamba._id}:${cacamba.imageUrl}` : '';
         const currentStatusBadges = normalizeStatusBadges(statusBadges?.[cacamba._id]);
         const responsible = getCacambaResponsibility(cacamba, responsibility);
-        const hasResponsibleInfo = Boolean(responsible.driverName || responsible.placa);
+        const hasResponsibleInfo = showResponsibility && Boolean(responsible.driverName || responsible.placa);
 
         return (
           <CacambaCard key={cacamba._id}>
@@ -312,11 +315,9 @@ const CacambaList: React.FC<CacambaListProps> = ({
 
               <ImageContainer>
                 {cacamba.imageUrl ? (
-                  <CacambaImage
-                    src={thumbs[thumbKey] || imageUrl || cacamba.imageUrl}
-                    alt="Foto da caçamba"
-                    loading="lazy"
-                    decoding="async"
+                  <ImageButton
+                    type="button"
+                    aria-label={`Ampliar foto da caçamba ${cacamba.numero}`}
                     onClick={async () => {
                       if (onImageClick && imageUrl) {
                         try {
@@ -329,7 +330,15 @@ const CacambaList: React.FC<CacambaListProps> = ({
                         }
                       }
                     }}
-                  />
+                  >
+                    <CacambaImage
+                      src={thumbs[thumbKey] || imageUrl || cacamba.imageUrl}
+                      alt={`Foto da caçamba ${cacamba.numero}`}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <span aria-hidden="true" className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-xs text-white">⌕</span>
+                  </ImageButton>
                 ) : null}
               </ImageContainer>
             </CardContent>
@@ -346,12 +355,12 @@ const CacambaList: React.FC<CacambaListProps> = ({
                 </SelectionLabel>
               )}
               {onEdit && (
-                <ActionButton $variant="secondary" onClick={() => onEdit(cacamba)}>
+                <ActionButton type="button" $variant="secondary" onClick={() => onEdit(cacamba)}>
                   {editLabel}
                 </ActionButton>
               )}
               {!selectable && onDelete && (
-                <ActionButton $variant="danger" onClick={() => onDelete(cacamba._id)}>
+                <ActionButton type="button" $variant="danger" onClick={() => onDelete(cacamba._id)} aria-label={`Excluir caçamba ${cacamba.numero}`}>
                   Excluir
                 </ActionButton>
               )}

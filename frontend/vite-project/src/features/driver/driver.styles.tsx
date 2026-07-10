@@ -2,13 +2,14 @@ import React from 'react';
 import { cn } from '../../utils/cn';
 
 type DivProps = React.HTMLAttributes<HTMLDivElement>;
-type HeaderVariant = 'primary' | 'danger' | 'success' | 'quiet';
+type HeaderVariant = 'primary' | 'danger' | 'success' | 'quiet' | 'route';
 
 const headerButtonVariants: Record<HeaderVariant, string> = {
   primary: 'border-brand bg-brand text-white hover:bg-brand-hover hover:text-white',
-  danger: 'border-brand bg-brand text-white hover:bg-brand-hover hover:text-white',
-  success: 'border-brand bg-brand text-white hover:bg-brand-hover hover:text-white',
+  danger: 'border-red-700 bg-red-700 text-white hover:bg-red-800 hover:text-white',
+  success: 'border-green-700 bg-green-700 text-white hover:bg-green-800 hover:text-white',
   quiet: 'border-brand-border bg-white text-[#6b1f1f] hover:bg-brand-soft hover:text-brand',
+  route: 'border-blue-700 bg-blue-700 text-white hover:bg-blue-800 hover:text-white',
 };
 
 export const DriverContainer: React.FC<DivProps> = ({ className, ...props }) => (
@@ -50,7 +51,7 @@ export const HeaderButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement
 }) => (
   <button
     className={cn(
-      'min-h-10 cursor-pointer rounded-ui-md border px-[0.95rem] py-[0.65rem] text-[0.78rem] font-black uppercase tracking-[0.04em] transition-[background,border-color,color,transform] duration-[180ms] ease-in-out hover:not-disabled:-translate-y-px hover:not-disabled:border-brand disabled:cursor-not-allowed disabled:opacity-55 max-[560px]:w-full',
+      'min-h-11 cursor-pointer rounded-ui-md border px-[0.95rem] py-[0.65rem] text-[0.92rem] font-black transition-[background,border-color,color,transform] duration-[180ms] ease-in-out hover:not-disabled:-translate-y-px disabled:cursor-not-allowed disabled:opacity-55 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-focus-strong max-[560px]:w-full',
       headerButtonVariants[$variant],
       className,
     )}
@@ -127,11 +128,11 @@ export const InfoBlock: React.FC<DivProps & { $span?: number }> = ({ $span = 1, 
 );
 
 export const InfoLabel: React.FC<DivProps> = ({ className, ...props }) => (
-  <div className={cn('mb-[0.35rem] text-[0.72rem] font-black uppercase tracking-[0.04em] text-gray-400', className)} {...props} />
+  <div className={cn('mb-[0.35rem] text-sm font-black uppercase tracking-[0.04em] text-gray-600', className)} {...props} />
 );
 
 export const InfoValue: React.FC<DivProps> = ({ className, ...props }) => (
-  <div className={cn('break-words text-[0.92rem] leading-[1.45] text-gray-700', className)} {...props} />
+  <div className={cn('break-words text-base leading-[1.45] text-gray-800', className)} {...props} />
 );
 
 export const ActionRow: React.FC<DivProps> = ({ className, ...props }) => (

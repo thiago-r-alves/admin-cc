@@ -59,6 +59,40 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
   const [availableCacambas, setAvailableCacambas] = useState<AvailableCacamba[]>([]);
   const [error, setError] = useState('');
   const errorRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const firstFieldRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
+    const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])') ?? []);
+    const timer = window.setTimeout(() => (firstFieldRef.current ?? focusable()[0])?.focus(), 0);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+      if (event.key !== 'Tab') return;
+      const elements = focusable();
+      if (!elements.length) return;
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('keydown', handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [onClose]);
+
+  useEffect(() => {
+    if (files.length === 0) { setPhotoPreview(null); return; }
+    const url = URL.createObjectURL(files[0]);
+    setPhotoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [files]);
 
   useEffect(() => {
     if (!error) return;
@@ -155,11 +189,18 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
     }
   };
 
+  const isFormValid =
+    /^\d{3}$/.test(numero) &&
+    /^\d{3}$/.test(horaServicoDigitos) &&
+    files.length > 0 &&
+    Boolean(local) &&
+    (orderType !== 'retirada' || Boolean(contentType));
+
   return (
-    <ModalOverlay onClick={onClose}>
-      <ModalContent onClick={(e) => e.stopPropagation()}>
+    <ModalOverlay>
+      <ModalContent ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="register-cacamba-title">
         <ModalHeader>
-          <TitleWrap><TitleAccent /><Title>Registrar Caçamba</Title></TitleWrap>
+          <TitleWrap><TitleAccent /><Title id="register-cacamba-title">Registrar Caçamba</Title></TitleWrap>
           <CloseButton type="button" variant="ghost" onClick={onClose} aria-label="Fechar modal">X</CloseButton>
         </ModalHeader>
         <Form onSubmit={handleSubmit}>
@@ -173,11 +214,12 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
               <SectionTitle>Dados da Caçamba</SectionTitle>
               <FieldGrid>
                 <GridField>
-                  <UIField label="Número da Caçamba" htmlFor="cacamba-numero">
+                  <UIField label="Número da Caçamba" htmlFor="cacamba-numero" required>
                     {orderType === 'retirada' ? (
                       <>
                         <SelectInput
                           id="cacamba-numero"
+                          autoFocus
                           value={numero}
                           onChange={(e) => setNumero(e.target.value)}
                           disabled={loadingAvailable || availableCacambas.length === 0}
@@ -199,6 +241,7 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
                     ) : (
                       <TextInput
                         id="cacamba-numero"
+                        ref={firstFieldRef}
                         type="text"
                         value={numero}
                         onChange={(e) => setNumero(e.target.value.replace(/\D/g, '').slice(0, 3))}
@@ -209,17 +252,23 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
                     )}
                   </UIField>
                 </GridField>
-                <GridField><UIField label="3 Últimos Dígitos da OS" htmlFor="cacamba-os"><TextInput id="cacamba-os" type="text" value={horaServicoDigitos} onChange={(e) => setHoraServicoDigitos(e.target.value)} placeholder="Ex: 123" maxLength={3} inputMode="numeric" pattern="[0-9]{3}" required /></UIField></GridField>
+                <GridField><UIField label="3 Últimos Dígitos da OS" htmlFor="cacamba-os" required><TextInput id="cacamba-os" type="text" value={horaServicoDigitos} onChange={(e) => setHoraServicoDigitos(e.target.value.replace(/\D/g, '').slice(0, 3))} placeholder="Ex: 123" maxLength={3} inputMode="numeric" pattern="[0-9]{3}" required /></UIField></GridField>
                 <GridField><UIField label="Tipo"><TypeBadge>{orderType === 'entrega' ? 'Entrega' : 'Retirada'}</TypeBadge></UIField></GridField>
-                <GridField><UIField label="Local" htmlFor="cacamba-local"><SelectInput id="cacamba-local" value={local} onChange={e => setLocal(e.target.value as 'via_publica' | 'canteiro_obra')} required><option value="via_publica">Via pública</option><option value="canteiro_obra">Canteiro de obra</option></SelectInput></UIField></GridField>
-                {orderType === 'retirada' && <GridField $span={2}><UIField label="Tipo de conteúdo" htmlFor="cacamba-content-type"><SelectInput id="cacamba-content-type" value={contentType} onChange={e => setContentType(e.target.value as CacambaContentType | '')} required><option value="">Selecione...</option>{CACAMBA_CONTENT_TYPES.map((option) => <option key={option} value={option}>{option}</option>)}</SelectInput></UIField></GridField>}
+                <GridField><UIField label="Local" htmlFor="cacamba-local" required><SelectInput id="cacamba-local" value={local} onChange={e => setLocal(e.target.value as 'via_publica' | 'canteiro_obra')} required><option value="via_publica">Via pública</option><option value="canteiro_obra">Canteiro de obra</option></SelectInput></UIField></GridField>
+                {orderType === 'retirada' && <GridField $span={2}><UIField label="Tipo de conteúdo" htmlFor="cacamba-content-type" required><SelectInput id="cacamba-content-type" value={contentType} onChange={e => setContentType(e.target.value as CacambaContentType | '')} required><option value="">Selecione...</option>{CACAMBA_CONTENT_TYPES.map((option) => <option key={option} value={option}>{option}</option>)}</SelectInput></UIField></GridField>}
               </FieldGrid>
             </Section>
             <Section>
               <SectionTitle>Imagem</SectionTitle>
               <FileInputWrap>
-                <UIField label="Foto da caçamba" htmlFor="cacamba-imagem"><TextInput id="cacamba-imagem" type="file" accept="image/*" capture="environment" onChange={handleFileChange} onClick={() => setError('')} /></UIField>
-                <FileHint>{files.length > 0 ? 'Foto pronta para envio.' : 'Toque no campo acima para tirar uma foto da caçamba.'}</FileHint>
+                <p className="m-0 text-sm font-bold text-gray-700">Foto da caçamba *</p>
+                <FileHint>Fotografe a caçamba inteira e deixe o número visível.</FileHint>
+                <input ref={fileInputRef} id="cacamba-imagem" className="sr-only" type="file" accept="image/*" capture="environment" onChange={handleFileChange} onClick={() => setError('')} aria-label="Foto da caçamba" />
+                {photoPreview && <img src={photoPreview} alt="Prévia da foto da caçamba" className="max-h-64 w-full rounded-ui-lg border border-gray-300 bg-gray-50 object-contain" />}
+                <UIButton type="button" variant={photoPreview ? 'secondary' : 'primary'} size="lg" fullWidth onClick={() => fileInputRef.current?.click()}>
+                  {photoPreview ? 'Tirar outra foto' : 'Tirar foto'}
+                </UIButton>
+                {photoPreview && <p role="status" className="m-0 text-sm font-bold text-green-700">✓ Foto pronta para envio.</p>}
               </FileInputWrap>
             </Section>
           </ModalBody>
@@ -229,7 +278,7 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
               type="submit"
               variant="primary"
               loading={loading}
-              disabled={orderType === 'retirada' && (loadingAvailable || availableCacambas.length === 0)}
+              disabled={!isFormValid || (orderType === 'retirada' && (loadingAvailable || availableCacambas.length === 0))}
             >
               {loading ? 'Registrando...' : 'Registrar'}
             </FooterButton>

@@ -33,12 +33,12 @@ describe('CacambaList', () => {
       />,
     );
 
-    const image = screen.getByAltText('Foto da caçamba');
+    const image = screen.getByAltText('Foto da caçamba 415');
     expect(image).toHaveAttribute('loading', 'lazy');
     expect(image).toHaveAttribute('decoding', 'async');
 
     await waitFor(() => expect(image).toHaveAttribute('src', 'thumb:https://example.test/cacamba.jpg'));
-    fireEvent.click(image);
+    fireEvent.click(screen.getByRole('button', { name: 'Ampliar foto da caçamba 415' }));
 
     await waitFor(() => expect(onImageClick).toHaveBeenCalledWith('thumb:https://example.test/cacamba.jpg'));
   });

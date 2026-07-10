@@ -40,12 +40,36 @@ const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
 }) => {
   const titleId = React.useId();
   const descriptionId = React.useId();
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  const cancelRef = React.useRef<HTMLButtonElement>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    cancelRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+      if (event.key !== 'Tab') return;
+      const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), [tabindex]:not([tabindex="-1"])') ?? []);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [onClose, open]);
 
   if (!open) return null;
 
   return (
     <div onClick={onClose} className="fixed inset-0 z-[1300] flex items-center justify-center bg-[rgba(17,24,39,0.62)] p-4">
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -62,10 +86,10 @@ const ActionConfirmModal: React.FC<ActionConfirmModalProps> = ({
           {description}
         </div>
         <div className="flex justify-end gap-[0.65rem] border-t border-red-100 px-[1.15rem] pb-4 pt-[0.9rem]">
-          <button type="button" onClick={onClose} disabled={loading} className="min-h-[38px] min-w-[120px] cursor-pointer rounded-ui-md border border-gray-300 bg-white px-[0.85rem] py-[0.6rem] text-[0.8rem] font-black uppercase text-gray-700 disabled:cursor-not-allowed disabled:opacity-60">
+          <button ref={cancelRef} type="button" onClick={onClose} disabled={loading} className="min-h-11 min-w-[120px] cursor-pointer rounded-ui-md border border-gray-300 bg-white px-[0.85rem] py-[0.6rem] text-sm font-black text-gray-700 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-focus-strong disabled:cursor-not-allowed disabled:opacity-60">
             {cancelLabel}
           </button>
-          <button type="button" className={cn('min-h-[38px] min-w-[120px] cursor-pointer rounded-ui-md border px-[0.85rem] py-[0.6rem] text-[0.8rem] font-black uppercase disabled:cursor-not-allowed disabled:opacity-60', confirmClasses[variant])} onClick={() => void onConfirm()} disabled={loading}>
+          <button type="button" className={cn('min-h-11 min-w-[120px] cursor-pointer rounded-ui-md border px-[0.85rem] py-[0.6rem] text-sm font-black focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-focus-strong disabled:cursor-not-allowed disabled:opacity-60', confirmClasses[variant])} onClick={() => void onConfirm()} disabled={loading}>
             {loading ? 'Aguarde...' : confirmLabel}
           </button>
         </div>

@@ -22,7 +22,7 @@ test.describe('Motorista', () => {
   });
 
   test('abre modal de registrar cacamba com badge do tipo', async ({ page }) => {
-    await page.getByRole('button', { name: /\+ Adicionar Caçamba/i }).first().click();
+    await page.getByRole('button', { name: /Registrar (entrega|retirada)/i }).first().click();
     await expect(page.getByText(/Registrar Ca.*amba/i)).toBeVisible();
     await expect(page.getByText(/Dados da Ca.*amba/i)).toBeVisible();
     await expect(page.locator('form').getByText(/Retirada|Entrega/).last()).toBeVisible();
@@ -37,7 +37,7 @@ test.describe('Motorista', () => {
   });
 
   test('imagem ampliada da cacamba cabe na tela', async ({ page }) => {
-    await page.getByAltText('Foto da caçamba').first().click();
+    await page.getByRole('button', { name: /Ampliar foto da caçamba/ }).first().click();
 
     const expandedImage = page.getByRole('img', { name: 'Imagem ampliada' });
     await expect(expandedImage).toBeVisible();
@@ -67,7 +67,7 @@ test.describe('Motorista', () => {
 
   test('registra cacamba com sucesso', async ({ page }) => {
     const card = page.locator('article', { hasText: '#2232' }).first();
-    await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
+    await card.getByRole('button', { name: /Registrar (entrega|retirada)/i }).click();
 
     await page.locator('#cacamba-numero').fill('777');
     await page.locator('#cacamba-os').fill('777');
@@ -79,14 +79,14 @@ test.describe('Motorista', () => {
         'base64',
       ),
     });
-    await page.getByRole('button', { name: 'Registrar' }).click();
+    await page.getByRole('button', { name: 'Registrar', exact: true }).click();
 
     await expect(card.getByText('#999')).toBeVisible();
   });
 
   test('numero da cacamba aceita somente tres digitos', async ({ page }) => {
     const card = page.locator('article', { hasText: '#2232' }).first();
-    await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
+    await card.getByRole('button', { name: /Registrar (entrega|retirada)/i }).click();
 
     const numeroInput = page.locator('#cacamba-numero');
     await numeroInput.fill('12a');
@@ -102,21 +102,17 @@ test.describe('Motorista', () => {
 
     await numeroInput.fill('12');
     await page.locator('#cacamba-os').fill('123');
-    await page.getByRole('button', { name: 'Registrar' }).click();
-
-    await expect(page.getByRole('alert')).toHaveText('Número da caçamba deve conter exatamente 3 dígitos.');
+    await expect(page.getByRole('button', { name: 'Registrar', exact: true })).toBeDisabled();
     expect(postCount).toBe(0);
   });
 
   test('valida erro ao registrar cacamba sem imagem', async ({ page }) => {
     const card = page.locator('article', { hasText: '#2232' }).first();
-    await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
+    await card.getByRole('button', { name: /Registrar (entrega|retirada)/i }).click();
 
     await page.locator('#cacamba-numero').fill('555');
     await page.locator('#cacamba-os').fill('555');
-    await page.getByRole('button', { name: 'Registrar' }).click();
-
-    await expect(page.getByText(/Imagem.*obrigat.ria/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Registrar', exact: true })).toBeDisabled();
   });
 
   test('exibe o motivo retornado pela API quando a cacamba nao pode ser registrada', async ({ page }) => {
@@ -135,7 +131,7 @@ test.describe('Motorista', () => {
     });
 
     const card = page.locator('article', { hasText: '#2232' }).first();
-    await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
+    await card.getByRole('button', { name: /Registrar (entrega|retirada)/i }).click();
     await page.locator('#cacamba-numero').fill('777');
     await page.locator('#cacamba-os').fill('777');
     await page.locator('#cacamba-imagem').setInputFiles({
@@ -146,16 +142,16 @@ test.describe('Motorista', () => {
         'base64',
       ),
     });
-    await page.getByRole('button', { name: 'Registrar' }).click();
+    await page.getByRole('button', { name: 'Registrar', exact: true }).click();
 
     await expect(page.getByRole('alert')).toContainText('já está entregue para Cliente B');
     await expect(page.getByText(/Registrar Ca.*amba/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Registrar' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Registrar', exact: true })).toBeEnabled();
   });
 
   test('retirada exige tipo de conteudo no cadastro de cacamba', async ({ page }) => {
     const card = page.locator('article', { hasText: '#2231' }).first();
-    await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
+    await card.getByRole('button', { name: /Registrar (entrega|retirada)/i }).click();
 
     let postCount = 0;
     await page.route('**/driver/orders/*/cacambas', async (route) => {
@@ -175,7 +171,7 @@ test.describe('Motorista', () => {
         'base64',
       ),
     });
-    await page.getByRole('button', { name: 'Registrar' }).click();
+    await expect(page.getByRole('button', { name: 'Registrar', exact: true })).toBeDisabled();
 
     expect(postCount).toBe(0);
   });
@@ -189,7 +185,7 @@ test.describe('Motorista', () => {
     await page.getByRole('button', { name: /Salvar/i }).click();
     await expect(card.getByText('#436')).toBeVisible();
 
-    await card.getByRole('button', { name: 'Excluir' }).first().click();
+    await card.getByRole('button', { name: /^Excluir caçamba/ }).first().click();
     await page.getByRole('button', { name: 'Excluir' }).last().click();
     await expect(card.getByText('#436')).toHaveCount(0);
   });
@@ -231,7 +227,7 @@ test.describe('Motorista', () => {
 
     const card = page.locator('article', { hasText: '#2231' }).first();
     await expect(card.getByText('#435')).toBeVisible();
-    await card.getByRole('button', { name: 'Excluir' }).first().click();
+    await card.getByRole('button', { name: /^Excluir caçamba/ }).first().click();
     await page.getByRole('button', { name: 'Excluir' }).last().click();
     await expect(card.getByText('#435')).toBeVisible();
   });
@@ -279,7 +275,7 @@ test.describe('Motorista', () => {
     });
 
     const card = page.locator('article', { hasText: '#2231' }).first();
-    await card.getByRole('button', { name: 'Ver rota' }).click();
+    await card.getByRole('button', { name: 'Abrir no Maps' }).click();
 
     const opened = await page.evaluate(() => window.__openedUrls ?? []);
     expect(opened.length).toBeGreaterThan(0);

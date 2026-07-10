@@ -25,6 +25,7 @@ const DriverPage: React.FC = () => {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<IOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showCacambaForm, setShowCacambaForm] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [selectedOrderType, setSelectedOrderType] = useState<OrderType | null>(null);
@@ -61,12 +62,15 @@ const DriverPage: React.FC = () => {
 
   const fetchDriverOrders = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await authenticatedFetch(`${apiUrl}/driver/orders`); // Use a variável aqui
+      if (!response.ok) throw new Error('Não foi possível carregar seus pedidos.');
       const data = await response.json();
       setOrders(data);
     } catch (error) {
       console.error('Erro ao carregar pedidos:', error);
+      setLoadError('Não foi possível carregar seus pedidos. Verifique sua conexão e tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -223,9 +227,12 @@ const DriverPage: React.FC = () => {
 
 
   const handleCompleteOrder = async (orderId: string) => {
+    const order = orders.find((item) => item._id === orderId);
+    const orderLabel = order?.orderNumber ? `#${order.orderNumber}` : '';
+    const count = order?.cacambas?.length ?? 0;
     setConfirmState({
-      title: 'Concluir pedido',
-      description: 'Deseja concluir este pedido agora?',
+      title: `Concluir pedido ${orderLabel}`.trim(),
+      description: `${order?.clientName || 'Este cliente'} • ${count} caçamba${count === 1 ? '' : 's'} registrada${count === 1 ? '' : 's'}. Após concluir, o pedido sairá da lista de ativos.`,
       variant: 'warning',
       confirmLabel: 'Concluir',
       onConfirm: async () => {
@@ -274,8 +281,8 @@ const DriverPage: React.FC = () => {
     setSelectedOrderId(null);
   };
 
-  const openGoogleMapsRoute = (address: string, number: string, neighborhood: string) => {
-    const destination = encodeURIComponent(`${address}, ${number} - ${neighborhood}`);
+  const openGoogleMapsRoute = (address: string, number: string, neighborhood: string, city?: string, cep?: string) => {
+    const destination = encodeURIComponent([`${address}, ${number}`, neighborhood, city, cep].filter(Boolean).join(' - '));
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${destination}`, '_blank');
   };
 
@@ -291,9 +298,10 @@ const DriverPage: React.FC = () => {
 
   // Handler para excluir caçamba
   const handleDeleteCacamba = async (cacambaId: string) => {
+    const cacamba = orders.flatMap((order) => order.cacambas || []).find((item) => item._id === cacambaId);
     setConfirmState({
-      title: 'Excluir caçamba',
-      description: 'Deseja realmente excluir esta caçamba?',
+      title: `Excluir caçamba${cacamba?.numero ? ` #${cacamba.numero}` : ''}`,
+      description: 'Essa ação removerá o registro e a foto desta caçamba. Deseja continuar?',
       variant: 'danger',
       confirmLabel: 'Excluir',
       onConfirm: async () => {
@@ -377,7 +385,7 @@ const DriverPage: React.FC = () => {
     return guardDuplicateImages(orderId, files);
   };
 
-  const activeOrders = orders.filter(order => order.status !== 'concluido');
+  const activeOrders = orders.filter(order => order.status !== 'concluido' && order.status !== 'cancelado');
 
   if (loading) {
     return (
@@ -401,9 +409,18 @@ const DriverPage: React.FC = () => {
           driverName={driverName}
           isSubscribed={isSubscribed}
           pushError={pushError}
+          activeOrderCount={activeOrders.length}
           onSubscribe={() => registerServiceWorkerAndSubscribe(true)}
           onLogout={handleLogout}
         />
+        {loadError && (
+          <div role="alert" className="mb-4 rounded-ui-lg border border-red-300 bg-red-50 p-4 text-base font-bold text-red-900">
+            <p className="m-0 mb-3">{loadError}</p>
+            <button type="button" onClick={() => void fetchDriverOrders()} className="min-h-11 rounded-ui-md border border-red-700 bg-white px-4 font-black text-red-800 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-focus-strong">
+              Tentar novamente
+            </button>
+          </div>
+        )}
         <DriverOrdersSection
           orders={activeOrders}
           onOpenRoute={openGoogleMapsRoute}
