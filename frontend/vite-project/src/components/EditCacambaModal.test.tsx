@@ -21,6 +21,14 @@ const submitForm = () => {
 };
 
 describe('EditCacambaModal', () => {
+  it('solicita a camera traseira ao trocar a imagem', () => {
+    render(<EditCacambaModal cacamba={{ ...baseCacamba, contentType: 'Entulho limpo' }} onClose={vi.fn()} onUpdate={vi.fn()} />);
+
+    const imageInput = screen.getByLabelText('Trocar Imagem (Opcional)');
+    expect(imageInput).toHaveAttribute('accept', 'image/*');
+    expect(imageInput).toHaveAttribute('capture', 'environment');
+  });
+
   it('valida numero obrigatorio', async () => {
     const onUpdate = vi.fn();
     render(<EditCacambaModal cacamba={{ ...baseCacamba, contentType: 'Entulho limpo' }} onClose={vi.fn()} onUpdate={onUpdate} />);

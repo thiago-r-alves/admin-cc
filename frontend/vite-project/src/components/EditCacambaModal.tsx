@@ -177,8 +177,8 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
           </div>
 
           <div className="flex flex-col">
-            <label className="mb-1 text-sm font-medium">Trocar Imagem (Opcional)</label>
-            <input type="file" accept="image/*" onChange={handleFileChange} onClick={() => setImgError(null)} className={fieldClass} />
+            <label htmlFor="edit-cacamba-imagem" className="mb-1 text-sm font-medium">Trocar Imagem (Opcional)</label>
+            <input id="edit-cacamba-imagem" type="file" accept="image/*" capture="environment" onChange={handleFileChange} onClick={() => setImgError(null)} className={fieldClass} />
             {imgError && <p className="m-0 mt-2 text-sm text-red-500">{imgError}</p>}
           </div>
           </div>

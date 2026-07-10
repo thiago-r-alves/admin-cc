@@ -218,8 +218,8 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
             <Section>
               <SectionTitle>Imagem</SectionTitle>
               <FileInputWrap>
-                <UIField label="Foto da caçamba" htmlFor="cacamba-imagem"><TextInput id="cacamba-imagem" type="file" multiple accept="image/*" onChange={handleFileChange} onClick={() => setError('')} /></UIField>
-                <FileHint>{files.length > 0 ? `${files.length} arquivo${files.length > 1 ? 's' : ''} selecionado${files.length > 1 ? 's' : ''}.` : 'Selecione uma ou mais imagens para registrar a caçamba.'}</FileHint>
+                <UIField label="Foto da caçamba" htmlFor="cacamba-imagem"><TextInput id="cacamba-imagem" type="file" accept="image/*" capture="environment" onChange={handleFileChange} onClick={() => setError('')} /></UIField>
+                <FileHint>{files.length > 0 ? 'Foto pronta para envio.' : 'Toque no campo acima para tirar uma foto da caçamba.'}</FileHint>
               </FileInputWrap>
             </Section>
           </ModalBody>
