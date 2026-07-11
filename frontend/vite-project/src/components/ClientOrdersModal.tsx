@@ -288,8 +288,9 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
   } | null>(null);
   const [pendingReturn, setPendingReturn] = useState<{
     group: IClosureGroup;
-    cacamba: ICacamba;
+    cacambas: ICacamba[];
   } | null>(null);
+  const [selectedPendingReturnIds, setSelectedPendingReturnIds] = useState<string[]>([]);
   const [receiptGroup, setReceiptGroup] = useState<IClosureGroup | null>(null);
   const [receiptRecipientName, setReceiptRecipientName] = useState('');
   const [isDownloadingReceipt, setIsDownloadingReceipt] = useState(false);
@@ -383,6 +384,10 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     if (showHistory && selectedGroup) return selectedGroup;
     return currentClosureGroup || selectedGroup || null;
   }, [currentClosureGroup, selectedGroup, showHistory]);
+
+  useEffect(() => {
+    setSelectedPendingReturnIds([]);
+  }, [displayedGroup?._id]);
 
   useEffect(() => {
     if (displayedGroup?.paymentMethod === 'pix') {
@@ -536,11 +541,17 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     try {
       setIsReturningCacamba(true);
       setInvoiceFeedback(null);
-      await returnCacambaToPending(pendingReturn.group._id, pendingReturn.cacamba._id);
+      for (const cacamba of pendingReturn.cacambas) {
+        await returnCacambaToPending(pendingReturn.group._id, cacamba._id);
+      }
+      const returnedCount = pendingReturn.cacambas.length;
       setToastFeedback({
         tone: 'success',
-        message: `Caçamba #${pendingReturn.cacamba.numero} voltou para pendente.`,
+        message: returnedCount === 1
+          ? `Caçamba #${pendingReturn.cacambas[0].numero} voltou para pendente.`
+          : `${returnedCount} caçambas voltaram para pendente.`,
       });
+      setSelectedPendingReturnIds([]);
       setPendingReturn(null);
     } catch (error) {
       setInvoiceFeedback({
@@ -551,6 +562,14 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     } finally {
       setIsReturningCacamba(false);
     }
+  };
+
+  const togglePendingReturnSelection = (cacamba: ICacamba, checked: boolean) => {
+    setSelectedPendingReturnIds((current) =>
+      checked
+        ? Array.from(new Set([...current, cacamba._id]))
+        : current.filter((id) => id !== cacamba._id),
+    );
   };
 
   const handleMarkPixPaid = async (group: IClosureGroup) => {
@@ -795,13 +814,31 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
             )}
           </InvoiceRow>
         )}
+        {selectedPendingReturnIds.length > 0 && (
+          <ActionButtonsRow className="mb-3 justify-end">
+            <SecondaryButton
+              type="button"
+              onClick={() => {
+                const selectedCacambas = (group.cacambaIds || []).filter((cacamba) =>
+                  selectedPendingReturnIds.includes(cacamba._id),
+                );
+                if (selectedCacambas.length) setPendingReturn({ group, cacambas: selectedCacambas });
+              }}
+            >
+              Voltar selecionadas para pendente ({selectedPendingReturnIds.length})
+            </SecondaryButton>
+          </ActionButtonsRow>
+        )}
         <CacambaList
           cacambas={group.cacambaIds || []}
           onImageClick={setModalImage}
           showTitle={false}
           onEdit={(cacamba) => setEditingCacamba({ cacamba, orderType: cacamba.tipo })}
           editLabel="Editar caçamba"
-          onReturnToPending={(cacamba) => setPendingReturn({ group, cacamba })}
+          onReturnToPending={(cacamba) => setPendingReturn({ group, cacambas: [cacamba] })}
+          returnToPendingSelectable
+          selectedReturnToPendingIds={selectedPendingReturnIds}
+          onToggleReturnToPending={togglePendingReturnSelection}
           showDeliveryDateForRetirada
         />
       </>
@@ -1253,7 +1290,9 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
           title="Voltar caçamba para pendente"
           description={
             pendingReturn
-              ? `A caçamba #${pendingReturn.cacamba.numero} será removida deste grupo e voltará para pendente.`
+              ? pendingReturn.cacambas.length === 1
+                ? `A caçamba #${pendingReturn.cacambas[0].numero} será removida deste grupo e voltará para pendente.`
+                : `${pendingReturn.cacambas.length} caçambas serão removidas deste grupo e voltarão para pendente.`
               : ''
           }
           confirmLabel="Voltar para pendente"

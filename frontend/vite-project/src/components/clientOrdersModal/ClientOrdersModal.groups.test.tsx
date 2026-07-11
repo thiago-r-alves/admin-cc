@@ -445,14 +445,42 @@ describe('ClientOrdersModal (closure flow)', () => {
       />,
     );
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Voltar para pendente' })[0]);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Selecionar caçamba 101 para voltar a pendente' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar selecionadas para pendente (1)' }));
     expect(screen.getByText('Voltar caçamba para pendente')).toBeInTheDocument();
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Voltar para pendente' })[1]);
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar para pendente' }));
 
     await waitFor(() =>
       expect(returnCacambaToPendingMock).toHaveBeenCalledWith('grp-1', 'cac-1'),
     );
+  });
+
+  it('volta várias caçambas selecionadas para pendente em uma única ação', async () => {
+    const groupWithTwoCacambas = await handleDownloadMock();
+    hookOverrides.current = {
+      currentClosureGroup: groupWithTwoCacambas,
+      selectedGroup: groupWithTwoCacambas,
+    };
+
+    render(
+      <ClientOrdersModal
+        client={{ _id: 'client-1', clientName: 'Cliente Teste' }}
+        onClose={vi.fn()}
+        closureMode
+        paymentStatus="paid"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Selecionar caçamba 101 para voltar a pendente' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Selecionar caçamba 102 para voltar a pendente' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar selecionadas para pendente (2)' }));
+    expect(screen.getByText('2 caçambas serão removidas deste grupo e voltarão para pendente.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar para pendente' }));
+
+    await waitFor(() => expect(returnCacambaToPendingMock).toHaveBeenCalledTimes(2));
+    expect(returnCacambaToPendingMock).toHaveBeenNthCalledWith(1, 'grp-1', 'cac-1');
+    expect(returnCacambaToPendingMock).toHaveBeenNthCalledWith(2, 'grp-1', 'cac-2');
   });
 
   it('permite editar caçamba em grupo pago sem sair da etapa atual', async () => {

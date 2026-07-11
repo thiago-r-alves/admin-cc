@@ -80,6 +80,10 @@ export const ClientName: React.FC<React.HTMLAttributes<HTMLSpanElement>> = ({ cl
   <span className={cn('block break-words text-base font-black uppercase leading-[1.3] text-gray-800', className)} {...props} />
 );
 
+export const ClientAddress: React.FC<React.HTMLAttributes<HTMLSpanElement>> = ({ className, ...props }) => (
+  <span className={cn('mt-1 block break-words text-[0.82rem] font-semibold leading-[1.4] text-gray-500', className)} {...props} />
+);
+
 export const ActionButtons: React.FC<DivProps> = ({ className, ...props }) => (
   <div
     className={cn(

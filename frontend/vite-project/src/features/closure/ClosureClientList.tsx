@@ -5,6 +5,7 @@ import type { ClosurePaymentStatus } from './closure.types';
 import {
   ActionButtons,
   ClientActionButton,
+  ClientAddress,
   ClientInfo,
   ClientName,
   ClientRow,
@@ -49,6 +50,12 @@ const generatedNotesPaymentStatuses: ClosurePaymentStatus[] = [
   'paid',
 ];
 
+const formatWorkAddress = (client: IClient) => {
+  const street = [client.address, client.addressNumber].filter(Boolean).join(', ');
+  const location = [client.neighborhood, client.city].filter(Boolean).join(' - ');
+  return [street, location, client.cep ? `CEP ${client.cep}` : ''].filter(Boolean).join(' • ');
+};
+
 export const ClosureClientList = ({
   clients,
   loading,
@@ -84,11 +91,15 @@ export const ClosureClientList = ({
             : client.hasPendingClosureItems);
         const canViewGeneratedNotes =
           generatedNotesPaymentStatuses.includes(paymentStatus) && client.hasGeneratedClosureGroups;
+        const workAddress = formatWorkAddress(client);
 
         return (
           <ClientRow key={client._id} data-testid={`closure-client-row-${client._id}`}>
             <ClientInfo>
               <ClientName>{client.clientName}</ClientName>
+              <ClientAddress>
+                Endereço da obra: {workAddress || 'não informado'}
+              </ClientAddress>
             </ClientInfo>
             <ActionButtons>
               {canCreateClosure && (

@@ -50,6 +50,11 @@ describe('FechamentoPage', () => {
           {
             _id: 'cli-1',
             clientName: 'Cliente Pendencia',
+            address: 'Rua das Flores',
+            addressNumber: '120',
+            neighborhood: 'Centro',
+            city: 'Curitiba',
+            cep: '80000-000',
             hasPendingClosureItems: true,
             hasGeneratedClosureGroups: false,
           },
@@ -74,6 +79,7 @@ describe('FechamentoPage', () => {
     render(<FechamentoPage />);
 
     expect(await screen.findByText('Cliente Pendencia')).toBeInTheDocument();
+    expect(screen.getByText('Endereço da obra: Rua das Flores, 120 • Centro - Curitiba • CEP 80000-000')).toBeInTheDocument();
     expect(screen.getByTestId('closure-client-row-cli-1')).toHaveTextContent(
       'Gerar fechamento do cliente',
     );

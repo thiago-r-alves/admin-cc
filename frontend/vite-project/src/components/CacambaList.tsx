@@ -92,6 +92,9 @@ interface CacambaListProps {
   selectedCacambaIds?: string[];
   onToggleSelect?: (cacamba: ICacamba, checked: boolean) => void;
   onReturnToPending?: (cacamba: ICacamba) => void;
+  returnToPendingSelectable?: boolean;
+  selectedReturnToPendingIds?: string[];
+  onToggleReturnToPending?: (cacamba: ICacamba, checked: boolean) => void;
   showDeliveryDateForRetirada?: boolean;
   statusBadges?: Record<string, CacambaStatusBadge | CacambaStatusBadge[]>;
   responsibility?: CacambaResponsibility;
@@ -157,6 +160,9 @@ const CacambaList: React.FC<CacambaListProps> = ({
   selectedCacambaIds = [],
   onToggleSelect,
   onReturnToPending,
+  returnToPendingSelectable = false,
+  selectedReturnToPendingIds = [],
+  onToggleReturnToPending,
   showDeliveryDateForRetirada = false,
   statusBadges,
   responsibility,
@@ -365,12 +371,23 @@ const CacambaList: React.FC<CacambaListProps> = ({
                 </ActionButton>
               )}
               {!selectable && onReturnToPending && (
-                <ActionButton
-                  $variant="secondary"
-                  onClick={() => onReturnToPending(cacamba)}
-                >
-                  Voltar para pendente
-                </ActionButton>
+                returnToPendingSelectable ? (
+                  <SelectionLabel>
+                    <SelectionInput
+                      checked={selectedReturnToPendingIds.includes(cacamba._id)}
+                      onChange={(event) => onToggleReturnToPending?.(cacamba, event.target.checked)}
+                      aria-label={`Selecionar caçamba ${cacamba.numero} para voltar a pendente`}
+                    />
+                    Voltar para pendente
+                  </SelectionLabel>
+                ) : (
+                  <ActionButton
+                    $variant="secondary"
+                    onClick={() => onReturnToPending(cacamba)}
+                  >
+                    Voltar para pendente
+                  </ActionButton>
+                )
               )}
               {selectable && isRetirada && isPendingClosure && missingContentType && onEditContentType && (
                 <ActionButton $variant="secondary" onClick={() => onEditContentType(cacamba)}>

@@ -547,7 +547,7 @@ export const AcompanhamentoTab = ({
                       </InfoTile>
                       <InfoTile>
                         <InfoLabel>Ordem de serviço digital</InfoLabel>
-                        <InfoValue>{order.orderNumber ?? '-'}</InfoValue>
+                        <InfoValue className="font-bold text-red-600">{order.orderNumber ?? '-'}</InfoValue>
                       </InfoTile>
                       <InfoTile>
                         <InfoLabel>Placa do caminhão</InfoLabel>
