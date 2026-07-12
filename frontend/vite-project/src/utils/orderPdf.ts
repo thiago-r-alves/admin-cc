@@ -1,4 +1,5 @@
 import type { IOrder, ICacamba } from '../interfaces';
+import { apiUrl } from '../services/api';
 
 type JsPdfDocument = InstanceType<typeof import('jspdf').jsPDF>;
 type JsPdfWithAutoTable = JsPdfDocument & { lastAutoTable?: { finalY?: number } };
@@ -36,6 +37,30 @@ const colorCacambaNumberValues = (data: AutoTableCellHookData) => {
     ...(data.cell.styles || {}),
     textColor: projectRed,
   };
+};
+
+const buildOrderFileUrl = (url?: string) => {
+  if (!url) return '';
+  return url.startsWith('http') ? url : `${apiUrl}${url}`;
+};
+
+const blobToDataUrl = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+
+const fetchImageDataUrl = async (url?: string) => {
+  if (!url) return null;
+  try {
+    const response = await fetch(buildOrderFileUrl(url));
+    if (!response.ok) return null;
+    return blobToDataUrl(await response.blob());
+  } catch {
+    return null;
+  }
 };
 
 export async function downloadOrderPdf(order: IOrder) {
@@ -123,5 +148,58 @@ export async function downloadOrderPdf(order: IOrder) {
       }
     }
   }
+
+  if (order.status === 'concluido') {
+    const proof = order.deliveryProof;
+    const startY = (doc.lastAutoTable?.finalY || 20) + 10;
+    if (startY > 260) doc.addPage();
+
+    const proofStartY = startY > 260 ? 16 : startY;
+    const driverName =
+      proof?.driverNameSnapshot ||
+      (typeof order.motorista === 'string' ? '' : order.motorista?.username) ||
+      '-';
+    const proofBody = !proof
+      ? [['Comprovante', 'Sem comprovante digital']]
+      : proof.type === 'signed'
+        ? [
+            ['Comprovante', 'Assinatura pelo recebimento da locação'],
+            ['Data/Hora', fmt(proof.capturedAt)],
+            ['Motorista', driverName],
+          ]
+        : [
+            ['Comprovante', 'Sem responsável no local'],
+            ['Data/Hora', fmt(proof.capturedAt)],
+            ['Motorista', driverName],
+            ['Observação', proof.note || '-'],
+          ];
+
+    autoTable(doc, {
+      startY: proofStartY,
+      head: [['Comprovante da locação', 'Valor']],
+      body: proofBody,
+      styles: { fontSize: 8, cellPadding: 1.4 },
+      headStyles: { fillColor: projectRed },
+      margin: { right: 10, left: 10 },
+    });
+
+    if (proof?.type === 'signed' && proof.signatureImageUrl) {
+      const imageDataUrl = await fetchImageDataUrl(proof.signatureImageUrl);
+      if (imageDataUrl) {
+        const imageY = (doc.lastAutoTable?.finalY || proofStartY) + 7;
+        if (imageY > 248) {
+          doc.addPage();
+          doc.setFontSize(10);
+          doc.text('Assinatura pelo recebimento da locação', 10, 18);
+          doc.addImage(imageDataUrl, 'PNG', 10, 22, 88, 34);
+        } else {
+          doc.setFontSize(10);
+          doc.text('Assinatura pelo recebimento da locação', 10, imageY);
+          doc.addImage(imageDataUrl, 'PNG', 10, imageY + 4, 88, 34);
+        }
+      }
+    }
+  }
+
   doc.save(`pedido_${orderNumber}.pdf`);
 }

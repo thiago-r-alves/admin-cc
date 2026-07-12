@@ -22,6 +22,14 @@ test.describe('Admin', () => {
     await expect(page.getByText('Buscar Cliente (Autocomplete)')).toBeVisible();
   });
 
+  test('exibe comprovante digital em pedido concluido', async ({ page }) => {
+    const card = page.getByTestId('order-card-ord-2');
+    await expect(card).toBeVisible();
+    await expect(card.getByText('Comprovante da locação')).toBeVisible();
+    await expect(card.getByText('adalberto')).toBeVisible();
+    await expect(card.getByRole('img', { name: 'Assinatura pelo recebimento da locação' })).toBeVisible();
+  });
+
   test('corrige tipo e motorista de pedido pendente sem cacambas', async ({ page }) => {
     await expect(page.getByText('Reatribuir motorista')).toHaveCount(0);
 

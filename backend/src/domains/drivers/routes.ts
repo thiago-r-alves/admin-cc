@@ -119,7 +119,7 @@ driversRouter.get(
 
 driversRouter.patch('/driver/orders/:id/complete', authenticateToken, isDriver, async (req: AuthenticatedRequest, res) => {
   try {
-    const result = await completeDriverOrder(req.params.id, String(req.userData?.userId || ''));
+    const result = await completeDriverOrder(req.params.id, String(req.userData?.userId || ''), req.body);
     return res.status(result.status).json(result.body);
   } catch (error) {
     console.error('Erro ao concluir pedido:', error);

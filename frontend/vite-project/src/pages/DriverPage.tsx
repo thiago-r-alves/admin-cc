@@ -7,6 +7,7 @@ import { apiUrl, authFetch, clearStoredSession } from '../services/api';
 import { DriverHeaderPanel } from '../features/driver/DriverHeaderPanel';
 import { DriverModals } from '../features/driver/DriverModals';
 import { DriverOrdersSection } from '../features/driver/DriverOrdersSection';
+import { DeliveryProofModal, type DeliveryProofSubmitPayload } from '../features/driver/DeliveryProofModal';
 import type { DriverConfirmState, DriverFeedbackState } from '../features/driver/driver.types';
 // socket.io-client will be dynamically imported to avoid parsing on initial load
 
@@ -40,6 +41,7 @@ const DriverPage: React.FC = () => {
   const [feedback, setFeedback] = useState<DriverFeedbackState>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [confirmState, setConfirmState] = useState<DriverConfirmState>(null);
+  const [deliveryProofOrder, setDeliveryProofOrder] = useState<IOrder | null>(null);
   
   const socketRef = React.useRef<OrdersSocket | null>(null);
   const clearSessionAndRedirect = useCallback(() => {
@@ -228,34 +230,21 @@ const DriverPage: React.FC = () => {
 
   const handleCompleteOrder = async (orderId: string) => {
     const order = orders.find((item) => item._id === orderId);
-    const orderLabel = order?.orderNumber ? `#${order.orderNumber}` : '';
-    const count = order?.cacambas?.length ?? 0;
-    setConfirmState({
-      title: `Concluir pedido ${orderLabel}`.trim(),
-      description: `${order?.clientName || 'Este cliente'} • ${count} caçamba${count === 1 ? '' : 's'} registrada${count === 1 ? '' : 's'}. Após concluir, o pedido sairá da lista de ativos.`,
-      variant: 'warning',
-      confirmLabel: 'Concluir',
-      onConfirm: async () => {
-        setConfirmLoading(true);
-        try {
-          const response = await authenticatedFetch(`${apiUrl}/driver/orders/${orderId}/complete`, {
-            method: 'PATCH',
-          });
-          if (response.ok) {
-            setFeedback({ tone: 'success', message: 'Pedido concluído com sucesso.' });
-            fetchDriverOrders();
-            setConfirmState(null);
-          } else {
-            setFeedback({ tone: 'error', message: 'Erro ao concluir pedido.' });
-          }
-        } catch (error) {
-          console.error('Erro de rede:', error);
-          setFeedback({ tone: 'error', message: 'Erro de rede ao concluir pedido.' });
-        } finally {
-          setConfirmLoading(false);
-        }
-      },
+    if (order) setDeliveryProofOrder(order);
+  };
+
+  const handleDeliveryProofSubmit = async (proof: DeliveryProofSubmitPayload) => {
+    if (!deliveryProofOrder) return;
+    const response = await authenticatedFetch(`${apiUrl}/driver/orders/${deliveryProofOrder._id}/complete`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ proof }),
     });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.message || 'Erro ao concluir pedido.');
+    setFeedback({ tone: 'success', message: 'Pedido concluído com comprovante digital.' });
+    setDeliveryProofOrder(null);
+    await fetchDriverOrders();
   };
 
   const handleAddCacamba = (orderId: string, orderType: OrderType) => {
@@ -457,6 +446,13 @@ const DriverPage: React.FC = () => {
           if (!confirmLoading) setConfirmState(null);
         }}
       />
+      {deliveryProofOrder && (
+        <DeliveryProofModal
+          order={deliveryProofOrder}
+          onClose={() => setDeliveryProofOrder(null)}
+          onSubmit={handleDeliveryProofSubmit}
+        />
+      )}
     </DriverContainer>
   );
 };

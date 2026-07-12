@@ -29,6 +29,14 @@ type Cacamba = {
   closureDelivery?: CacambaActionMetadata | null;
   closureWithdrawal?: CacambaActionMetadata | null;
 };
+type DeliveryProof = {
+  type: 'signed' | 'no_responsible';
+  signatureImageUrl?: string;
+  note?: string;
+  capturedAt?: string;
+  capturedBy?: string;
+  driverNameSnapshot?: string;
+};
 type Order = {
   _id: string;
   orderNumber: number;
@@ -53,6 +61,7 @@ type Order = {
   updatedAt: string;
   cacambaPrice?: number;
   plannedWithdrawalCacambaIds?: string[];
+  deliveryProof?: DeliveryProof;
 };
 
 type BillingBucket = {
@@ -166,6 +175,13 @@ const initialOrders: Order[] = [
     imageUrls: [],
     createdAt: nowIso,
     updatedAt: nowIso,
+    deliveryProof: {
+      type: 'signed',
+      signatureImageUrl: '/uploads/signature-ord-2.png',
+      capturedAt: '2026-05-16T11:00:00.000Z',
+      capturedBy: 'drv-1',
+      driverNameSnapshot: 'adalberto',
+    },
   },
   {
     _id: 'ord-3',
@@ -1149,9 +1165,37 @@ export const setupMockApi = async (page: Page) => {
       const id = pathname.split('/')[3];
       const match = orders.find((o) => o._id === id);
       if (match) {
+        const body = (req.postDataJSON() || {}) as { proof?: DeliveryProof & { signatureDataUrl?: string } };
+        const proof = body.proof;
+        if (!proof) {
+          return json(route, { message: 'Comprovante da locação é obrigatório para concluir o pedido.' }, 400);
+        }
+        if (proof.type === 'signed') {
+          if (!proof.signatureDataUrl) {
+            return json(route, { message: 'Assinatura pelo recebimento da locação é obrigatória.' }, 400);
+          }
+          match.deliveryProof = {
+            type: 'signed',
+            signatureImageUrl: `/uploads/signature-${id}.png`,
+            capturedAt: nowIso,
+            capturedBy: 'drv-1',
+            driverNameSnapshot: 'adalberto',
+          };
+        } else if (proof.type === 'no_responsible') {
+          match.deliveryProof = {
+            type: 'no_responsible',
+            note: proof.note || '',
+            capturedAt: nowIso,
+            capturedBy: 'drv-1',
+            driverNameSnapshot: 'adalberto',
+          };
+        } else {
+          return json(route, { message: 'Comprovante da locação é obrigatório para concluir o pedido.' }, 400);
+        }
         match.status = 'concluido';
+        match.updatedAt = nowIso;
       }
-      return json(route, { ok: true });
+      return json(route, { order: match });
     }
     if (/^\/driver\/orders\/[^/]+\/available-cacambas$/.test(pathname) && method === 'GET') {
       return json(route, {

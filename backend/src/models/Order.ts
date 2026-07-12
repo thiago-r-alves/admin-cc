@@ -2,6 +2,15 @@
 
 import mongoose, { Document, Schema } from 'mongoose';
 
+export interface IDeliveryProof {
+  type: 'signed' | 'no_responsible';
+  signatureImageUrl?: string;
+  note?: string;
+  capturedAt: Date;
+  capturedBy: mongoose.Types.ObjectId;
+  driverNameSnapshot: string;
+}
+
 export interface IOrder extends Document {
   orderNumber: number;
   clientName: string; // Manter para referência rápida, mas não obrigatório no schema
@@ -25,7 +34,24 @@ export interface IOrder extends Document {
   placa?: string; // ADICIONADO
   cacambaPrice?: number;
   plannedWithdrawalCacambaIds?: mongoose.Types.ObjectId[];
+  deliveryProof?: IDeliveryProof;
 }
+
+const DeliveryProofSchema = new Schema<IDeliveryProof>(
+  {
+    type: {
+      type: String,
+      enum: ['signed', 'no_responsible'],
+      required: true,
+    },
+    signatureImageUrl: { type: String, trim: true, default: '' },
+    note: { type: String, trim: true, default: '' },
+    capturedAt: { type: Date, required: true },
+    capturedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    driverNameSnapshot: { type: String, trim: true, default: '' },
+  },
+  { _id: false },
+);
 
 const OrderSchema: Schema = new Schema<IOrder>({
   orderNumber: { type: Number, unique: true },
@@ -64,6 +90,7 @@ const OrderSchema: Schema = new Schema<IOrder>({
   motorista: { type: Schema.Types.ObjectId, ref: 'User' },
   cacambas: [{ type: Schema.Types.ObjectId, ref: 'Cacamba' }],
   plannedWithdrawalCacambaIds: [{ type: Schema.Types.ObjectId, ref: 'Cacamba' }],
+  deliveryProof: { type: DeliveryProofSchema, required: false },
   imageUrls: [String],
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },

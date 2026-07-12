@@ -5,10 +5,9 @@ import { OrderModel } from '../../src/models/Order';
 import { CacambaModel } from '../../src/models/Cacamba';
 import { UserModel } from '../../src/models/User';
 
-const tinyPng = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wn8x9QAAAAASUVORK5CYII=',
-  'base64',
-);
+const tinyPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wn8x9QAAAAASUVORK5CYII=';
+const tinyPng = Buffer.from(tinyPngBase64, 'base64');
+const tinyPngDataUrl = `data:image/png;base64,${tinyPngBase64}`;
 
 describe('Driver APIs', () => {
   let nextOrderNumber = 2000;
@@ -375,11 +374,11 @@ describe('Driver APIs', () => {
     ]);
   });
 
-  it('GET /driver/orders/:id/cacambas e PATCH /driver/orders/:id/complete', async () => {
+  it('GET /driver/orders/:id/cacambas e PATCH /driver/orders/:id/complete conclui retirada com assinatura digital', async () => {
     const app = await loadApp();
     const { driver } = await ensureUsers();
     const token = signToken(String(driver._id), 'motorista');
-    const order = await createOrderForDriver(String(driver._id), 'entrega');
+    const order = await createOrderForDriver(String(driver._id), 'retirada');
 
     const list = await request(app)
       .get(`/driver/orders/${order._id}/cacambas`)
@@ -388,8 +387,105 @@ describe('Driver APIs', () => {
 
     const complete = await request(app)
       .patch(`/driver/orders/${order._id}/complete`)
-      .set('Authorization', `Bearer ${token}`);
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        proof: {
+          type: 'signed',
+          signatureDataUrl: tinyPngDataUrl,
+        },
+      });
     expect(complete.status).toBe(200);
+    expect(complete.body.order.status).toBe('concluido');
+    expect(complete.body.order.deliveryProof).toEqual(expect.objectContaining({
+      type: 'signed',
+      driverNameSnapshot: driver.username,
+    }));
+    expect(complete.body.order.deliveryProof.signatureImageUrl).toMatch(/^\/files\//);
+  });
+
+  it('PATCH /driver/orders/:id/complete conclui entrega com assinatura digital', async () => {
+    const app = await loadApp();
+    const { driver } = await ensureUsers();
+    const token = signToken(String(driver._id), 'motorista');
+    const order = await createOrderForDriver(String(driver._id), 'entrega');
+
+    const complete = await request(app)
+      .patch(`/driver/orders/${order._id}/complete`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        proof: {
+          type: 'signed',
+          signatureDataUrl: tinyPngDataUrl,
+        },
+      });
+
+    expect(complete.status).toBe(200);
+    expect(complete.body.order.status).toBe('concluido');
+    expect(complete.body.order.deliveryProof).toEqual(expect.objectContaining({
+      type: 'signed',
+      driverNameSnapshot: driver.username,
+    }));
+    expect(complete.body.order.deliveryProof.signatureImageUrl).toMatch(/^\/files\//);
+
+    const saved = await OrderModel.findById(order._id).lean();
+    expect(saved?.deliveryProof?.signatureImageUrl).toMatch(/^\/files\//);
+    expect(String(saved?.deliveryProof?.capturedBy)).toBe(String(driver._id));
+  });
+
+  it('PATCH /driver/orders/:id/complete conclui entrega sem responsável', async () => {
+    const app = await loadApp();
+    const { driver } = await ensureUsers();
+    const token = signToken(String(driver._id), 'motorista');
+    const order = await createOrderForDriver(String(driver._id), 'entrega');
+
+    const complete = await request(app)
+      .patch(`/driver/orders/${order._id}/complete`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        proof: {
+          type: 'no_responsible',
+          note: 'Portaria fechada.',
+        },
+      });
+
+    expect(complete.status).toBe(200);
+    expect(complete.body.order.deliveryProof).toEqual(expect.objectContaining({
+      type: 'no_responsible',
+      note: 'Portaria fechada.',
+      driverNameSnapshot: driver.username,
+    }));
+    expect(complete.body.order.deliveryProof.signatureImageUrl).toBeFalsy();
+  });
+
+  it('PATCH /driver/orders/:id/complete rejeita pedido sem comprovante válido', async () => {
+    const app = await loadApp();
+    const { driver } = await ensureUsers();
+    const token = signToken(String(driver._id), 'motorista');
+    const order = await createOrderForDriver(String(driver._id), 'entrega');
+
+    const missingProof = await request(app)
+      .patch(`/driver/orders/${order._id}/complete`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({});
+    expect(missingProof.status).toBe(400);
+
+    const missingSignature = await request(app)
+      .patch(`/driver/orders/${order._id}/complete`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        proof: {
+          type: 'signed',
+        },
+      });
+    expect(missingSignature.status).toBe(400);
+    expect(missingSignature.body.message).toMatch(/Assinatura/i);
+
+    const withdrawal = await createOrderForDriver(String(driver._id), 'retirada');
+    const withdrawalMissingProof = await request(app)
+      .patch(`/driver/orders/${withdrawal._id}/complete`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({});
+    expect(withdrawalMissingProof.status).toBe(400);
   });
 
   it('rotas do motorista retornam 404 quando pedido pertence a outro motorista', async () => {

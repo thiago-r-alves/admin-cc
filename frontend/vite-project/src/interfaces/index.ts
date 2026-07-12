@@ -141,6 +141,15 @@ export interface IClosureGroup {
 export type OrderType = 'entrega' | 'retirada';
 export type BillingGranularity = 'monthly' | 'semiannual' | 'annual';
 
+export interface IDeliveryProof {
+  type: 'signed' | 'no_responsible';
+  signatureImageUrl?: string;
+  note?: string;
+  capturedAt?: string;
+  capturedBy?: string;
+  driverNameSnapshot?: string;
+}
+
 export interface IOrder {
   _id: string;
   orderNumber: number | null;
@@ -165,6 +174,7 @@ export interface IOrder {
   placa?: string; // Adicione este campo
   cacambaPrice?: number;
   plannedWithdrawalCacambaIds?: string[];
+  deliveryProof?: IDeliveryProof;
 }
 
 export interface IBillingSummaryResponse {

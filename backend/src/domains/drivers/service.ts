@@ -7,6 +7,40 @@ import { emitOrdersUpdated } from '../../shared/realtime';
 import { isValidCacambaContentType } from '../cacambas/helpers';
 import { listAvailableCacambasForClient, validateCacambaAvailability } from '../cacambas/availability';
 
+type CompleteOrderProofPayload = {
+  proof?: { type?: unknown; signatureDataUrl?: unknown; note?: unknown };
+};
+
+const MAX_SIGNATURE_BYTES = 1_500_000;
+
+const parseSignatureDataUrl = (value: unknown) => {
+  if (typeof value !== 'string') return null;
+  const match = value.trim().match(/^data:image\/png;base64,([a-zA-Z0-9+/=\s]+)$/);
+  if (!match) return null;
+  const buffer = Buffer.from(match[1].replace(/\s/g, ''), 'base64');
+  return buffer.length > 0 && buffer.length <= MAX_SIGNATURE_BYTES ? buffer : null;
+};
+
+const buildDeliveryProofUpdate = async (orderId: string, driverId: string, payload: CompleteOrderProofPayload) => {
+  const proof = payload.proof;
+  if (!proof || (proof.type !== 'signed' && proof.type !== 'no_responsible')) {
+    return { ok: false as const, status: 400, body: { message: 'Comprovante da locação é obrigatório para concluir o pedido.' } };
+  }
+
+  const driver = await UserModel.findById(driverId).select('username').lean();
+  const common = { capturedAt: new Date(), capturedBy: driverId, driverNameSnapshot: driver?.username || '' };
+  if (proof.type === 'no_responsible') {
+    return { ok: true as const, value: { type: 'no_responsible' as const, note: String(proof.note || '').trim(), ...common } };
+  }
+
+  const signature = parseSignatureDataUrl(proof.signatureDataUrl);
+  if (!signature) {
+    return { ok: false as const, status: 400, body: { message: 'Assinatura pelo recebimento da locação é obrigatória para concluir o pedido.' } };
+  }
+  const fileId = await uploadBufferToGridFS(signature, `delivery-proof-${orderId}-${Date.now()}.png`, 'image/png');
+  return { ok: true as const, value: { type: 'signed' as const, signatureImageUrl: `/files/${fileId}`, ...common } };
+};
+
 const hideDriverCacambaPrice = (cacamba: any) => {
   const plain = typeof cacamba?.toObject === 'function' ? cacamba.toObject() : { ...(cacamba || {}) };
   delete plain.price;
@@ -196,15 +230,18 @@ export const getAvailableCacambasForWithdrawal = async (orderId: string, driverI
   return { status: 200, body: { cacambas } };
 };
 
-export const completeDriverOrder = async (orderId: string, driverId: string) => {
+export const completeDriverOrder = async (orderId: string, driverId: string, payload: CompleteOrderProofPayload = {}) => {
   const order = await OrderModel.findOne({ _id: orderId, motorista: driverId });
   if (!order) {
     return { status: 404, body: { message: 'Pedido não encontrado ou não pertence a este motorista.' } };
   }
 
+  const deliveryProof = await buildDeliveryProofUpdate(orderId, driverId, payload);
+  if (!deliveryProof.ok) return { status: deliveryProof.status, body: deliveryProof.body };
+
   const updatedOrder = await OrderModel.findByIdAndUpdate(
     orderId,
-    { status: 'concluido', updatedAt: Date.now() },
+    { status: 'concluido', updatedAt: Date.now(), deliveryProof: deliveryProof.value },
     { new: true },
   );
   emitOrdersUpdated();

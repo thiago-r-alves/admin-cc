@@ -2,7 +2,7 @@ import type { IOrder } from '../../interfaces';
 import type { AdminTab } from './admin.types';
 
 export const ADMIN_PAGE_SIZE = 10;
-export const SHOW_ORDER_DOWNLOAD_BUTTON = false;
+export const SHOW_ORDER_DOWNLOAD_BUTTON = true;
 
 export const sidebarItems: Array<{ key: AdminTab; label: string }> = [
   { key: 'pedidos', label: 'Pedidos' },
