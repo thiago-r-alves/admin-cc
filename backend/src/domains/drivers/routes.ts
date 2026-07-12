@@ -12,6 +12,7 @@ import {
   listDrivers,
   updateDriver,
 } from './service';
+import { invalidateOperationalQueryCaches } from '../../shared/queryCache';
 
 export const driversRouter = Router();
 
@@ -78,6 +79,7 @@ driversRouter.post(
         req.body,
         req.file,
       );
+      if (result.status < 400) invalidateOperationalQueryCaches();
       return res.status(result.status).json(result.body);
     } catch (error: any) {
       if (error?.code === 11000) {
@@ -120,6 +122,7 @@ driversRouter.get(
 driversRouter.patch('/driver/orders/:id/complete', authenticateToken, isDriver, async (req: AuthenticatedRequest, res) => {
   try {
     const result = await completeDriverOrder(req.params.id, String(req.userData?.userId || ''), req.body);
+    if (result.status < 400) invalidateOperationalQueryCaches();
     return res.status(result.status).json(result.body);
   } catch (error) {
     console.error('Erro ao concluir pedido:', error);

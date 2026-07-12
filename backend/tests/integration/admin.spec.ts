@@ -9,6 +9,54 @@ import { ClosureGroupModel } from '../../src/models/ClosureGroup';
 
 describe('Admin APIs', () => {
   let nextOrderNumber = 1000;
+  it('pagina clientes, preserva retorno legado e invalida cache apos mutacao', async () => {
+    const app = await loadApp();
+    const { admin } = await ensureUsers();
+    const adminToken = signToken(String(admin._id), 'admin');
+    await ClientModel.insertMany(Array.from({ length: 32 }, (_, index) => ({
+      clientName: `Cliente ${String(index).padStart(2, '0')}`,
+      contactName: `Contato ${index}`,
+      contactNumber: `1200000${index}`,
+      neighborhood: 'Centro',
+      address: 'Rua Teste',
+      addressNumber: String(index),
+      city: index === 31 ? 'Cidade Especial' : 'Jacarei',
+    })));
+
+    const legacy = await request(app).get('/clients').set('Authorization', `Bearer ${adminToken}`);
+    expect(legacy.status).toBe(200);
+    expect(Array.isArray(legacy.body)).toBe(true);
+
+    const first = await request(app)
+      .get('/clients?paginated=true&page=1&pageSize=99')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(first.status).toBe(200);
+    expect(first.headers['x-cache']).toBe('MISS');
+    expect(first.body.items).toHaveLength(25);
+    expect(first.body).toMatchObject({ page: 1, pageSize: 25, totalItems: 32, totalPages: 2 });
+
+    const repeated = await request(app)
+      .get('/clients?paginated=true&page=1&pageSize=99')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(repeated.headers['x-cache']).toBe('HIT');
+
+    const searched = await request(app)
+      .get('/clients?paginated=true&q=Cidade%20Especial')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(searched.body.totalItems).toBe(1);
+
+    const updated = await request(app)
+      .patch(`/clients/${first.body.items[0]._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ clientName: 'Cliente Alterado' });
+    expect(updated.status).toBe(200);
+
+    const afterMutation = await request(app)
+      .get('/clients?paginated=true&page=1&pageSize=99')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(afterMutation.headers['x-cache']).toBe('MISS');
+  });
+
   it('CRUD de pedidos com validações principais', async () => {
     const app = await loadApp();
     const { admin, driver } = await ensureUsers();

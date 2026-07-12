@@ -36,4 +36,6 @@ const ClientSchema: Schema = new Schema<IClient>({
   timestamps: true
 });
 
+ClientSchema.index({ clientName: 1 });
+
 export const ClientModel = mongoose.model<IClient>('Client', ClientSchema);

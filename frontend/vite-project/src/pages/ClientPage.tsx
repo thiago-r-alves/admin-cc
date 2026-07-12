@@ -1,12 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import ClientList from '../components/ClientList';
 import ClientForm from '../components/ClientForm';
 import ActionConfirmModal from '../components/ActionConfirmModal';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import LoadingScreen from '../components/LoadingScreen';
-import type { IClient } from '../interfaces';
+import type { IClient, IPaginatedResponse } from '../interfaces';
+import Pagination from '../components/ui/Pagination';
+import { getCachedQuery, invalidateFrontendQueryCache, runCachedQuery } from '../services/queryCache';
 import { ClientToolbar } from '../features/clients/ClientToolbar';
-import { normClientSearch } from '../features/clients/client.helpers';
 
 import {
   Container,
@@ -20,36 +21,60 @@ const ClientPage: React.FC = () => {
   const [editingClient, setEditingClient] = useState<IClient | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1 });
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [confirmDeleteClientId, setConfirmDeleteClientId] = useState<string | null>(null);
   const apiUrl = import.meta.env.VITE_API_URL;
 
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async (signal?: AbortSignal) => {
+    const query = new URLSearchParams({ paginated: 'true', page: String(page), pageSize: '25' });
+    if (debouncedSearch.trim()) query.set('q', debouncedSearch.trim());
+    const url = `${apiUrl}/clients?${query.toString()}`;
+    const cacheKey = `clients:${url}`;
+    const cached = getCachedQuery<IPaginatedResponse<IClient>>(cacheKey);
+    if (cached) {
+      setClients(cached.items);
+      setPagination({ totalItems: cached.totalItems, totalPages: cached.totalPages });
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     try {
-      const response = await fetch(`${apiUrl}/clients`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
+      const data = await runCachedQuery(cacheKey, async () => {
+        const response = await fetch(url, { signal, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+        if (!response.ok) throw new Error('Erro ao carregar clientes');
+        const body = await response.json();
+        return Array.isArray(body)
+          ? { items: body, page: 1, pageSize: body.length, totalItems: body.length, totalPages: 1 }
+          : body as IPaginatedResponse<IClient>;
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        setClients(data);
-      } else {
-        console.error('Erro ao carregar clientes');
-      }
+      if (signal?.aborted) return;
+      setClients(data.items);
+      setPagination({ totalItems: data.totalItems, totalPages: data.totalPages });
     } catch (error) {
+      if (signal?.aborted) return;
       console.error('Erro ao buscar clientes:', error);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) setLoading(false);
     }
-  };
+  }, [apiUrl, debouncedSearch, page]);
 
   useEffect(() => {
-    void fetchClients();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const controller = new AbortController();
+    void fetchClients(controller.signal);
+    return () => controller.abort();
+  }, [fetchClients]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setPage(1);
+      setDebouncedSearch(search);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
 
   const handleAddClient = async (clientData: Omit<IClient, '_id'>) => {
     try {
@@ -63,7 +88,16 @@ const ClientPage: React.FC = () => {
       });
 
       if (response.ok) {
-        fetchClients();
+        const created = await response.json() as IClient;
+        if (page === 1) {
+          setClients((current) => [...current, created]
+            .sort((a, b) => a.clientName.localeCompare(b.clientName, 'pt-BR'))
+            .slice(0, 25));
+        }
+        setPagination((current) => ({ ...current, totalItems: current.totalItems + 1 }));
+        invalidateFrontendQueryCache('clients:');
+        setPage(1);
+        void fetchClients();
         setShowForm(false);
       } else {
         console.error('Erro ao criar cliente');
@@ -87,7 +121,10 @@ const ClientPage: React.FC = () => {
       });
 
       if (response.ok) {
-        fetchClients();
+        const updated = await response.json() as IClient;
+        setClients((current) => current.map((client) => client._id === updated._id ? updated : client));
+        invalidateFrontendQueryCache('clients:');
+        void fetchClients();
         setEditingClient(null);
         setShowForm(false);
       } else {
@@ -115,7 +152,9 @@ const ClientPage: React.FC = () => {
 
       if (response.ok) {
         setFeedback({ tone: 'success', message: 'Cliente excluído com sucesso.' });
-        fetchClients();
+        setClients((current) => current.filter((client) => client._id !== confirmDeleteClientId));
+        invalidateFrontendQueryCache('clients:');
+        void fetchClients();
         setConfirmDeleteClientId(null);
       } else {
         const data = await response.json().catch(() => ({} as { message?: string }));
@@ -133,28 +172,6 @@ const ClientPage: React.FC = () => {
     setEditingClient(client);
     setShowForm(true);
   };
-
-  const filteredClients = useMemo(() => {
-    if (!search.trim()) return clients;
-
-    const q = normClientSearch(search);
-    return clients.filter((c) => {
-      const fields = [
-        c.clientName,
-        c.cnpjCpf,
-        c.email,
-        c.rgInscricaoEstadual,
-        c.address,
-        c.addressNumber,
-        c.neighborhood,
-        c.city,
-        c.cep,
-        c.contactName,
-        c.contactNumber,
-      ];
-      return fields.some((f) => normClientSearch(f).includes(q));
-    });
-  }, [clients, search]);
 
   if (loading) return <LoadingScreen fullHeight={false} />;
 
@@ -194,10 +211,13 @@ const ClientPage: React.FC = () => {
         />
       ) : (
         <ClientList
-          clients={filteredClients}
+          clients={clients}
           onEdit={handleEditButtonClick}
           onDelete={handleDeleteClient}
         />
+      )}
+      {!showForm && (
+        <Pagination page={page} totalPages={pagination.totalPages} totalItems={pagination.totalItems} onPageChange={setPage} disabled={loading} />
       )}
       <ActionConfirmModal
         open={Boolean(confirmDeleteClientId)}

@@ -96,4 +96,8 @@ const OrderSchema: Schema = new Schema<IOrder>({
   updatedAt: { type: Date, default: Date.now },
 });
 
+OrderSchema.index({ status: 1, type: 1, updatedAt: -1, clientId: 1 });
+OrderSchema.index({ clientId: 1, createdAt: -1 });
+OrderSchema.index({ clientId: 1, updatedAt: -1 });
+
 export const OrderModel = mongoose.model<IOrder>('Order', OrderSchema);

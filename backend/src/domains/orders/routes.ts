@@ -8,12 +8,18 @@ import {
   listOrders,
   updateOrder,
 } from './service';
+import { invalidateOperationalQueryCaches } from '../../shared/queryCache';
+
+const invalidateOnSuccess = (status: number) => {
+  if (status < 400) invalidateOperationalQueryCaches();
+};
 
 export const ordersRouter = Router();
 
 ordersRouter.post('/orders', authenticateToken, isAdmin, async (req, res) => {
   try {
     const result = await createOrder(req.body);
+    invalidateOnSuccess(result.status);
     return res.status(result.status).json(result.body);
   } catch (error) {
     console.error(error);
@@ -34,6 +40,7 @@ ordersRouter.get('/orders', authenticateToken, isAdmin, async (_req, res) => {
 ordersRouter.patch('/orders/:id/change-client', authenticateToken, isAdmin, async (req, res) => {
   try {
     const result = await changeOrderClient(req.params.id, String(req.body?.clientId || ''));
+    invalidateOnSuccess(result.status);
     return res.status(result.status).json(result.body);
   } catch (error) {
     console.error('Erro ao corrigir cliente do pedido:', error);
@@ -44,6 +51,7 @@ ordersRouter.patch('/orders/:id/change-client', authenticateToken, isAdmin, asyn
 ordersRouter.patch('/orders/:id/correction', authenticateToken, isAdmin, async (req, res) => {
   try {
     const result = await correctPendingOrder(req.params.id, req.body);
+    invalidateOnSuccess(result.status);
     return res.status(result.status).json(result.body);
   } catch (error) {
     console.error('Erro ao corrigir pedido:', error);
@@ -54,6 +62,7 @@ ordersRouter.patch('/orders/:id/correction', authenticateToken, isAdmin, async (
 ordersRouter.patch('/orders/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
     const result = await updateOrder(req.params.id, req.body);
+    invalidateOnSuccess(result.status);
     return res.status(result.status).json(result.body);
   } catch (error) {
     console.error(error);
@@ -64,6 +73,7 @@ ordersRouter.patch('/orders/:id', authenticateToken, isAdmin, async (req, res) =
 ordersRouter.delete('/orders/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
     const result = await deleteOrder(req.params.id);
+    invalidateOnSuccess(result.status);
     return res.status(result.status).json(result.body);
   } catch (error) {
     console.error('Erro ao excluir pedido:', error);

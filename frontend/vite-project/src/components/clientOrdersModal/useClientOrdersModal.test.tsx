@@ -96,6 +96,8 @@ describe('useClientOrdersModal', () => {
     expect(firstCallUrl).toContain('/clients/cli-1/orders?');
     expect(firstCallUrl).toContain('closure=true');
     expect(firstCallUrl).toContain('paymentStatus=pending');
+    expect(firstCallUrl).toContain('paginated=true');
+    expect(firstCallUrl).toContain('pageSize=25');
   });
 
   it('usa filtros dinâmicos no modo histórico operacional', async () => {

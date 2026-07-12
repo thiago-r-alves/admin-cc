@@ -46,6 +46,7 @@ const ClosureGroupSchema = new Schema<IClosureGroup>(
 );
 
 ClosureGroupSchema.index({ clientId: 1, createdAt: -1 });
+ClosureGroupSchema.index({ clientId: 1, status: 1, createdAt: -1 });
 ClosureGroupSchema.index({ clientId: 1, clientSequenceNumber: 1 }, { unique: true });
 
 export const ClosureGroupModel = mongoose.model<IClosureGroup>('ClosureGroup', ClosureGroupSchema);

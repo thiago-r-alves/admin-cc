@@ -49,5 +49,8 @@ const CacambaSchema: Schema = new Schema({
 });
 
 CacambaSchema.index({ orderId: 1, numero: 1 }, { unique: true });
+CacambaSchema.index({ numero: 1, createdAt: -1 });
+CacambaSchema.index({ numero: 1, tipo: 1, createdAt: -1 });
+CacambaSchema.index({ paymentStatus: 1, createdAt: -1 });
 
 export const CacambaModel = mongoose.model<ICacamba>('Cacamba', CacambaSchema);

@@ -16,7 +16,8 @@ type MockPdfDoc = {
   save: ReturnType<typeof vi.fn>;
 };
 
-const autoTableMock = vi.fn((doc: MockPdfDoc) => {
+const autoTableMock = vi.fn((doc: MockPdfDoc, options: AutoTableOptions) => {
+  void options;
   doc.lastAutoTable = { finalY: 42 };
 });
 const addImageMock = vi.fn();

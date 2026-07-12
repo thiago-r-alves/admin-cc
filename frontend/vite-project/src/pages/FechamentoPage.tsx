@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { IClient } from '../interfaces';
+import type { IClient, IPaginatedResponse } from '../interfaces';
 import ClientOrdersModal from '../components/ClientOrdersModal';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
 import type { ClientOrdersModalProps } from '../components/clientOrdersModal/types';
 import { ClosureClientList } from '../features/closure/ClosureClientList';
 import { ClosureFilters } from '../features/closure/ClosureFilters';
-import { isIsoDate, normClosureSearch } from '../features/closure/closure.helpers';
+import { isIsoDate } from '../features/closure/closure.helpers';
+import Pagination from '../components/ui/Pagination';
+import { getCachedQuery, invalidateFrontendQueryCache, runCachedQuery } from '../services/queryCache';
 import type { ClosurePaymentStatus } from '../features/closure/closure.types';
 
 import {
@@ -25,6 +27,9 @@ type OpeningOrdersModal = {
 const FechamentoPage: React.FC = () => {
   const [clients, setClients] = useState<IClient[]>([]);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ totalItems: 0, totalPages: 1 });
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [paymentStatus, setPaymentStatus] = useState<ClosurePaymentStatus>('all');
@@ -46,7 +51,7 @@ const FechamentoPage: React.FC = () => {
     selectedClientIdRef.current = selectedClientId;
   }, [selectedClientId]);
 
-  const fetchClosureClients = useCallback(async () => {
+  const fetchClosureClients = useCallback(async (signal?: AbortSignal) => {
     const keepModalContext = isOrdersModalOpenRef.current;
     try {
       if (!keepModalContext) {
@@ -54,6 +59,9 @@ const FechamentoPage: React.FC = () => {
       }
       const query = new URLSearchParams();
       query.append('closure', 'true');
+      query.append('paginated', 'true');
+      query.append('page', String(page));
+      query.append('pageSize', '25');
       if (isIsoDate(startDate)) {
         query.append('startDate', startDate);
       }
@@ -61,26 +69,34 @@ const FechamentoPage: React.FC = () => {
         query.append('endDate', endDate);
       }
       query.append('paymentStatus', paymentStatus);
-      const response = await fetch(`${apiUrl}/clients?${query.toString()}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        setFeedback({ tone: 'error', message: data.message || 'Erro ao buscar fechamentos.' });
-        if (!keepModalContext) {
-          setClients([]);
-        }
-        return;
+      if (debouncedSearch.trim()) query.append('q', debouncedSearch.trim());
+      const url = `${apiUrl}/clients?${query.toString()}`;
+      const cacheKey = `closure-clients:${url}`;
+      const cached = getCachedQuery<IPaginatedResponse<IClient>>(cacheKey);
+      if (cached) {
+        setClients(cached.items);
+        setPagination({ totalItems: cached.totalItems, totalPages: cached.totalPages });
+        if (!keepModalContext) setLoading(false);
       }
-
-      const fetchedClients = Array.isArray(data) ? (data as IClient[]) : [];
+      const data = await runCachedQuery(cacheKey, async () => {
+        const response = await fetch(url, { signal, headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.message || 'Erro ao buscar fechamentos.');
+        return Array.isArray(body)
+          ? { items: body, page: 1, pageSize: body.length, totalItems: body.length, totalPages: 1 }
+          : body as IPaginatedResponse<IClient>;
+      });
+      if (signal?.aborted) return;
+      const fetchedClients = data.items;
       setClients(fetchedClients);
+      setPagination({ totalItems: data.totalItems, totalPages: data.totalPages });
       setSelectedClientSnapshot((current) => {
         const nextSelectedClientId = selectedClientIdRef.current;
         if (!nextSelectedClientId) return current;
         return fetchedClients.find((client) => client._id === nextSelectedClientId) || current;
       });
     } catch (error) {
+      if (signal?.aborted) return;
       console.error(error);
       setFeedback({ tone: 'error', message: 'Erro ao buscar fechamentos.' });
       if (!keepModalContext) {
@@ -91,30 +107,12 @@ const FechamentoPage: React.FC = () => {
         setLoading(false);
       }
     }
-  }, [startDate, endDate, paymentStatus]);
+  }, [startDate, endDate, paymentStatus, debouncedSearch, page]);
 
   const handleClosureStateChanged = useCallback(async () => {
+    invalidateFrontendQueryCache('closure-clients:');
     await fetchClosureClients();
   }, [fetchClosureClients]);
-
-  const filteredClients = useMemo(() => {
-    if (!search.trim()) return clients;
-    const q = normClosureSearch(search);
-    return clients.filter((c) => {
-      const fields = [
-        c.clientName,
-        c.cnpjCpf,
-        c.address,
-        c.addressNumber,
-        c.neighborhood,
-        c.city,
-        c.cep,
-        c.contactName,
-        c.contactNumber,
-      ];
-      return fields.some((f) => normClosureSearch(f).includes(q));
-    });
-  }, [clients, search]);
 
   const openOrdersModal = (
     client: IClient,
@@ -147,11 +145,20 @@ const FechamentoPage: React.FC = () => {
   const showBlockingLoading = loading && !isOrdersModalOpen;
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchClosureClients();
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [fetchClosureClients, search]);
+    const controller = new AbortController();
+    void fetchClosureClients(controller.signal);
+    return () => controller.abort();
+  }, [fetchClosureClients]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setPage(1);
+      setDebouncedSearch(search);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => setPage(1), [startDate, endDate, paymentStatus]);
 
   return (
     <Container>
@@ -180,13 +187,14 @@ const FechamentoPage: React.FC = () => {
       />
 
       <ClosureClientList
-        clients={filteredClients}
+        clients={clients}
         loading={showBlockingLoading}
         paymentStatus={paymentStatus}
         openingAction={openingOrdersModal}
         onOpenCreateClosure={(client) => openOrdersModal(client, 'create_closure')}
         onOpenGeneratedNotes={(client) => openOrdersModal(client, 'generated_notes')}
       />
+      <Pagination page={page} totalPages={pagination.totalPages} totalItems={pagination.totalItems} onPageChange={setPage} disabled={loading} />
 
       {isOrdersModalOpen && modalClient && (
         <ClientOrdersModal

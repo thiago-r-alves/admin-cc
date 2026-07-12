@@ -15,15 +15,49 @@ import {
   buildClosureDateRange,
   buildClosureGroupClientMatch,
   CLOSURE_DEBUG,
+  escapeRegExp,
   type ClosureDateRange,
   parseClosurePaymentFilter,
 } from '../closures/helpers';
+
+const CLIENT_SELECT = 'clientName contactName contactNumber neighborhood address addressNumber cnpjCpf email rgInscricaoEstadual city cep createdAt updatedAt';
+const ORDER_SELECT = '_id orderNumber clientId clientName contactName contactNumber neighborhood address addressNumber type priority status motorista cacambas createdAt updatedAt cnpjCpf city cep placa';
+const CACAMBA_SELECT = '_id numero tipo paymentStatus closureGroupId contentType price imageUrl orderId local createdAt horaServicoDigitos';
+
+const parsePagination = (query: Record<string, unknown>) => {
+  const paginated = String(query.paginated || '').toLowerCase() === 'true';
+  const page = Math.max(1, Number.parseInt(String(query.page || '1'), 10) || 1);
+  const requestedPageSize = Number.parseInt(String(query.pageSize || '25'), 10) || 25;
+  return { paginated, page, pageSize: Math.min(25, Math.max(1, requestedPageSize)) };
+};
+
+const paginate = <T>(items: T[], page: number, pageSize: number) => ({
+  items: items.slice((page - 1) * pageSize, page * pageSize),
+  page,
+  pageSize,
+  totalItems: items.length,
+  totalPages: Math.max(1, Math.ceil(items.length / pageSize)),
+});
+
+const buildClientSearchQuery = (value: unknown) => {
+  const q = String(value || '').trim();
+  if (!q) return {};
+  const pattern = new RegExp(escapeRegExp(q), 'i');
+  return {
+    $or: [
+      'clientName', 'cnpjCpf', 'email', 'rgInscricaoEstadual', 'address', 'addressNumber',
+      'neighborhood', 'city', 'cep', 'contactName', 'contactNumber',
+    ].map((field) => ({ [field]: pattern })),
+  };
+};
 
 export const listClients = async (query: Record<string, unknown>) => {
   const { startDate, endDate, type, closure, paymentStatus } = query;
   const isClosureMode = String(closure || '').toLowerCase() === 'true';
   const closurePaymentFilter = parseClosurePaymentFilter(paymentStatus);
   const hasTypeFilter = typeof type === 'string' && (type === 'entrega' || type === 'retirada');
+  const { paginated, page, pageSize } = parsePagination(query);
+  const clientSearchQuery = buildClientSearchQuery(query.q);
 
   if (isClosureMode) {
     const hasDateFilter = Boolean(startDate || endDate);
@@ -32,8 +66,20 @@ export const listClients = async (query: Record<string, unknown>) => {
       return { status: 400, body: { message: 'Período de datas inválido.' } };
     }
     const metadataPendingDateRange = closurePaymentFilter === 'metadata_pending' ? range : null;
-    const foundOrders = await OrderModel.find(buildClosureCandidateOrdersQuery(range))
-      .populate('cacambas')
+    const matchingClientIds = String(query.q || '').trim()
+      ? (await ClientModel.find(clientSearchQuery).select('_id').lean()).map((client) => client._id)
+      : null;
+    if (matchingClientIds && matchingClientIds.length === 0) {
+      const emptyResult: any[] = [];
+      return { status: 200, body: paginated ? paginate(emptyResult, page, pageSize) : emptyResult };
+    }
+    const closureOrdersQuery = {
+      ...buildClosureCandidateOrdersQuery(range),
+      ...(matchingClientIds ? { clientId: { $in: matchingClientIds } } : {}),
+    };
+    const foundOrders = await OrderModel.find(closureOrdersQuery)
+      .select('clientId cacambas updatedAt')
+      .populate({ path: 'cacambas', select: CACAMBA_SELECT })
       .lean();
     const closureOrders = await filterOrdersForClosureCandidates(foundOrders as any[], {
       metadataDateRange: metadataPendingDateRange,
@@ -93,7 +139,7 @@ export const listClients = async (query: Record<string, unknown>) => {
       .filter((clientId): clientId is string => Boolean(clientId) && ObjectId.isValid(clientId))
       .map((clientId) => new ObjectId(clientId));
     const clients = clientIds.length
-      ? await ClientModel.find({ _id: { $in: clientIds } }).lean()
+      ? await ClientModel.find({ _id: { $in: clientIds }, ...clientSearchQuery }).select(CLIENT_SELECT).lean()
       : [];
     const clientById = new Map(clients.map((client: any) => [String(client._id), client]));
     const aggregated = filteredStats
@@ -130,26 +176,25 @@ export const listClients = async (query: Record<string, unknown>) => {
       });
     }
 
+    const result = aggregated
+      .map((row: any) => {
+        if (!row.client) return null;
+        return {
+          ...row.client,
+          hasPendingClosureItems: Number(row.pendingClosureCount || 0) > 0,
+          hasGeneratedClosureGroups: Number(row.generatedClosureGroupsCount || 0) > 0,
+          hasPendingClosureMetadata: Number(row.pendingClosureMetadataCount || 0) > 0,
+          pendingClosureCount: Number(row.pendingClosureCount || 0),
+          generatedClosureGroupsCount: Number(row.generatedClosureGroupsCount || 0),
+          pendingClosureMetadataCount: Number(row.pendingClosureMetadataCount || 0),
+          pendingClosureMissingPriceCount: Number(row.pendingClosureMissingPriceCount || 0),
+          pendingClosureMissingContentTypeCount: Number(row.pendingClosureMissingContentTypeCount || 0),
+        };
+      })
+      .filter(Boolean);
     return {
       status: 200,
-      body: aggregated
-        .map((row: any) => {
-          if (!row.client) return null;
-          return {
-            ...row.client,
-            hasPendingClosureItems: Number(row.pendingClosureCount || 0) > 0,
-            hasGeneratedClosureGroups: Number(row.generatedClosureGroupsCount || 0) > 0,
-            hasPendingClosureMetadata: Number(row.pendingClosureMetadataCount || 0) > 0,
-            pendingClosureCount: Number(row.pendingClosureCount || 0),
-            generatedClosureGroupsCount: Number(row.generatedClosureGroupsCount || 0),
-            pendingClosureMetadataCount: Number(row.pendingClosureMetadataCount || 0),
-            pendingClosureMissingPriceCount: Number(row.pendingClosureMissingPriceCount || 0),
-            pendingClosureMissingContentTypeCount: Number(
-              row.pendingClosureMissingContentTypeCount || 0,
-            ),
-          };
-        })
-        .filter(Boolean),
+      body: paginated ? paginate(result, page, pageSize) : result,
     };
   }
 
@@ -189,7 +234,7 @@ export const listClients = async (query: Record<string, unknown>) => {
       return { status: 200, body: [] };
     }
 
-    const clients = await ClientModel.find({ _id: { $in: clientIds } }).lean();
+    const clients = await ClientModel.find({ _id: { $in: clientIds }, ...clientSearchQuery }).select(CLIENT_SELECT).lean();
     const clientById = new Map(clients.map((client) => [String(client._id), client]));
 
     const sortedClients = clientIds
@@ -208,7 +253,7 @@ export const listClients = async (query: Record<string, unknown>) => {
       })
       .map((item) => item.client);
 
-    return { status: 200, body: sortedClients };
+    return { status: 200, body: paginated ? paginate(sortedClients, page, pageSize) : sortedClients };
   }
 
   if (hasTypeFilter) {
@@ -220,11 +265,18 @@ export const listClients = async (query: Record<string, unknown>) => {
           .filter(Boolean),
       ),
     );
-    const clients = await ClientModel.find({ _id: { $in: clientIds } }).sort({ clientName: 1 });
-    return { status: 200, body: clients };
+    const clients = await ClientModel.find({ _id: { $in: clientIds }, ...clientSearchQuery }).select(CLIENT_SELECT).sort({ clientName: 1 }).lean();
+    return { status: 200, body: paginated ? paginate(clients, page, pageSize) : clients };
   }
 
-  const clients = await ClientModel.find().sort({ clientName: 1 });
+  if (paginated) {
+    const [clients, totalItems] = await Promise.all([
+      ClientModel.find(clientSearchQuery).select(CLIENT_SELECT).sort({ clientName: 1 }).skip((page - 1) * pageSize).limit(pageSize).lean(),
+      ClientModel.countDocuments(clientSearchQuery),
+    ]);
+    return { status: 200, body: { items: clients, page, pageSize, totalItems, totalPages: Math.max(1, Math.ceil(totalItems / pageSize)) } };
+  }
+  const clients = await ClientModel.find(clientSearchQuery).select(CLIENT_SELECT).sort({ clientName: 1 }).lean();
   return { status: 200, body: clients };
 };
 
@@ -337,6 +389,7 @@ export const listClientOrders = async (clientId: string, query: Record<string, u
   const closurePaymentFilter = parseClosurePaymentFilter(paymentStatus);
   const orderQuery: Record<string, unknown> = { clientId };
   let closureRange: ClosureDateRange | null = null;
+  const { paginated, page, pageSize } = parsePagination(query);
 
   if (isClosureMode) {
     const hasDateFilter = Boolean(startDate || endDate);
@@ -369,7 +422,8 @@ export const listClientOrders = async (clientId: string, query: Record<string, u
   }
 
   const foundOrders = await OrderModel.find(orderQuery)
-    .populate('cacambas')
+    .select(ORDER_SELECT)
+    .populate({ path: 'cacambas', select: CACAMBA_SELECT })
     .populate({
       path: 'motorista',
       select: 'username',
@@ -386,7 +440,7 @@ export const listClientOrders = async (clientId: string, query: Record<string, u
     orders = filterOperationalOrderCacambas(orders, { local, q });
   }
 
-  return { status: 200, body: orders };
+  return { status: 200, body: paginated ? paginate(orders, page, pageSize) : orders };
 };
 
 export const listClosureGroups = async (
@@ -394,6 +448,7 @@ export const listClosureGroups = async (
   query: { startDate?: string; endDate?: string; status?: 'nota_fiscal_pendente' | 'pix_pendente' | 'paga' | 'all' },
 ) => {
   const { startDate, endDate, status } = query;
+  const { paginated, page, pageSize } = parsePagination(query as Record<string, unknown>);
   const hasDateFilter = Boolean(startDate || endDate);
   const range = hasDateFilter ? buildClosureDateRange(startDate, endDate) : null;
   if (hasDateFilter && !range) {
@@ -413,10 +468,13 @@ export const listClosureGroups = async (
     groupQuery.status = status;
   }
 
-  const groups = await ClosureGroupModel.find(groupQuery)
-    .populate('cacambaIds')
+  const groupsQuery = ClosureGroupModel.find(groupQuery)
+    .populate({ path: 'cacambaIds', select: CACAMBA_SELECT })
     .sort({ createdAt: -1 })
     .lean();
+  const totalItems = paginated ? await ClosureGroupModel.countDocuments(groupQuery) : 0;
+  if (paginated) groupsQuery.skip((page - 1) * pageSize).limit(pageSize);
+  const groups = await groupsQuery;
 
   const closureCacambaIds = groups.flatMap((group: any) =>
     (group.cacambaIds || []).map((cacamba: any) => String(cacamba?._id || '')).filter(Boolean),
@@ -430,7 +488,8 @@ export const listClosureGroups = async (
         path: 'motorista',
         select: 'username',
       })
-      .populate('cacambas')
+      .select(ORDER_SELECT)
+      .populate({ path: 'cacambas', select: CACAMBA_SELECT })
       .lean()
     : [];
   const enrichedOrders = await enrichWithdrawalCacambasWithDeliveryMetadata(
@@ -444,14 +503,17 @@ export const listClosureGroups = async (
     }
   }
 
+  const result = groups.map((group: any) => ({
+    ...group,
+    cacambaIds: (group.cacambaIds || []).map((cacamba: any) => ({
+      ...cacamba,
+      ...(enrichedCacambaById.get(String(cacamba._id)) || {}),
+    })),
+  }));
   return {
     status: 200,
-    body: groups.map((group: any) => ({
-      ...group,
-      cacambaIds: (group.cacambaIds || []).map((cacamba: any) => ({
-        ...cacamba,
-        ...(enrichedCacambaById.get(String(cacamba._id)) || {}),
-      })),
-    })),
+    body: paginated
+      ? { items: result, page, pageSize, totalItems, totalPages: Math.max(1, Math.ceil(totalItems / pageSize)) }
+      : result,
   };
 };

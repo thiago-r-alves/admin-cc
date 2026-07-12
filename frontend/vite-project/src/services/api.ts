@@ -1,6 +1,9 @@
+import { invalidateFrontendQueryCache } from './queryCache';
+
 export const apiUrl = import.meta.env.VITE_API_URL as string;
 
 export const clearStoredSession = () => {
+  invalidateFrontendQueryCache();
   localStorage.removeItem('token');
   localStorage.removeItem('role');
   localStorage.removeItem('username');

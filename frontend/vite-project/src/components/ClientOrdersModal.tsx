@@ -20,6 +20,7 @@ import type { ICacamba, IClosureGroup, OrderType } from '../interfaces';
 import { cn } from '../utils/cn';
 import { twComponent } from '../utils/twComponent';
 import { normalizeBrazilianWhatsAppNumber, normalizeEmailAddress } from '../utils/whatsapp';
+import Pagination from './ui/Pagination';
 
 const ModalOverlay = twComponent('div', 'fixed inset-0 z-[1100] flex items-center justify-center bg-gray-900/70 p-4 max-md:p-0');
 const EditCacambaModal = React.lazy(() => import('./EditCacambaModal'));
@@ -343,6 +344,12 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     isLoadingHistory,
     isInitialOrdersLoading,
     hasLoadedInitialClosureGroups,
+    ordersPage = 1,
+    setOrdersPage = () => undefined,
+    ordersPagination = { totalItems: 0, totalPages: 1 },
+    groupsPage = 1,
+    groupsPagination = { totalItems: 0, totalPages: 1 },
+    changeGroupsPage = () => undefined,
     cacambaMetaModal,
     setCacambaMetaModal,
     clientTotal,
@@ -1162,6 +1169,24 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
                   </GroupsLayout>
                 )}
               </StageBody>
+              {(isHistoryMode || (closureMode && !isGeneratedNotesView && step === 'select')) && (
+                <Pagination
+                  page={ordersPage}
+                  totalPages={ordersPagination.totalPages}
+                  totalItems={ordersPagination.totalItems}
+                  onPageChange={setOrdersPage}
+                  disabled={isInitialOrdersLoading}
+                />
+              )}
+              {(step === 'paid' || showHistory) && (
+                <Pagination
+                  page={groupsPage}
+                  totalPages={groupsPagination.totalPages}
+                  totalItems={groupsPagination.totalItems}
+                  onPageChange={changeGroupsPage}
+                  disabled={isLoadingHistory}
+                />
+              )}
             </>
           )}
         </ModalBody>

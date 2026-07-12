@@ -1,4 +1,8 @@
 import '@testing-library/jest-dom/vitest';
+import { beforeEach } from 'vitest';
+import { invalidateFrontendQueryCache } from '../services/queryCache';
+
+beforeEach(() => invalidateFrontendQueryCache());
 
 const localStorageMock = (() => {
   let store: Record<string, string> = {};

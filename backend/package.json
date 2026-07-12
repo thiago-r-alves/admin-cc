@@ -11,6 +11,7 @@
     "test:coverage": "vitest run --coverage",
     "migrate:recompress:js": "node dist/scripts/recompressGridFs.js",
     "migrate:closure-group-sequence:js": "node dist/scripts/migrateClosureGroupSequence.js",
+    "indexes:performance:js": "node dist/scripts/syncPerformanceIndexes.js",
     "start:migrate-once": "node dist/scripts/recompressGridFs.js && node dist/index.js",
     "start:migrate-dry": "node dist/scripts/recompressGridFs.js --dry-run && node dist/index.js"
   },

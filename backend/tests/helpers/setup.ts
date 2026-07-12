@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { afterAll, beforeAll, beforeEach, vi } from 'vitest';
+import { clearQueryCacheForTests } from '../../src/shared/queryCache';
 
 let mongoServer: MongoMemoryServer;
 
@@ -54,6 +55,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  clearQueryCacheForTests();
   if (mongoose.connection.readyState === 1) {
     const collections = mongoose.connection.collections;
     for (const key of Object.keys(collections)) {
@@ -71,4 +73,3 @@ afterAll(async () => {
     await mongoServer.stop();
   }
 });
-

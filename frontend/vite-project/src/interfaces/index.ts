@@ -150,6 +150,14 @@ export interface IDeliveryProof {
   driverNameSnapshot?: string;
 }
 
+export interface IPaginatedResponse<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
 export interface IOrder {
   _id: string;
   orderNumber: number | null;

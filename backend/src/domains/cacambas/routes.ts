@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticateToken, AuthenticatedRequest, isAdmin } from '../../shared/auth';
 import { upload } from '../../shared/upload';
 import { deleteCacamba, getCacambaTrack, listTrackedCacambaNumbers, updateCacamba } from './service';
+import { invalidateOperationalQueryCaches } from '../../shared/queryCache';
 
 export const cacambasRouter = Router();
 
@@ -32,6 +33,7 @@ cacambasRouter.patch(
   async (req: AuthenticatedRequest, res) => {
     try {
       const result = await updateCacamba(req.params.id, req.userData, req.body, req.file);
+      if (result.status < 400) invalidateOperationalQueryCaches();
       return res.status(result.status).json(result.body);
     } catch (error: any) {
       if (error?.code === 11000) {
@@ -46,6 +48,7 @@ cacambasRouter.patch(
 cacambasRouter.delete('/cacambas/:id', authenticateToken, async (req, res) => {
   try {
     const result = await deleteCacamba(req.params.id);
+    if (result.status < 400) invalidateOperationalQueryCaches();
     return res.status(result.status).json(result.body);
   } catch {
     return res.status(500).json({ message: 'Erro ao excluir caçamba' });
