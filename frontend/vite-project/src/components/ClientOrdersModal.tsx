@@ -842,6 +842,9 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
           showTitle={false}
           onEdit={(cacamba) => setEditingCacamba({ cacamba, orderType: cacamba.tipo })}
           editLabel="Editar caçamba"
+          adminMetaActions
+          canEditPrice
+          onEditPrice={(cacamba) => setCacambaMetaModal({ mode: 'price', cacamba })}
           onReturnToPending={(cacamba) => setPendingReturn({ group, cacambas: [cacamba] })}
           returnToPendingSelectable
           selectedReturnToPendingIds={selectedPendingReturnIds}

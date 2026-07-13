@@ -397,7 +397,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
                   Editar conteúdo
                 </ActionButton>
               )}
-              {!selectable && adminMetaActions && canEditPrice && (isRetirada || isEntrega) && onEditPrice && (
+              {adminMetaActions && canEditPrice && (!selectable || !isPendingClosure) && (isRetirada || isEntrega) && onEditPrice && (
                 <ActionButton $variant="secondary" onClick={() => onEditPrice(cacamba)}>
                   {typeof cacamba.price === 'number' ? 'Editar valor' : 'Adicionar valor'}
                 </ActionButton>

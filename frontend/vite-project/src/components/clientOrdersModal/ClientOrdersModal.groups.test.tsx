@@ -219,6 +219,7 @@ describe('ClientOrdersModal (closure flow)', () => {
     expect(screen.getByTestId('closure-group-download')).toBeInTheDocument();
     expect(screen.getByTestId('closure-group-receipt-download')).toBeInTheDocument();
     expect(screen.getByTestId('closure-group-edit-invoice')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Editar valor' }).length).toBeGreaterThan(0);
     expect(screen.queryByTestId('closure-group-save-invoice')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /ver grupos anteriores/i })).not.toBeInTheDocument();
     expect(screen.getByTestId('closure-group-download')).toHaveStyle({
@@ -362,6 +363,7 @@ describe('ClientOrdersModal (closure flow)', () => {
     expect(screen.getByRole('button', { name: 'Copiar código do Pix' })).toBeInTheDocument();
     expect(screen.queryByTestId('closure-group-edit-pix-info')).not.toBeInTheDocument();
     expect(screen.getByTestId('closure-group-mark-pix-paid')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Editar valor' })).toBeInTheDocument();
     expect(screen.queryByText('Informações do Pix: Comprovante enviado pelo cliente')).not.toBeInTheDocument();
     expect(screen.queryByText(/Valor total do Pix/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Pix copia e cola')).not.toBeInTheDocument();
