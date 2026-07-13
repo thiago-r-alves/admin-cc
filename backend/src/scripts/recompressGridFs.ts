@@ -116,6 +116,13 @@ async function main() {
       await OrderModel.updateOne({ _id: ord._id }, { $set: { imageUrls: newArr } });
     }
 
+    // Atualiza comprovantes digitais antes de remover o arquivo original.
+    // Assinaturas também são imagens PNG no mesmo bucket do GridFS.
+    const proofRes = await OrderModel.updateMany(
+      { 'deliveryProof.signatureImageUrl': oldUrl },
+      { $set: { 'deliveryProof.signatureImageUrl': newUrl } },
+    );
+
     // Deleta antigo
     try {
       await bucket.delete(file._id);
@@ -123,7 +130,7 @@ async function main() {
       console.warn(`[WARN] Falha ao deletar antigo ${oldId}:`, e);
     }
 
-    console.log(`OK: ${oldId} -> ${newId} | Cacambas:${cacRes.modifiedCount} | Orders:${ordersToUpdate.length}`);
+    console.log(`OK: ${oldId} -> ${newId} | Cacambas:${cacRes.modifiedCount} | Orders:${ordersToUpdate.length} | Assinaturas:${proofRes.modifiedCount}`);
     processed++;
   }
 

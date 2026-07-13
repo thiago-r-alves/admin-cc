@@ -10,6 +10,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "migrate:recompress:js": "node dist/scripts/recompressGridFs.js",
+    "repair:signatures:js": "node dist/scripts/repairDeliveryProofSignatures.js",
+    "repair:signatures:dry": "node dist/scripts/repairDeliveryProofSignatures.js --dry-run",
     "migrate:closure-group-sequence:js": "node dist/scripts/migrateClosureGroupSequence.js",
     "indexes:performance:js": "node dist/scripts/syncPerformanceIndexes.js",
     "start:migrate-once": "node dist/scripts/recompressGridFs.js && node dist/index.js",
