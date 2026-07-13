@@ -41,6 +41,7 @@ describe('AdminOrderCard comprovante reutilizado', () => {
         onCorrectOrder={vi.fn()}
         onChangeClient={vi.fn()}
         onDeleteOrder={vi.fn()}
+        onDeleteCacamba={vi.fn()}
       />,
     );
 

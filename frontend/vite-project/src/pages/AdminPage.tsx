@@ -283,6 +283,7 @@ const AdminPage: React.FC = () => {
       onCorrectOrder={setCorrectingOrder}
       onChangeClient={setChangingClientOrder}
       onDeleteOrder={handleDeleteOrder}
+      onDeleteCacamba={(cacamba) => handleDeleteAcompanhamentoCacamba(cacamba._id, cacamba.numero)}
     />
   );
 

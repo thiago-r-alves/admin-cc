@@ -35,6 +35,7 @@ type AdminOrderCardProps = {
   onCorrectOrder: (order: IOrder) => void;
   onChangeClient: (order: IOrder) => void;
   onDeleteOrder: (orderId: string) => void;
+  onDeleteCacamba: (cacamba: ICacamba) => void;
 };
 
 export const AdminOrderCard = ({
@@ -45,6 +46,7 @@ export const AdminOrderCard = ({
   onCorrectOrder,
   onChangeClient,
   onDeleteOrder,
+  onDeleteCacamba,
 }: AdminOrderCardProps) => {
   const hasCacambas = (order.cacambas?.length ?? 0) > 0;
   const canCorrectOrder = order.status === 'pendente' && !hasCacambas;
@@ -108,6 +110,10 @@ export const AdminOrderCard = ({
               adminMetaActions={order.type === 'retirada'}
               canEditPrice={order.type === 'retirada' && order.status === 'concluido'}
               onEditPrice={onEditCacambaPrice}
+              onDelete={order.status === 'concluido' ? (cacambaId) => {
+                const cacamba = (order.cacambas || []).find((item) => item._id === cacambaId);
+                if (cacamba) onDeleteCacamba(cacamba);
+              } : undefined}
               showDeliveryDateForRetirada
               responsibility={{ motorista: order.motorista, placa: order.placa }}
             />

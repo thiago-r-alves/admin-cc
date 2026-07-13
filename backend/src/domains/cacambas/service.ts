@@ -156,9 +156,17 @@ export const updateCacamba = async (
   };
 };
 
-export const deleteCacamba = async (id: string) => {
-  const cacamba = await CacambaModel.findByIdAndDelete(id);
+export const deleteCacamba = async (id: string, userData?: { userId: string; role: 'admin' | 'motorista' }) => {
+  if (!userData) return { status: 401, body: { message: 'Usuário não autenticado.' } };
+  const cacamba = await CacambaModel.findById(id);
   if (!cacamba) return { status: 404, body: { message: 'Caçamba não encontrada' } };
+
+  const order = await OrderModel.findById(cacamba.orderId).select('motorista');
+  const isOwner = userData.role === 'motorista' && String(order?.motorista || '') === String(userData.userId);
+  if (userData.role !== 'admin' && !isOwner) {
+    return { status: 403, body: { message: 'Sem permissão para excluir esta caçamba.' } };
+  }
+  await CacambaModel.deleteOne({ _id: cacamba._id });
 
   const oldId = extractGridFsIdFromUrl(cacamba.imageUrl);
   if (oldId) {

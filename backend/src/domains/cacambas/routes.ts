@@ -45,9 +45,9 @@ cacambasRouter.patch(
   },
 );
 
-cacambasRouter.delete('/cacambas/:id', authenticateToken, async (req, res) => {
+cacambasRouter.delete('/cacambas/:id', authenticateToken, async (req: AuthenticatedRequest, res) => {
   try {
-    const result = await deleteCacamba(req.params.id);
+    const result = await deleteCacamba(req.params.id, req.userData);
     if (result.status < 400) invalidateOperationalQueryCaches();
     return res.status(result.status).json(result.body);
   } catch {
