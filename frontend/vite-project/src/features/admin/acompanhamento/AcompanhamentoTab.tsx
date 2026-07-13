@@ -96,7 +96,6 @@ const acompanhamentoFilterFields: Array<{
   { id: 'filtro-cnpj', label: 'CNPJ/CPF', key: 'cnpjCpf' },
   { id: 'filtro-contato', label: 'Contato', key: 'contact' },
   { id: 'filtro-telefone', label: 'Telefone', key: 'phone' },
-  { id: 'filtro-ordem-servico', label: 'Ordem de serviço', key: 'serviceOrder' },
   { id: 'filtro-ordem-servico-digital', label: 'Ordem de serviço digital', key: 'serviceOrderDigital' },
   { id: 'filtro-endereco', label: 'Endereço', key: 'address' },
   { id: 'filtro-bairro', label: 'Bairro', key: 'neighborhood' },
@@ -540,10 +539,6 @@ export const AcompanhamentoTab = ({
                       <InfoTile>
                         <InfoLabel>Qtd. no endereço</InfoLabel>
                         <InfoValue>{activeCacambaCount}</InfoValue>
-                      </InfoTile>
-                      <InfoTile>
-                        <InfoLabel>Ordem de serviço</InfoLabel>
-                        <InfoValue>{cacamba.horaServicoDigitos || '-'}</InfoValue>
                       </InfoTile>
                       <InfoTile>
                         <InfoLabel>Ordem de serviço digital</InfoLabel>

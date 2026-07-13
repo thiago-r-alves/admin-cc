@@ -50,7 +50,6 @@ const formatAvailableCacambaLabel = (cacamba: AvailableCacamba) => {
 
 const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacambaAdded, onClose, beforeUploadFiles }) => {
   const [numero, setNumero] = useState('');
-  const [horaServicoDigitos, setHoraServicoDigitos] = useState('');
   const [local, setLocal] = useState<'via_publica' | 'canteiro_obra'>('via_publica');
   const [contentType, setContentType] = useState<CacambaContentType | ''>('');
   const [files, setFiles] = useState<File[]>([]);
@@ -154,7 +153,6 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
       formData.append('numero', numero);
       formData.append('tipo', orderType);
       formData.append('local', local);
-      formData.append('horaServicoDigitos', horaServicoDigitos);
       if (orderType === 'retirada') formData.append('contentType', contentType);
       files.forEach(file => formData.append('image', file));
       const apiUrl = import.meta.env.VITE_API_URL;
@@ -172,7 +170,7 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
       }
       const data = await response.json();
       onCacambaAdded(data.cacamba);
-      setNumero(''); setHoraServicoDigitos(''); setLocal('via_publica'); setContentType(''); setFiles([]);
+      setNumero(''); setLocal('via_publica'); setContentType(''); setFiles([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao registrar caçamba');
     } finally {
@@ -182,7 +180,6 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
 
   const isFormValid =
     /^\d{3}$/.test(numero) &&
-    /^\d{3}$/.test(horaServicoDigitos) &&
     files.length > 0 &&
     Boolean(local) &&
     (orderType !== 'retirada' || Boolean(contentType));
@@ -243,7 +240,6 @@ const CacambaForm: React.FC<CacambaFormProps> = ({ orderId, orderType, onCacamba
                     )}
                   </UIField>
                 </GridField>
-                <GridField><UIField label="3 Últimos Dígitos da OS" htmlFor="cacamba-os" required><TextInput id="cacamba-os" type="text" value={horaServicoDigitos} onChange={(e) => setHoraServicoDigitos(e.target.value.replace(/\D/g, '').slice(0, 3))} placeholder="Ex: 123" maxLength={3} inputMode="numeric" pattern="[0-9]{3}" required /></UIField></GridField>
                 <GridField><UIField label="Tipo"><TypeBadge>{orderType === 'entrega' ? 'Entrega' : 'Retirada'}</TypeBadge></UIField></GridField>
                 <GridField><UIField label="Local" htmlFor="cacamba-local" required><SelectInput id="cacamba-local" value={local} onChange={e => setLocal(e.target.value as 'via_publica' | 'canteiro_obra')} required><option value="via_publica">Via pública</option><option value="canteiro_obra">Canteiro de obra</option></SelectInput></UIField></GridField>
                 {orderType === 'retirada' && <GridField $span={2}><UIField label="Tipo de conteúdo" htmlFor="cacamba-content-type" required><SelectInput id="cacamba-content-type" value={contentType} onChange={e => setContentType(e.target.value as CacambaContentType | '')} required><option value="">Selecione...</option>{CACAMBA_CONTENT_TYPES.map((option) => <option key={option} value={option}>{option}</option>)}</SelectInput></UIField></GridField>}

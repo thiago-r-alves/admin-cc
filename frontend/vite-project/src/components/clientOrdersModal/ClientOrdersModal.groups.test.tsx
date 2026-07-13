@@ -497,7 +497,6 @@ describe('ClientOrdersModal (closure flow)', () => {
     expect(await screen.findByText('Editar Caçamba #101')).toBeInTheDocument();
 
     fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: '202' } });
-    fireEvent.change(screen.getAllByRole('textbox')[1], { target: { value: '456' } });
     fireEvent.click(screen.getByRole('button', { name: 'Salvar Alterações' }));
 
     await waitFor(() =>
@@ -505,7 +504,6 @@ describe('ClientOrdersModal (closure flow)', () => {
         'cac-1',
         expect.objectContaining({
           numero: '202',
-          horaServicoDigitos: '456',
           tipo: 'retirada',
           contentType: 'Entulho limpo',
         }),

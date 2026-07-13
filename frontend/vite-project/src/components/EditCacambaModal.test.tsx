@@ -40,17 +40,6 @@ describe('EditCacambaModal', () => {
     expect(onUpdate).not.toHaveBeenCalled();
   });
 
-  it('valida ordem de servico com tres digitos', async () => {
-    const onUpdate = vi.fn();
-    render(<EditCacambaModal cacamba={{ ...baseCacamba, contentType: 'Entulho limpo' }} onClose={vi.fn()} onUpdate={onUpdate} />);
-
-    fireEvent.change(screen.getAllByRole('textbox')[1], { target: { value: '12' } });
-    submitForm();
-
-    expect(await screen.findByText('Ordem de serviço deve conter exatamente 3 dígitos.')).toBeInTheDocument();
-    expect(onUpdate).not.toHaveBeenCalled();
-  });
-
   it('exige tipo de conteudo para retirada', async () => {
     const onUpdate = vi.fn();
     render(<EditCacambaModal cacamba={baseCacamba} orderType="retirada" onClose={vi.fn()} onUpdate={onUpdate} />);
@@ -67,18 +56,17 @@ describe('EditCacambaModal', () => {
     render(<EditCacambaModal cacamba={{ ...baseCacamba, contentType: 'Entulho limpo' }} onClose={onClose} onUpdate={onUpdate} />);
 
     fireEvent.change(screen.getAllByRole('textbox')[0], { target: { value: ' 402 ' } });
-    fireEvent.change(screen.getAllByRole('textbox')[1], { target: { value: '456' } });
     submitForm();
 
     await waitFor(() => expect(onUpdate).toHaveBeenCalled());
     expect(onUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         numero: '402',
-        horaServicoDigitos: '456',
         tipo: 'retirada',
         contentType: 'Entulho limpo',
       }),
     );
+    expect(onUpdate.mock.calls[0][0]).not.toHaveProperty('horaServicoDigitos');
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

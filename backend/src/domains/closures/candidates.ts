@@ -205,7 +205,7 @@ export const filterOrdersForClosureCandidates = async (
         if (!isClosureCandidate(order, cacamba, context)) return false;
         if (
           metadataDateRange &&
-          paymentFilter === 'metadata_pending' &&
+          isClosureMetadataPending(cacamba) &&
           !isCacambaWithinClosureDateRange(cacamba, metadataDateRange)
         ) {
           return false;

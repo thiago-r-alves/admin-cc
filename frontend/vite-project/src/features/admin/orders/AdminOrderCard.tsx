@@ -121,10 +121,13 @@ export const AdminOrderCard = ({
               <div className="rounded-ui-md border border-dashed border-gray-300 bg-slate-50 p-3 text-sm font-bold text-gray-500">Sem comprovante digital</div>
             ) : (
               <div className="grid gap-3">
+                {proof.isReused && <span className="w-fit rounded-ui-md border border-blue-300 bg-blue-50 px-2 py-1 text-xs font-black uppercase text-blue-800">Comprovante reutilizado</span>}
                 {proof.type === 'no_responsible' && <span className="w-fit rounded-ui-md border border-red-300 bg-red-50 px-2 py-1 text-xs font-black uppercase text-red-800">Sem responsável no local</span>}
                 <InfoGrid>
                   <InfoTile><InfoLabel>Data/Hora</InfoLabel><InfoValue>{proofDate && !Number.isNaN(proofDate.getTime()) ? proofDate.toLocaleString('pt-BR') : '-'}</InfoValue></InfoTile>
-                  <InfoTile><InfoLabel>Motorista</InfoLabel><InfoValue>{proof.driverNameSnapshot || (typeof order.motorista === 'object' ? order.motorista?.username : '') || '-'}</InfoValue></InfoTile>
+                  <InfoTile><InfoLabel>Comprovante coletado por</InfoLabel><InfoValue>{proof.driverNameSnapshot || '-'}</InfoValue></InfoTile>
+                  <InfoTile><InfoLabel>Motorista do pedido</InfoLabel><InfoValue>{(typeof order.motorista === 'object' ? order.motorista?.username : '') || proof.driverNameSnapshot || '-'}</InfoValue></InfoTile>
+                  {proof.isReused && <InfoTile><InfoLabel>OS digital de origem</InfoLabel><InfoValue>#{proof.reusedFromOrderNumber ?? '-'}</InfoValue></InfoTile>}
                   {proof.type === 'no_responsible' && <InfoTile><InfoLabel>Observação</InfoLabel><InfoValue>{proof.note || '-'}</InfoValue></InfoTile>}
                 </InfoGrid>
                 {proof.type === 'signed' && proofImageUrl && (

@@ -9,6 +9,10 @@ export interface IDeliveryProof {
   capturedAt: Date;
   capturedBy: mongoose.Types.ObjectId;
   driverNameSnapshot: string;
+  isReused?: boolean;
+  reusedFromOrderId?: mongoose.Types.ObjectId;
+  reusedFromOrderNumber?: number;
+  reusedAt?: Date;
 }
 
 export interface IOrder extends Document {
@@ -49,6 +53,10 @@ const DeliveryProofSchema = new Schema<IDeliveryProof>(
     capturedAt: { type: Date, required: true },
     capturedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     driverNameSnapshot: { type: String, trim: true, default: '' },
+    isReused: { type: Boolean, default: false },
+    reusedFromOrderId: { type: Schema.Types.ObjectId, ref: 'Order', required: false },
+    reusedFromOrderNumber: { type: Number, required: false },
+    reusedAt: { type: Date, required: false },
   },
   { _id: false },
 );
@@ -99,5 +107,6 @@ const OrderSchema: Schema = new Schema<IOrder>({
 OrderSchema.index({ status: 1, type: 1, updatedAt: -1, clientId: 1 });
 OrderSchema.index({ clientId: 1, createdAt: -1 });
 OrderSchema.index({ clientId: 1, updatedAt: -1 });
+OrderSchema.index({ clientId: 1, motorista: 1, status: 1, 'deliveryProof.capturedAt': 1 });
 
 export const OrderModel = mongoose.model<IOrder>('Order', OrderSchema);

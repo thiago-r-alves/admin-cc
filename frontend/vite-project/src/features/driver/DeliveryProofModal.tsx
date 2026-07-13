@@ -29,7 +29,7 @@ export const DeliveryProofModal = ({ order, onClose, onSubmit }: Props) => {
     context.fillStyle = '#fff';
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.strokeStyle = '#111827';
-    context.lineWidth = 3;
+    context.lineWidth = 2;
     context.lineCap = 'round';
     context.lineJoin = 'round';
     setHasSignature(false);
@@ -70,7 +70,7 @@ export const DeliveryProofModal = ({ order, onClose, onSubmit }: Props) => {
 
   return (
     <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-gray-950/65 p-4 max-[720px]:items-stretch max-[720px]:p-0" role="presentation">
-      <div role="dialog" aria-modal="true" aria-labelledby="delivery-proof-title" className="flex max-h-[92dvh] w-[min(680px,94vw)] flex-col overflow-hidden rounded-ui-lg border border-red-200 bg-white shadow-2xl max-[720px]:h-dvh max-[720px]:max-h-dvh max-[720px]:w-screen max-[720px]:rounded-none">
+      <div role="dialog" aria-modal="true" aria-labelledby="delivery-proof-title" className="flex max-h-[92dvh] w-[min(980px,96vw)] flex-col overflow-hidden rounded-ui-lg border border-red-200 bg-white shadow-2xl max-[720px]:h-dvh max-[720px]:max-h-dvh max-[720px]:w-screen max-[720px]:rounded-none">
         <div className="flex items-start justify-between gap-4 border-b border-red-100 p-4">
           <div><h2 id="delivery-proof-title" className="m-0 text-lg font-black">Comprovante da locação</h2><p className="m-0 mt-1 text-sm text-gray-500">Pedido #{order.orderNumber ?? '-'} • {order.clientName}</p></div>
           <button type="button" aria-label="Fechar" disabled={loading} onClick={onClose} className="h-9 w-9 rounded-ui-md border border-gray-300 bg-white text-xl">×</button>
@@ -86,10 +86,10 @@ export const DeliveryProofModal = ({ order, onClose, onSubmit }: Props) => {
                 <div className="flex items-center justify-between gap-3"><strong className="text-sm uppercase text-gray-700">Assinatura</strong><button type="button" onClick={clearSignature} className="min-h-9 rounded-ui-md border border-gray-300 bg-white px-3 font-black">Limpar</button></div>
                 <canvas
                   ref={canvasRef}
-                  width={800}
-                  height={240}
+                  width={1400}
+                  height={400}
                   aria-label="Área de assinatura pelo recebimento da locação"
-                  className="h-[190px] w-full touch-none rounded-ui-md border border-gray-400 bg-white"
+                  className="h-[280px] w-full touch-none rounded-ui-md border border-gray-400 bg-white max-[560px]:h-[320px]"
                   onPointerDown={(event) => { drawing.current = true; lastPoint.current = point(event); event.currentTarget.setPointerCapture(event.pointerId); }}
                   onPointerMove={(event) => { if (!drawing.current || !lastPoint.current) return; const next = point(event); const context = event.currentTarget.getContext('2d'); context?.beginPath(); context?.moveTo(lastPoint.current.x, lastPoint.current.y); context?.lineTo(next.x, next.y); context?.stroke(); lastPoint.current = next; setHasSignature(true); }}
                   onPointerUp={() => { drawing.current = false; lastPoint.current = null; }}
@@ -99,7 +99,7 @@ export const DeliveryProofModal = ({ order, onClose, onSubmit }: Props) => {
             ) : (
               <div className="grid gap-4">
                 <label className="flex items-start gap-3 font-bold text-gray-700"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1 h-5 w-5" />Confirmo que não havia responsável no local.</label>
-                <label className="grid gap-2 text-sm font-black uppercase text-gray-700">Observação<textarea aria-label="Observação" value={note} onChange={(event) => setNote(event.target.value)} className="min-h-24 resize-y rounded-ui-md border border-gray-300 p-3 font-normal normal-case" /></label>
+                <label className="grid gap-2 text-sm font-black uppercase text-gray-700">Observação (Opcional)<textarea aria-label="Observação (Opcional)" value={note} onChange={(event) => setNote(event.target.value)} className="min-h-24 resize-y rounded-ui-md border border-gray-300 p-3 font-normal normal-case" /></label>
               </div>
             )}
             {error && <div role="alert" className="mt-4 rounded-ui-md border border-red-300 bg-red-50 p-3 font-bold text-red-900">{error}</div>}

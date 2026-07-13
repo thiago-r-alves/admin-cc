@@ -22,7 +22,6 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
   const onClose = props.onClose;
   const forcedTipo = getForcedTipo(props.orderType, props.cacamba);
   const [numero, setNumero] = useState(props.cacamba.numero);
-  const [horaServicoDigitos, setHoraServicoDigitos] = useState(props.cacamba.horaServicoDigitos || '');
   const [tipo, setTipo] = useState<OrderType>(forcedTipo);
   const [contentType, setContentType] = useState<CacambaContentType | ''>(
     (props.cacamba.contentType || '') as CacambaContentType | '',
@@ -92,12 +91,6 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
       return;
     }
 
-    const normalizedHoraServico = horaServicoDigitos.trim();
-    if (!/^\d{3}$/.test(normalizedHoraServico)) {
-      setFormError('Ordem de serviço deve conter exatamente 3 dígitos.');
-      return;
-    }
-
     if (forcedTipo === 'retirada' && !contentType) {
       setFormError('Tipo de conteúdo é obrigatório para retirada.');
       return;
@@ -107,7 +100,6 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
     try {
       const updates: Partial<ICacamba> & { image?: File | null } = {
         numero: normalizedNumero,
-        horaServicoDigitos: normalizedHoraServico,
         tipo,
         local,
       };
@@ -136,11 +128,6 @@ const EditCacambaModal: React.FC<EditCacambaModalProps> = ({ beforeUploadFiles, 
               <label htmlFor="edit-cacamba-numero" className="mb-1 text-sm font-medium">Número da Caçamba *</label>
               <input ref={firstInputRef} id="edit-cacamba-numero" type="text" value={numero} onChange={(event) => setNumero(event.target.value.replace(/\D/g, '').slice(0, 3))} placeholder="Ex: 501" inputMode="numeric" maxLength={3} required className={fieldClass} />
             </div>
-
-          <div className="flex flex-col">
-            <label htmlFor="edit-cacamba-os" className="mb-1 text-sm font-medium">3 Últimos Dígitos da Ordem de serviço *</label>
-            <input id="edit-cacamba-os" type="text" value={horaServicoDigitos} onChange={(event) => setHoraServicoDigitos(event.target.value.replace(/\D/g, '').slice(0, 3))} placeholder="Ex: 123" maxLength={3} inputMode="numeric" pattern="[0-9]{3}" required className={fieldClass} />
-          </div>
 
           <div className="flex flex-col">
             <label htmlFor="edit-cacamba-tipo" className="mb-1 text-sm font-medium">Tipo</label>

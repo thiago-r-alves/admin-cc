@@ -94,11 +94,34 @@ describe('downloadOrderPdf', () => {
 
     expect(findProofTable()?.body).toEqual(expect.arrayContaining([
       ['Comprovante', 'Assinatura pelo recebimento da locação'],
-      ['Motorista', 'Motorista'],
+      ['Comprovante coletado por', 'Motorista'],
     ]));
     expect(fetch).toHaveBeenCalledWith('http://api.local/files/signature-1');
     expect(addImageMock).toHaveBeenCalledWith(expect.stringContaining('data:image/png'), 'PNG', expect.any(Number), expect.any(Number), 88, 34);
     expect(saveMock).toHaveBeenCalledWith('pedido_101.pdf');
+  });
+
+  it('identifica comprovante reutilizado e a OS digital de origem', async () => {
+    await downloadOrderPdf({
+      ...baseOrder,
+      deliveryProof: {
+        type: 'signed',
+        signatureImageUrl: '/files/signature-original',
+        capturedAt: '2026-05-16T11:00:00.000Z',
+        capturedBy: 'drv-1',
+        driverNameSnapshot: 'Motorista',
+        isReused: true,
+        reusedFromOrderId: 'ord-original',
+        reusedFromOrderNumber: 99,
+        reusedAt: '2026-05-16T14:00:00.000Z',
+      },
+    });
+
+    expect(findProofTable()?.body).toEqual(expect.arrayContaining([
+      ['Reutilização', 'Comprovante reutilizado'],
+      ['OS digital de origem', '#99'],
+    ]));
+    expect(fetch).toHaveBeenCalledWith('http://api.local/files/signature-original');
   });
 
   it('inclui comprovante sem responsável', async () => {

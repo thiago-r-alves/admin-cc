@@ -232,10 +232,6 @@ export const ClientHistoryModal = ({
                                 <InfoValue>{formatDateTime(cacamba.createdAt)}</InfoValue>
                               </InfoTile>
                               <InfoTile>
-                                <InfoLabel>OS da caçamba</InfoLabel>
-                                <InfoValue>{cacamba.horaServicoDigitos || '-'}</InfoValue>
-                              </InfoTile>
-                              <InfoTile>
                                 <InfoLabel>Local</InfoLabel>
                                 <InfoValue>{formatLocal(cacamba.local)}</InfoValue>
                               </InfoTile>

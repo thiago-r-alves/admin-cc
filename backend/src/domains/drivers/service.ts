@@ -9,6 +9,7 @@ import { listAvailableCacambasForClient, validateCacambaAvailability } from '../
 
 type CompleteOrderProofPayload = {
   proof?: { type?: unknown; signatureDataUrl?: unknown; note?: unknown };
+  reuseProof?: unknown;
 };
 
 const MAX_SIGNATURE_BYTES = 1_500_000;
@@ -40,6 +41,59 @@ const buildDeliveryProofUpdate = async (orderId: string, driverId: string, paylo
   const fileId = await uploadBufferToGridFS(signature, `delivery-proof-${orderId}-${Date.now()}.png`, 'image/png');
   return { ok: true as const, value: { type: 'signed' as const, signatureImageUrl: `/files/${fileId}`, ...common } };
 };
+
+const normalizeProofMatchValue = (value: unknown) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+export const getSaoPauloDayRange = (now = new Date()) => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value || '';
+  const start = new Date(`${get('year')}-${get('month')}-${get('day')}T00:00:00-03:00`);
+  return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1) };
+};
+
+const findReusableDeliveryProof = async (order: any, driverId: string, now = new Date()) => {
+  const { start, end } = getSaoPauloDayRange(now);
+  const candidates = await OrderModel.find({
+    _id: { $ne: order._id },
+    clientId: order.clientId,
+    motorista: driverId,
+    type: { $in: ['entrega', 'retirada'] },
+    status: 'concluido',
+    'deliveryProof.capturedAt': { $gte: start, $lte: end },
+    'deliveryProof.isReused': { $ne: true },
+  })
+    .select('orderNumber address addressNumber neighborhood city cep deliveryProof')
+    .sort({ 'deliveryProof.capturedAt': 1, _id: 1 })
+    .lean();
+  const fields = ['address', 'addressNumber', 'neighborhood', 'city', 'cep'] as const;
+  return candidates.find((candidate: any) =>
+    fields.every((field) => normalizeProofMatchValue(candidate[field]) === normalizeProofMatchValue(order[field])),
+  ) as any | undefined;
+};
+
+const buildReusedDeliveryProof = (sourceOrder: any, reusedAt = new Date()) => ({
+  type: sourceOrder.deliveryProof.type,
+  signatureImageUrl: sourceOrder.deliveryProof.signatureImageUrl || '',
+  note: sourceOrder.deliveryProof.note || '',
+  capturedAt: sourceOrder.deliveryProof.capturedAt,
+  capturedBy: sourceOrder.deliveryProof.capturedBy,
+  driverNameSnapshot: sourceOrder.deliveryProof.driverNameSnapshot || '',
+  isReused: true,
+  reusedFromOrderId: sourceOrder._id,
+  reusedFromOrderNumber: sourceOrder.orderNumber,
+  reusedAt,
+});
 
 const hideDriverCacambaPrice = (cacamba: any) => {
   const plain = typeof cacamba?.toObject === 'function' ? cacamba.toObject() : { ...(cacamba || {}) };
@@ -124,7 +178,7 @@ export const createDriverOrderCacamba = async (
   body: Record<string, unknown>,
   file?: Express.Multer.File,
 ) => {
-  const { numero, local, horaServicoDigitos, contentType } = body;
+  const { numero, local, contentType } = body;
   const order = await OrderModel.findOne({ _id: orderId, motorista: driverId }).select('+cacambaPrice');
   if (!order) {
     return { status: 404, body: { message: 'Pedido não encontrado ou não pertence a este motorista.' } };
@@ -133,10 +187,6 @@ export const createDriverOrderCacamba = async (
   const normalizedNumero = String(numero ?? '');
   if (!/^\d{3}$/.test(normalizedNumero)) {
     return { status: 400, body: { message: 'Número da caçamba deve conter exatamente 3 dígitos.' } };
-  }
-
-  if (!horaServicoDigitos || !/^\d{3}$/.test(String(horaServicoDigitos))) {
-    return { status: 400, body: { message: 'Ordem de serviço deve conter exatamente 3 dígitos.' } };
   }
 
   const exists = await CacambaModel.findOne({ orderId: order._id, numero: normalizedNumero });
@@ -189,7 +239,6 @@ export const createDriverOrderCacamba = async (
     ...(finalTipo === 'retirada' ? { contentType: normalizedContentType } : {}),
     ...(typeof inheritedPrice === 'number' && Number.isFinite(inheritedPrice) ? { price: inheritedPrice } : {}),
     local,
-    horaServicoDigitos,
     orderId: order._id,
     imageUrl,
   });
@@ -236,12 +285,25 @@ export const completeDriverOrder = async (orderId: string, driverId: string, pay
     return { status: 404, body: { message: 'Pedido não encontrado ou não pertence a este motorista.' } };
   }
 
-  const deliveryProof = await buildDeliveryProofUpdate(orderId, driverId, payload);
-  if (!deliveryProof.ok) return { status: deliveryProof.status, body: deliveryProof.body };
+  let deliveryProofValue: Record<string, unknown>;
+  if (payload.reuseProof === true) {
+    const reusableSource = await findReusableDeliveryProof(order, driverId);
+    if (!reusableSource) {
+      return {
+        status: 428,
+        body: { message: 'Novo comprovante necessário.', requiresProof: true },
+      };
+    }
+    deliveryProofValue = buildReusedDeliveryProof(reusableSource);
+  } else {
+    const deliveryProof = await buildDeliveryProofUpdate(orderId, driverId, payload);
+    if (!deliveryProof.ok) return { status: deliveryProof.status, body: deliveryProof.body };
+    deliveryProofValue = { ...deliveryProof.value, isReused: false };
+  }
 
   const updatedOrder = await OrderModel.findByIdAndUpdate(
     orderId,
-    { status: 'concluido', updatedAt: Date.now(), deliveryProof: deliveryProof.value },
+    { status: 'concluido', updatedAt: Date.now(), deliveryProof: deliveryProofValue },
     { new: true },
   );
   emitOrdersUpdated();

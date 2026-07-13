@@ -40,7 +40,7 @@ export const updateCacamba = async (
     return { status: 403, body: { message: 'Sem permissão para editar esta caçamba.' } };
   }
 
-  const { numero, tipo, local, horaServicoDigitos, contentType, price } = body;
+  const { numero, tipo, local, contentType, price } = body;
   const updates: Record<string, unknown> = {};
   const orderType: 'entrega' | 'retirada' = order.type === 'retirada' ? 'retirada' : 'entrega';
 
@@ -90,14 +90,6 @@ export const updateCacamba = async (
       return { status: 400, body: { message: 'Local da caçamba inválido.' } };
     }
     updates.local = local;
-  }
-
-  if (horaServicoDigitos !== undefined) {
-    const digits = String(horaServicoDigitos).trim();
-    if (!/^\d{3}$/.test(digits)) {
-      return { status: 400, body: { message: 'Ordem de serviço deve conter exatamente 3 dígitos.' } };
-    }
-    updates.horaServicoDigitos = digits;
   }
 
   if (contentType !== undefined) {

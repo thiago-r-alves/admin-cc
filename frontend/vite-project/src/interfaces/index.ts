@@ -148,6 +148,10 @@ export interface IDeliveryProof {
   capturedAt?: string;
   capturedBy?: string;
   driverNameSnapshot?: string;
+  isReused?: boolean;
+  reusedFromOrderId?: string;
+  reusedFromOrderNumber?: number | null;
+  reusedAt?: string;
 }
 
 export interface IPaginatedResponse<T> {

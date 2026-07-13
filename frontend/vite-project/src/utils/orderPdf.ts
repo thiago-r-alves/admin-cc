@@ -164,13 +164,17 @@ export async function downloadOrderPdf(order: IOrder) {
       : proof.type === 'signed'
         ? [
             ['Comprovante', 'Assinatura pelo recebimento da locação'],
+            ...(proof.isReused ? [['Reutilização', 'Comprovante reutilizado'], ['OS digital de origem', `#${proof.reusedFromOrderNumber ?? '-'}`]] : []),
             ['Data/Hora', fmt(proof.capturedAt)],
-            ['Motorista', driverName],
+            ['Comprovante coletado por', driverName],
+            ['Motorista do pedido', typeof order.motorista === 'object' ? order.motorista?.username || '-' : '-'],
           ]
         : [
             ['Comprovante', 'Sem responsável no local'],
+            ...(proof.isReused ? [['Reutilização', 'Comprovante reutilizado'], ['OS digital de origem', `#${proof.reusedFromOrderNumber ?? '-'}`]] : []),
             ['Data/Hora', fmt(proof.capturedAt)],
-            ['Motorista', driverName],
+            ['Comprovante coletado por', driverName],
+            ['Motorista do pedido', typeof order.motorista === 'object' ? order.motorista?.username || '-' : '-'],
             ['Observação', proof.note || '-'],
           ];
 

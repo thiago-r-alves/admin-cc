@@ -44,6 +44,7 @@ const DriverPage: React.FC = () => {
   const [deliveryProofOrder, setDeliveryProofOrder] = useState<IOrder | null>(null);
   
   const socketRef = React.useRef<OrdersSocket | null>(null);
+  const completingOrderIdsRef = React.useRef<Set<string>>(new Set());
   const clearSessionAndRedirect = useCallback(() => {
     clearStoredSession();
     navigate('/', { replace: true });
@@ -230,7 +231,31 @@ const DriverPage: React.FC = () => {
 
   const handleCompleteOrder = async (orderId: string) => {
     const order = orders.find((item) => item._id === orderId);
-    if (order) setDeliveryProofOrder(order);
+    if (!order || completingOrderIdsRef.current.has(orderId)) return;
+    completingOrderIdsRef.current.add(orderId);
+    try {
+      const response = await authenticatedFetch(`${apiUrl}/driver/orders/${orderId}/complete`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reuseProof: true }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) {
+        setFeedback({ tone: 'success', message: 'Pedido concluído com o comprovante coletado anteriormente nesta obra.' });
+        await fetchDriverOrders();
+        return;
+      }
+      if (response.status === 428 && data.requiresProof) {
+        setDeliveryProofOrder(order);
+        return;
+      }
+      setFeedback({ tone: 'error', message: data.message || 'Erro ao concluir pedido.' });
+    } catch (error) {
+      console.error('Erro ao tentar reutilizar comprovante:', error);
+      setFeedback({ tone: 'error', message: 'Erro de rede ao concluir pedido.' });
+    } finally {
+      completingOrderIdsRef.current.delete(orderId);
+    }
   };
 
   const handleDeliveryProofSubmit = async (proof: DeliveryProofSubmitPayload) => {

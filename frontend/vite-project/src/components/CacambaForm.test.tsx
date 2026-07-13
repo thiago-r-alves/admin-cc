@@ -33,7 +33,6 @@ describe('CacambaForm', () => {
     expect(registerButton).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText(/Número da Caçamba/), { target: { value: '501' } });
-    fireEvent.change(screen.getByLabelText(/3 Últimos Dígitos da OS/), { target: { value: '123' } });
     expect(registerButton).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText(/Foto da caçamba/), {

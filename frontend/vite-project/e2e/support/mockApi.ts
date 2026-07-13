@@ -36,6 +36,10 @@ type DeliveryProof = {
   capturedAt?: string;
   capturedBy?: string;
   driverNameSnapshot?: string;
+  isReused?: boolean;
+  reusedFromOrderId?: string;
+  reusedFromOrderNumber?: number;
+  reusedAt?: string;
 };
 type Order = {
   _id: string;
@@ -400,7 +404,7 @@ export const seedSession = async (page: Page, role: Role) => {
   }, [token, role]);
 };
 
-export const setupMockApi = async (page: Page) => {
+export const setupMockApi = async (page: Page, options: { enableReusableProof?: boolean } = {}) => {
   const drivers: Driver[] = initialDrivers.map((d) => ({ ...d }));
   const clients = initialClients.map((c) => ({ ...c }));
   const orders: Order[] = initialOrders.map((o) => ({
@@ -408,6 +412,12 @@ export const setupMockApi = async (page: Page) => {
     cacambas: o.cacambas.map((c) => ({ ...c })),
     imageUrls: [...o.imageUrls],
   }));
+  const seededProofOrder = orders.find((order) => order._id === 'ord-2');
+  if (seededProofOrder?.deliveryProof) {
+    seededProofOrder.deliveryProof.capturedAt = options.enableReusableProof
+      ? nowIso
+      : '2026-05-15T11:00:00.000Z';
+  }
   const closureGroups: ClosureGroup[] = [
     {
       _id: 'grp-existing-1',
@@ -1165,7 +1175,36 @@ export const setupMockApi = async (page: Page) => {
       const id = pathname.split('/')[3];
       const match = orders.find((o) => o._id === id);
       if (match) {
-        const body = (req.postDataJSON() || {}) as { proof?: DeliveryProof & { signatureDataUrl?: string } };
+        const body = (req.postDataJSON() || {}) as { proof?: DeliveryProof & { signatureDataUrl?: string }; reuseProof?: boolean };
+        if (body.reuseProof) {
+          const source = orders.find((order) =>
+            order._id !== id &&
+            order.status === 'concluido' &&
+            order.clientId === match.clientId &&
+            getOrderMotoristaId(order) === getOrderMotoristaId(match) &&
+            order.address === match.address &&
+            order.addressNumber === match.addressNumber &&
+            order.neighborhood === match.neighborhood &&
+            order.city === match.city &&
+            order.cep === match.cep &&
+            order.deliveryProof &&
+            String(order.deliveryProof.capturedAt || '').slice(0, 10) === nowIso.slice(0, 10) &&
+            !order.deliveryProof.isReused
+          );
+          if (!source?.deliveryProof) {
+            return json(route, { message: 'Novo comprovante necessário.', requiresProof: true }, 428);
+          }
+          match.deliveryProof = {
+            ...source.deliveryProof,
+            isReused: true,
+            reusedFromOrderId: source._id,
+            reusedFromOrderNumber: source.orderNumber,
+            reusedAt: nowIso,
+          };
+          match.status = 'concluido';
+          match.updatedAt = nowIso;
+          return json(route, { order: match });
+        }
         const proof = body.proof;
         if (!proof) {
           return json(route, { message: 'Comprovante da locação é obrigatório para concluir o pedido.' }, 400);

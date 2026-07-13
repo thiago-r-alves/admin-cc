@@ -18,11 +18,10 @@ const tinyPngFile = {
 
 const addCacambaToDeliveryOrder = async (page: Page) => {
   const card = page.locator('article', { hasText: '#2232' }).first();
-  await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
+  await card.getByRole('button', { name: /Registrar entrega/i }).click();
   await page.locator('#cacamba-numero').fill('777');
-  await page.locator('#cacamba-os').fill('777');
   await page.locator('#cacamba-imagem').setInputFiles(tinyPngFile);
-  await page.getByRole('button', { name: 'Registrar' }).click();
+  await page.getByRole('button', { name: 'Registrar', exact: true }).click();
   await expect(card.getByText('#999')).toBeVisible();
   return card;
 };
@@ -45,8 +44,8 @@ const submitSignedProof = async (page: Page) => {
 };
 
 test.describe('Motorista', () => {
-  test.beforeEach(async ({ page }) => {
-    await setupMockApi(page);
+  test.beforeEach(async ({ page }, testInfo) => {
+    await setupMockApi(page, { enableReusableProof: testInfo.title.includes('reutiliza automaticamente') });
     await seedSession(page, 'motorista');
     await page.goto('/motorista');
   });
@@ -107,7 +106,6 @@ test.describe('Motorista', () => {
     await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
 
     await page.locator('#cacamba-numero').fill('777');
-    await page.locator('#cacamba-os').fill('777');
     await page.locator('#cacamba-imagem').setInputFiles(tinyPngFile);
     await page.getByRole('button', { name: 'Registrar' }).click();
 
@@ -131,7 +129,6 @@ test.describe('Motorista', () => {
     });
 
     await numeroInput.fill('12');
-    await page.locator('#cacamba-os').fill('123');
     await page.getByRole('button', { name: 'Registrar' }).click();
 
     await expect(page.getByRole('alert')).toHaveText('Número da caçamba deve conter exatamente 3 dígitos.');
@@ -143,7 +140,6 @@ test.describe('Motorista', () => {
     await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
 
     await page.locator('#cacamba-numero').fill('555');
-    await page.locator('#cacamba-os').fill('555');
     await page.getByRole('button', { name: 'Registrar' }).click();
 
     await expect(page.getByText(/Imagem.*obrigat.ria/i)).toBeVisible();
@@ -167,7 +163,6 @@ test.describe('Motorista', () => {
     const card = page.locator('article', { hasText: '#2232' }).first();
     await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
     await page.locator('#cacamba-numero').fill('777');
-    await page.locator('#cacamba-os').fill('777');
     await page.locator('#cacamba-imagem').setInputFiles({
       name: 'cacamba.png',
       mimeType: 'image/png',
@@ -196,7 +191,6 @@ test.describe('Motorista', () => {
     });
 
     await page.locator('#cacamba-numero').selectOption('556');
-    await page.locator('#cacamba-os').fill('556');
     await page.locator('#cacamba-imagem').setInputFiles({
       name: 'cacamba.png',
       mimeType: 'image/png',
@@ -243,6 +237,15 @@ test.describe('Motorista', () => {
     await submitSignedProof(page);
     await expect(page.locator('article', { hasText: '#2232' })).toHaveCount(0);
     await expect(page.getByText('Pedido concluído com comprovante digital.')).toBeVisible();
+  });
+
+  test('reutiliza automaticamente a primeira assinatura na troca do mesmo cliente e obra', async ({ page }) => {
+    const deliveryCard = await addCacambaToDeliveryOrder(page);
+    await deliveryCard.getByRole('button', { name: 'Concluir Pedido' }).click();
+
+    await expect(proofDialog(page)).toHaveCount(0);
+    await expect(page.locator('article', { hasText: '#2232' })).toHaveCount(0);
+    await expect(page.getByText('Pedido concluído com o comprovante coletado anteriormente nesta obra.')).toBeVisible();
   });
 
   test('conclui entrega sem responsável no local', async ({ page }) => {

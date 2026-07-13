@@ -229,10 +229,6 @@ export const CacambaTrackModal = ({
                         <InfoValue style={{ textTransform: 'uppercase' }}>{event.order?.placa || '-'}</InfoValue>
                       </InfoTile>
                       <InfoTile>
-                        <InfoLabel>OS da caçamba</InfoLabel>
-                        <InfoValue>{event.horaServicoDigitos || '-'}</InfoValue>
-                      </InfoTile>
-                      <InfoTile>
                         <InfoLabel>Local</InfoLabel>
                         <InfoValue>{formatLocal(event.local)}</InfoValue>
                       </InfoTile>

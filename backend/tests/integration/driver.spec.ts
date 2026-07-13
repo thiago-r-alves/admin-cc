@@ -124,25 +124,15 @@ describe('Driver APIs', () => {
       .attach('image', tinyPng, 'img.png');
     expect(badContent.status).toBe(400);
 
-    const badOs = await request(app)
-      .post(`/driver/orders/${order._id}/cacambas`)
-      .set('Authorization', `Bearer ${token}`)
-      .field('numero', '001')
-      .field('horaServicoDigitos', '12')
-      .field('local', 'via_publica')
-      .field('contentType', 'Entulho limpo')
-      .attach('image', tinyPng, 'img.png');
-    expect(badOs.status).toBe(400);
-
     const success = await request(app)
       .post(`/driver/orders/${order._id}/cacambas`)
       .set('Authorization', `Bearer ${token}`)
       .field('numero', '001')
-      .field('horaServicoDigitos', '123')
       .field('local', 'via_publica')
       .field('contentType', 'Entulho limpo')
       .attach('image', tinyPng, 'img.png');
     expect(success.status).toBe(201);
+    expect(success.body.cacamba.horaServicoDigitos).toBeUndefined();
     expect(success.body.cacamba.price).toBeUndefined();
     const createdCacamba = await CacambaModel.findById(success.body.cacamba._id).lean();
     expect(createdCacamba?.price).toBe(180);
@@ -457,6 +447,92 @@ describe('Driver APIs', () => {
     expect(complete.body.order.deliveryProof.signatureImageUrl).toBeFalsy();
   });
 
+  it('reutiliza automaticamente a primeira assinatura do dia no mesmo cliente, obra e motorista', async () => {
+    const app = await loadApp();
+    const { driver } = await ensureUsers();
+    const token = signToken(String(driver._id), 'motorista');
+    const client = await createClient('Cliente Troca');
+    const source = await createOrderForDriver(String(driver._id), 'retirada', client);
+    const target = await createOrderForDriver(String(driver._id), 'entrega', client);
+    const concurrentTarget = await createOrderForDriver(String(driver._id), 'retirada', client);
+
+    const first = await request(app)
+      .patch(`/driver/orders/${source._id}/complete`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ proof: { type: 'signed', signatureDataUrl: tinyPngDataUrl } });
+    expect(first.status).toBe(200);
+
+    const [reused, concurrentlyReused] = await Promise.all([
+      request(app).patch(`/driver/orders/${target._id}/complete`).set('Authorization', `Bearer ${token}`).send({ reuseProof: true }),
+      request(app).patch(`/driver/orders/${concurrentTarget._id}/complete`).set('Authorization', `Bearer ${token}`).send({ reuseProof: true }),
+    ]);
+    expect(reused.status).toBe(200);
+    expect(reused.body.order.deliveryProof).toEqual(expect.objectContaining({
+      type: 'signed',
+      isReused: true,
+      reusedFromOrderId: String(source._id),
+      reusedFromOrderNumber: source.orderNumber,
+      signatureImageUrl: first.body.order.deliveryProof.signatureImageUrl,
+    }));
+    expect(reused.body.order.deliveryProof.capturedAt).toBe(first.body.order.deliveryProof.capturedAt);
+    expect(concurrentlyReused.status).toBe(200);
+    expect(concurrentlyReused.body.order.deliveryProof).toEqual(expect.objectContaining({
+      isReused: true,
+      reusedFromOrderId: String(source._id),
+      signatureImageUrl: first.body.order.deliveryProof.signatureImageUrl,
+    }));
+  });
+
+  it('reutiliza sem responsável, mas exige novo comprovante para obra, motorista ou dia diferente', async () => {
+    const app = await loadApp();
+    const { driver } = await ensureUsers();
+    const otherDriver = await UserModel.create({ username: 'motorista-reuso-2', password: '123', role: 'motorista' });
+    const token = signToken(String(driver._id), 'motorista');
+    const otherToken = signToken(String(otherDriver._id), 'motorista');
+    const client = await createClient('Cliente Sem Responsável');
+    const source = await createOrderForDriver(String(driver._id), 'entrega', client);
+    await request(app)
+      .patch(`/driver/orders/${source._id}/complete`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ proof: { type: 'no_responsible', note: 'Portaria fechada.' } });
+
+    const sameWork = await createOrderForDriver(String(driver._id), 'retirada', client);
+    const reused = await request(app)
+      .patch(`/driver/orders/${sameWork._id}/complete`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ reuseProof: true });
+    expect(reused.status).toBe(200);
+    expect(reused.body.order.deliveryProof).toEqual(expect.objectContaining({
+      type: 'no_responsible', note: 'Portaria fechada.', isReused: true,
+    }));
+
+    const otherAddress = await createOrderForDriver(String(driver._id), 'entrega', client);
+    await OrderModel.findByIdAndUpdate(otherAddress._id, { addressNumber: '999' });
+    const addressResult = await request(app)
+      .patch(`/driver/orders/${otherAddress._id}/complete`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ reuseProof: true });
+    expect(addressResult.status).toBe(428);
+    expect(addressResult.body.requiresProof).toBe(true);
+
+    const otherDriverOrder = await createOrderForDriver(String(otherDriver._id), 'entrega', client);
+    const driverResult = await request(app)
+      .patch(`/driver/orders/${otherDriverOrder._id}/complete`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .send({ reuseProof: true });
+    expect(driverResult.status).toBe(428);
+
+    await OrderModel.findByIdAndUpdate(source._id, {
+      'deliveryProof.capturedAt': new Date(Date.now() - 25 * 60 * 60 * 1000),
+    });
+    const nextDayOrder = await createOrderForDriver(String(driver._id), 'entrega', client);
+    const dayResult = await request(app)
+      .patch(`/driver/orders/${nextDayOrder._id}/complete`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ reuseProof: true });
+    expect(dayResult.status).toBe(428);
+  });
+
   it('PATCH /driver/orders/:id/complete rejeita pedido sem comprovante válido', async () => {
     const app = await loadApp();
     const { driver } = await ensureUsers();
@@ -532,12 +608,6 @@ describe('Driver APIs', () => {
       local: 'via_publica',
       horaServicoDigitos: '123',
     });
-
-    const badOs = await request(app)
-      .patch(`/cacambas/${cacamba._id}`)
-      .set('Authorization', `Bearer ${driverToken}`)
-      .field('horaServicoDigitos', '12');
-    expect(badOs.status).toBe(400);
 
     const badContent = await request(app)
       .patch(`/cacambas/${cacamba._id}`)
@@ -617,12 +687,10 @@ describe('Driver APIs', () => {
       .patch(`/cacambas/${cacamba._id}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .field('numero', '416')
-      .field('horaServicoDigitos', '124')
       .field('tipo', 'entrega')
       .field('local', 'canteiro_obra');
     expect(ok.status).toBe(200);
     expect(ok.body.cacamba.numero).toBe('416');
-    expect(ok.body.cacamba.horaServicoDigitos).toBe('124');
     expect(ok.body.cacamba.tipo).toBe('entrega');
     expect(ok.body.cacamba.local).toBe('canteiro_obra');
 

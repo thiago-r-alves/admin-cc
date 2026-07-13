@@ -61,7 +61,6 @@ export interface CacambaResponsibility {
 const infoTextClass = 'm-0 mt-[0.3rem] text-sm leading-[1.4] text-gray-700 [&_strong]:text-gray-950';
 const DateInfo = twComponent('p', infoTextClass);
 const LocalInfo = twComponent('span', 'mt-[0.18rem] block text-[0.82rem] text-gray-700 [&_strong]:text-gray-950');
-const ServiceOrder = twComponent('p', infoTextClass);
 const ContentTypeInfo = twComponent('p', infoTextClass);
 const PriceInfo = twComponent('p', infoTextClass);
 const ResponsibilityInfo = twComponent('p', `${infoTextClass} flex flex-wrap gap-[0.55rem]`);
@@ -284,12 +283,6 @@ const CacambaList: React.FC<CacambaListProps> = ({
                         ? 'Canteiro de obra'
                         : cacamba.local}
                   </LocalInfo>
-                )}
-
-                {cacamba.horaServicoDigitos && (
-                  <ServiceOrder>
-                    <strong>Ordem de serviço:</strong> {cacamba.horaServicoDigitos}
-                  </ServiceOrder>
                 )}
 
                 {hasResponsibleInfo && (
