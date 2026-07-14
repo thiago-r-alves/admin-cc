@@ -11,33 +11,10 @@ type OrderWithLegacyFields = IOrder & {
     clientName?: string;
   };
 };
-type AutoTableCellHookData = {
-  section?: string;
-  column?: { index?: number };
-  row?: { index?: number; raw?: unknown };
-  cell?: { styles?: { textColor?: number[] } };
-};
 
 const projectRed: [number, number, number] = [227, 6, 19];
-
-const colorOrderNumberValue = (data: AutoTableCellHookData) => {
-  if (data.section !== 'body' || data.row?.index !== 0 || data.column?.index !== 1 || !data.cell) return;
-
-  data.cell.styles = {
-    ...(data.cell.styles || {}),
-    textColor: projectRed,
-  };
-};
-
-const colorCacambaNumberValues = (data: AutoTableCellHookData) => {
-  const raw = Array.isArray(data.row?.raw) ? data.row.raw : [];
-  if (data.section !== 'body' || data.column?.index !== 1 || raw[0] !== 'Número' || !data.cell) return;
-
-  data.cell.styles = {
-    ...(data.cell.styles || {}),
-    textColor: projectRed,
-  };
-};
+const printableTextStyles = { textColor: [0, 0, 0], fontStyle: 'bold' };
+const printableHeadStyles = { fillColor: projectRed, textColor: [255, 255, 255], fontStyle: 'bold' };
 
 const buildOrderFileUrl = (url?: string) => {
   if (!url) return '';
@@ -63,6 +40,36 @@ const fetchImageDataUrl = async (url?: string) => {
   }
 };
 
+const toTitleCase = (value?: string) =>
+  String(value || '-')
+    .replace(/_/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/\b\p{L}/gu, (char) => char.toUpperCase()) || '-';
+
+const formatLocal = (local?: string) => {
+  if (local === 'via_publica') return 'Via Publica';
+  if (local === 'canteiro_obra') return 'Canteiro De Obra';
+  return toTitleCase(local);
+};
+
+const getDriverDisplayName = (driver: IOrder['motorista']) => {
+  if (!driver || typeof driver === 'string') return '-';
+  return toTitleCase(driver.username || '-');
+};
+
+const formatFileNamePart = (value?: string | number) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Za-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '') || 'sem_nome';
+
+const setPrintableText = (doc: JsPdfDocument) => {
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'bold');
+};
+
 export async function downloadOrderPdf(order: IOrder) {
   const { jsPDF } = await import('jspdf');
   const autoTableModule = await import('jspdf-autotable');
@@ -80,25 +87,19 @@ export async function downloadOrderPdf(order: IOrder) {
 
   // Tabela principal (dados do pedido)
   autoTable(doc, {
-    head: [['Campo', 'Valor']],
     body: [
       ['Número do Pedido', String(orderNumber)],
-      ['Tipo', order.type || '-'],
-      ['Status', order.status || '-'],
+      ['Tipo', toTitleCase(order.type)],
       ['Cliente', legacyOrder.client?.clientName || order.clientName || '-'],
-      ['Contato', `${order.contactName || ''} ${order.contactNumber || ''}`.trim()],
       [
         'Endereço',
         `${order.address || ''}, ${order.addressNumber || ''} - ${order.neighborhood || ''}`
       ],
-      ['Motorista', typeof order.motorista === 'string' ? '-' : order.motorista?.username || '-'],
-      ['Criado em', fmt(order.createdAt)],
+      ['Motorista', getDriverDisplayName(order.motorista)],
       ['Finalizado em', fmt(order.updatedAt)]
     ],
-    styles: { fontSize: 9, cellPadding: 2 },
-    headStyles: { fillColor: [37, 99, 235] },
+    styles: { fontSize: 9, cellPadding: 2, ...printableTextStyles },
     margin: { top: 12, right: 10, left: 10 },
-    didParseCell: colorOrderNumberValue,
   });
 
   // Resumo das caçambas na MESMA página (sem addPage)
@@ -112,34 +113,32 @@ export async function downloadOrderPdf(order: IOrder) {
     if (afterSummaryY < 285) {
       // margem extra acima do título (antes era afterSummaryY - 2)
       const detailsTitleY = afterSummaryY + 8; // aumenta o espaço
-      doc.setFontSize(11);
-      doc.text('Detalhes Individuais', 10, detailsTitleY);
 
       const detailsBody: string[][] = [];
       order.cacambas.forEach((c: ICacamba, i) => {
         detailsBody.push([`Caçamba ${i + 1}`, '']);
         detailsBody.push(['Número', c.numero || '-']);
         detailsBody.push(['Registrada em', fmt(c.createdAt)]);
-        detailsBody.push(['Local', c.local || '-']);
-        detailsBody.push(['Tipo', c.tipo || '-']);
+        detailsBody.push(['Local', formatLocal(c.local)]);
+        detailsBody.push(['Conteúdo', toTitleCase(c.contentType)]);
         detailsBody.push(['', '']);
       });
 
       const estimatedHeight = detailsBody.length * 4;
-      const tableStartY = detailsTitleY + 4; // inicia tabela abaixo do título com espaçamento
+      const tableStartY = detailsTitleY;
       if (tableStartY + estimatedHeight < 295) {
         autoTable(doc, {
           startY: tableStartY,
-          head: [['Campo', 'Valor']],
+          head: [['Detalhes Individuais', '']],
           body: detailsBody,
-          styles: { fontSize: fontSize - 1 <= 6 ? 6 : fontSize - 1, cellPadding: 1 },
-          headStyles: { fillColor: [99, 102, 241] },
+          styles: { fontSize: fontSize - 1 <= 6 ? 6 : fontSize - 1, cellPadding: 1, ...printableTextStyles },
+          headStyles: printableHeadStyles,
           margin: { right: 10, left: 10 },
           pageBreak: 'avoid',
-          didParseCell: colorCacambaNumberValues,
         });
       } else {
         doc.setFontSize(8);
+        setPrintableText(doc);
         doc.text(
           'Detalhes individuais omitidos para manter em uma única página.',
           10,
@@ -156,9 +155,9 @@ export async function downloadOrderPdf(order: IOrder) {
 
     const proofStartY = startY > 260 ? 16 : startY;
     const driverName =
-      proof?.driverNameSnapshot ||
-      (typeof order.motorista === 'string' ? '' : order.motorista?.username) ||
-      '-';
+      proof?.driverNameSnapshot
+        ? toTitleCase(proof.driverNameSnapshot)
+        : getDriverDisplayName(order.motorista);
     const proofBody = !proof
       ? [['Comprovante', 'Sem comprovante digital']]
       : proof.type === 'signed'
@@ -167,14 +166,12 @@ export async function downloadOrderPdf(order: IOrder) {
             ...(proof.isReused ? [['Reutilização', 'Comprovante reutilizado'], ['OS digital de origem', `#${proof.reusedFromOrderNumber ?? '-'}`]] : []),
             ['Data/Hora', fmt(proof.capturedAt)],
             ['Comprovante coletado por', driverName],
-            ['Motorista do pedido', typeof order.motorista === 'object' ? order.motorista?.username || '-' : '-'],
           ]
         : [
             ['Comprovante', 'Sem responsável no local'],
             ...(proof.isReused ? [['Reutilização', 'Comprovante reutilizado'], ['OS digital de origem', `#${proof.reusedFromOrderNumber ?? '-'}`]] : []),
             ['Data/Hora', fmt(proof.capturedAt)],
             ['Comprovante coletado por', driverName],
-            ['Motorista do pedido', typeof order.motorista === 'object' ? order.motorista?.username || '-' : '-'],
             ['Observação', proof.note || '-'],
           ];
 
@@ -182,8 +179,8 @@ export async function downloadOrderPdf(order: IOrder) {
       startY: proofStartY,
       head: [['Comprovante da locação', 'Valor']],
       body: proofBody,
-      styles: { fontSize: 8, cellPadding: 1.4 },
-      headStyles: { fillColor: projectRed },
+      styles: { fontSize: 8, cellPadding: 1.4, ...printableTextStyles },
+      headStyles: printableHeadStyles,
       margin: { right: 10, left: 10 },
     });
 
@@ -194,10 +191,12 @@ export async function downloadOrderPdf(order: IOrder) {
         if (imageY > 248) {
           doc.addPage();
           doc.setFontSize(10);
+          setPrintableText(doc);
           doc.text('Assinatura pelo recebimento da locação', 10, 18);
           doc.addImage(imageDataUrl, 'PNG', 10, 22, 88, 34);
         } else {
           doc.setFontSize(10);
+          setPrintableText(doc);
           doc.text('Assinatura pelo recebimento da locação', 10, imageY);
           doc.addImage(imageDataUrl, 'PNG', 10, imageY + 4, 88, 34);
         }
@@ -205,5 +204,6 @@ export async function downloadOrderPdf(order: IOrder) {
     }
   }
 
-  doc.save(`pedido_${orderNumber}.pdf`);
+  const clientName = legacyOrder.client?.clientName || order.clientName || 'cliente';
+  doc.save(`${formatFileNamePart(clientName)}_os_digital_${formatFileNamePart(orderNumber)}.pdf`);
 }
