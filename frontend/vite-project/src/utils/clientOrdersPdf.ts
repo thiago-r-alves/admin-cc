@@ -49,7 +49,7 @@ const formatClientAddress = (client: IClient) => {
 };
 
 const projectRed: [number, number, number] = [227, 6, 19];
-const detailsIdentifierColumns = new Set([0, 7, 11]);
+const detailsIdentifierColumns = new Set([0, 6, 10]);
 const companyLogoUrl = '/logo-central-cacambas-pdf.png';
 const companyLogoWidth = 49;
 const companyLogoAspectRatio = 300 / 110;
@@ -286,7 +286,6 @@ export async function buildClientOrdersPdf(
       return [
         cacamba.numero || '-',
         mapLocalLabel(cacamba.local),
-        cacamba.horaServicoDigitos || '-',
         typeof cacamba.price === 'number' && Number.isFinite(cacamba.price) ? formatCurrency(cacamba.price) : '-',
         ...deliveryColumns,
         ...withdrawalColumns,
@@ -299,7 +298,6 @@ export async function buildClientOrdersPdf(
     head: [[
       'Cacamba',
       'Local',
-      'OS',
       'Valor',
       'Data entrega',
       'Motorista entrega',
@@ -310,23 +308,22 @@ export async function buildClientOrdersPdf(
       'Placa retirada',
       'Pedido retirada',
     ]],
-    body: flattenedCacambas.length ? flattenedCacambas : [['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-']],
+    body: flattenedCacambas.length ? flattenedCacambas : [['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-']],
     tableWidth: availableTableWidth,
     styles: { fontSize: 6.4, cellPadding: 1.2, valign: 'middle' },
     headStyles: { fillColor: projectRed },
     columnStyles: {
       0: { cellWidth: 14 },
-      1: { cellWidth: 24 },
-      2: { cellWidth: 16 },
-      3: { cellWidth: 22 },
-      4: { cellWidth: 30 },
-      5: { cellWidth: 28 },
-      6: { cellWidth: 18 },
-      7: { cellWidth: 25 },
-      8: { cellWidth: 30 },
-      9: { cellWidth: 28 },
-      10: { cellWidth: 18 },
-      11: { cellWidth: 24 },
+      1: { cellWidth: 30 },
+      2: { cellWidth: 22 },
+      3: { cellWidth: 30 },
+      4: { cellWidth: 32 },
+      5: { cellWidth: 20 },
+      6: { cellWidth: 25 },
+      7: { cellWidth: 30 },
+      8: { cellWidth: 32 },
+      9: { cellWidth: 20 },
+      10: { cellWidth: 22 },
     },
     margin: { top: pdfHeaderBottom, right: horizontalMargin, left: horizontalMargin },
     willDrawPage: drawPageHeader,

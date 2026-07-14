@@ -173,12 +173,13 @@ describe('buildClientOrdersPdf', () => {
     expect(allPdfText).not.toContain('Conteudo');
     expect(allPdfText).not.toContain('Pagamento via Pix');
     expect(allPdfText).not.toContain('Pix copia e cola');
+    expect(allPdfText).not.toContain('OS');
     const firstDetailsRow = details.body?.[0] ?? [];
+    expect(JSON.stringify(details.body)).not.toContain('123');
     expect(firstDetailsRow[0]).toBe('101');
     expect(details.head?.[0]).toEqual([
       'Cacamba',
       'Local',
-      'OS',
       'Valor',
       'Data entrega',
       'Motorista entrega',
@@ -189,13 +190,13 @@ describe('buildClientOrdersPdf', () => {
       'Placa retirada',
       'Pedido retirada',
     ]);
-    expect(firstDetailsRow).toHaveLength(12);
-    expect(firstDetailsRow[5]).toBe('Entregador');
-    expect(firstDetailsRow[6]).toBe('ENT1A23');
-    expect(firstDetailsRow[7]).toBe('10');
-    expect(firstDetailsRow[9]).toBe('Retirador');
-    expect(firstDetailsRow[10]).toBe('RET1A23');
-    expect(firstDetailsRow[11]).toBe('20');
+    expect(firstDetailsRow).toHaveLength(11);
+    expect(firstDetailsRow[4]).toBe('Entregador');
+    expect(firstDetailsRow[5]).toBe('ENT1A23');
+    expect(firstDetailsRow[6]).toBe('10');
+    expect(firstDetailsRow[8]).toBe('Retirador');
+    expect(firstDetailsRow[9]).toBe('RET1A23');
+    expect(firstDetailsRow[10]).toBe('20');
 
     const getBodyTextColorForColumn = (columnIndex: number) => {
       const cell: NonNullable<AutoTableCellHookInput['cell']> = { styles: {} };
@@ -204,10 +205,10 @@ describe('buildClientOrdersPdf', () => {
     };
 
     expect(getBodyTextColorForColumn(0)).toEqual([227, 6, 19]);
-    expect(getBodyTextColorForColumn(7)).toEqual([227, 6, 19]);
-    expect(getBodyTextColorForColumn(11)).toEqual([227, 6, 19]);
-    expect(getBodyTextColorForColumn(6)).toBeUndefined();
-    expect(getBodyTextColorForColumn(10)).toBeUndefined();
+    expect(getBodyTextColorForColumn(6)).toEqual([227, 6, 19]);
+    expect(getBodyTextColorForColumn(10)).toEqual([227, 6, 19]);
+    expect(getBodyTextColorForColumn(5)).toBeUndefined();
+    expect(getBodyTextColorForColumn(9)).toBeUndefined();
     expect(addImageMock).toHaveBeenCalledWith(
       expect.any(Uint8Array),
       'PNG',
@@ -280,10 +281,10 @@ describe('buildClientOrdersPdf', () => {
     if (!details) throw new Error('PDF details table was not rendered.');
     const firstDetailsRow = details.body?.[0] ?? [];
     expect(firstDetailsRow[0]).toBe('201');
-    expect(firstDetailsRow[5]).toBe('Entregador');
-    expect(firstDetailsRow[6]).toBe('ENT1A23');
-    expect(firstDetailsRow[7]).toBe('30');
-    expect(firstDetailsRow.slice(8, 12)).toEqual(['-', '-', '-', '-']);
+    expect(firstDetailsRow[4]).toBe('Entregador');
+    expect(firstDetailsRow[5]).toBe('ENT1A23');
+    expect(firstDetailsRow[6]).toBe('30');
+    expect(firstDetailsRow.slice(7, 11)).toEqual(['-', '-', '-', '-']);
   });
 
   it('omite a linha de periodo quando o periodo nao foi definido', async () => {
