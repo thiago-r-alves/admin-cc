@@ -37,6 +37,11 @@ const paginateCachedResult = (result: { status: number; body: any }, query: Reco
 clientsRouter.get('/clients', authenticateToken, isAdmin, async (req: express.Request, res: express.Response) => {
   try {
     const query = req.query as Record<string, unknown>;
+    if (String(query.closure).toLowerCase() === 'true') {
+      const result = await listClients(query);
+      return res.status(result.status).json(result.body);
+    }
+
     const namespace = String(query.closure).toLowerCase() === 'true'
       ? QUERY_CACHE_NAMESPACES.closureClients
       : QUERY_CACHE_NAMESPACES.clients;
@@ -90,6 +95,11 @@ clientsRouter.delete('/clients/:id', authenticateToken, isAdmin, async (req, res
 clientsRouter.get('/clients/:id/orders', authenticateToken, isAdmin, async (req, res) => {
   try {
     const query = req.query as Record<string, unknown>;
+    if (String(query.closure).toLowerCase() === 'true') {
+      const result = await listClientOrders(req.params.id, query);
+      return res.status(result.status).json(result.body);
+    }
+
     const paginated = String(query.paginated).toLowerCase() === 'true';
     const cacheQuery = paginated ? { ...query, paginated: undefined, page: undefined, pageSize: undefined } : query;
     const key = normalizeQueryKey(`${QUERY_CACHE_NAMESPACES.clientOrders}:${req.params.id}`, cacheQuery);
@@ -107,11 +117,7 @@ clientsRouter.get('/clients/:id/orders', authenticateToken, isAdmin, async (req,
 clientsRouter.get('/clients/:id/closure-groups', authenticateToken, isAdmin, async (req, res) => {
   try {
     const query = req.query as Record<string, unknown>;
-    const key = normalizeQueryKey(`${QUERY_CACHE_NAMESPACES.closureGroups}:${req.params.id}`, query);
-    const cached = await getOrSetQueryCache(key, () => listClosureGroups(req.params.id, query as any));
-    res.setHeader('X-Cache', cached.status);
-    res.setHeader('Access-Control-Expose-Headers', 'X-Cache');
-    const result = cached.value;
+    const result = await listClosureGroups(req.params.id, query as any);
     return res.status(result.status).json(result.body);
   } catch (error) {
     console.error('Erro ao buscar grupos de fechamento:', error);

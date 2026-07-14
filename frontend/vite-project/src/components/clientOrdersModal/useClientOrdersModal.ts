@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ICacamba, IClosureGroup, IOrder, IPaginatedResponse } from '../../interfaces';
-import { getCachedQuery, invalidateFrontendQueryCache, runCachedQuery } from '../../services/queryCache';
+import type { ICacamba, IClosureGroup, IOrder } from '../../interfaces';
 import { buildClientOrdersPdf, downloadClientOrdersPdf } from '../../utils/clientOrdersPdf';
 import { downloadClosureReceiptPdf } from '../../utils/receiptPdf';
 import {
@@ -72,19 +71,8 @@ export const useClientOrdersModal = ({
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isInitialOrdersLoading, setIsInitialOrdersLoading] = useState(true);
   const [hasLoadedInitialClosureGroups, setHasLoadedInitialClosureGroups] = useState(false);
-  const [ordersPage, setOrdersPage] = useState(1);
-  const [ordersPagination, setOrdersPagination] = useState({ totalItems: 0, totalPages: 1 });
-  const [groupsPage, setGroupsPage] = useState(1);
-  const [groupsPagination, setGroupsPagination] = useState({ totalItems: 0, totalPages: 1 });
-  const lastGroupStatusRef = useRef<'nota_fiscal_pendente' | 'pix_pendente' | 'paga' | 'all'>('all');
-  const eligibleRequestIdRef = useRef(0);
-  const groupsRequestIdRef = useRef(0);
   const [cacambaMetaModal, setCacambaMetaModal] = useState<CacambaMetaState | null>(null);
   const isMetadataPendingMode = closureMode && paymentStatus === 'metadata_pending';
-  const invalidateModalQueryCache = () => {
-    invalidateFrontendQueryCache('client-orders:');
-    invalidateFrontendQueryCache('closure-groups:');
-  };
 
   useEffect(() => {
     currentClosureGroupRef.current = currentClosureGroup;
@@ -99,7 +87,6 @@ export const useClientOrdersModal = ({
       .filter((order) => (order.cacambas?.length || 0) > 0), []);
 
   const fetchEligibleOrders = useCallback(async () => {
-    const requestId = ++eligibleRequestIdRef.current;
     try {
       if (viewMode === 'generated_notes') {
         setEligibleOrders([]);
@@ -108,9 +95,6 @@ export const useClientOrdersModal = ({
       }
 
       const query = new URLSearchParams();
-      query.append('paginated', 'true');
-      query.append('page', String(ordersPage));
-      query.append('pageSize', '25');
       if (closureMode) {
         if (startDate) {
           query.append('startDate', startDate);
@@ -148,25 +132,12 @@ export const useClientOrdersModal = ({
         query.append('endDate', endDate);
       }
 
-      const url = `${apiUrl}/clients/${client._id}/orders?${query.toString()}`;
-      const cacheKey = `client-orders:${url}`;
-      const cached = getCachedQuery<IPaginatedResponse<IOrder>>(cacheKey);
-      if (cached) {
-        setEligibleOrders(isMetadataPendingMode ? filterOrdersForMetadataPending(cached.items) : cached.items);
-        setOrdersPagination({ totalItems: cached.totalItems, totalPages: cached.totalPages });
-        setIsInitialOrdersLoading(false);
-      }
-      const data = await runCachedQuery(cacheKey, async () => {
-        const response = await fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
-        if (!response.ok) throw new Error('Erro ao carregar pedidos.');
-        const body = await response.json();
-        return Array.isArray(body)
-          ? { items: body, page: 1, pageSize: body.length, totalItems: body.length, totalPages: 1 }
-          : body as IPaginatedResponse<IOrder>;
+      const response = await fetch(`${apiUrl}/clients/${client._id}/orders?${query.toString()}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
-      if (requestId !== eligibleRequestIdRef.current) return;
-      setEligibleOrders(isMetadataPendingMode ? filterOrdersForMetadataPending(data.items) : data.items);
-      setOrdersPagination({ totalItems: data.totalItems, totalPages: data.totalPages });
+      if (!response.ok) return;
+      const data = await response.json() as IOrder[];
+      setEligibleOrders(isMetadataPendingMode ? filterOrdersForMetadataPending(data) : data);
       setSelectedCacambaIds([]);
     } catch {
       setEligibleOrders([]);
@@ -182,7 +153,6 @@ export const useClientOrdersModal = ({
     historyFilters,
     isMetadataPendingMode,
     paymentStatus,
-    ordersPage,
     startDate,
     type,
     viewMode,
@@ -190,16 +160,10 @@ export const useClientOrdersModal = ({
 
   const fetchExistingClosureGroups = useCallback(async (
     status: 'nota_fiscal_pendente' | 'pix_pendente' | 'paga' | 'all' = 'all',
-    requestedPage = groupsPage,
   ) => {
-    const requestId = ++groupsRequestIdRef.current;
-    lastGroupStatusRef.current = status;
     setIsLoadingHistory(true);
     try {
       const query = new URLSearchParams();
-      query.append('paginated', 'true');
-      query.append('page', String(requestedPage));
-      query.append('pageSize', '25');
       if (viewMode !== 'generated_notes') {
         if (startDate) {
           query.append('startDate', startDate);
@@ -210,28 +174,19 @@ export const useClientOrdersModal = ({
       }
       query.append('status', status);
 
-      const url = `${apiUrl}/clients/${client._id}/closure-groups?${query.toString()}`;
-      const cacheKey = `closure-groups:${url}`;
-      const cached = getCachedQuery<IPaginatedResponse<IClosureGroup>>(cacheKey);
-      const data = cached ?? await runCachedQuery(cacheKey, async () => {
-        const response = await fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
-        if (!response.ok) throw new Error('Erro ao carregar grupos.');
-        const body = await response.json();
-        return Array.isArray(body)
-          ? { items: body, page: 1, pageSize: body.length, totalItems: body.length, totalPages: 1 }
-          : body as IPaginatedResponse<IClosureGroup>;
+      const response = await fetch(`${apiUrl}/clients/${client._id}/closure-groups?${query.toString()}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
-      if (requestId !== groupsRequestIdRef.current) return;
-      setGroupsPage(data.page);
-      setGroupsPagination({ totalItems: data.totalItems, totalPages: data.totalPages });
-      setExistingClosureGroups(data.items);
+      if (!response.ok) return;
+      const data = await response.json() as IClosureGroup[];
+      setExistingClosureGroups(data);
       setSelectedGroupId((currentId) => {
-        if (currentId && data.items.some((group) => group._id === currentId)) return currentId;
+        if (currentId && data.some((group) => group._id === currentId)) return currentId;
         const currentGroup = currentClosureGroupRef.current;
-        if (currentGroup && data.items.some((group) => group._id === currentGroup._id)) {
+        if (currentGroup && data.some((group) => group._id === currentGroup._id)) {
           return currentGroup._id;
         }
-        return data.items[0]?._id || null;
+        return data[0]?._id || null;
       });
     } catch {
       setExistingClosureGroups([]);
@@ -240,12 +195,7 @@ export const useClientOrdersModal = ({
       setIsLoadingHistory(false);
       setHasLoadedInitialClosureGroups(true);
     }
-  }, [client._id, endDate, groupsPage, startDate, viewMode]);
-
-  const changeGroupsPage = useCallback((nextPage: number) => {
-    setGroupsPage(nextPage);
-    void fetchExistingClosureGroups(lastGroupStatusRef.current, nextPage);
-  }, [fetchExistingClosureGroups]);
+  }, [client._id, endDate, startDate, viewMode]);
 
   useEffect(() => {
     void fetchEligibleOrders();
@@ -256,14 +206,6 @@ export const useClientOrdersModal = ({
     setPixInfo('');
     setIsEditingInvoice(false);
   }, [fetchEligibleOrders]);
-
-  useEffect(() => {
-    setOrdersPage(1);
-  }, [client._id, closureMode, endDate, historyFilters, paymentStatus, startDate, type, viewMode]);
-
-  useEffect(() => {
-    setGroupsPage(1);
-  }, [client._id, endDate, startDate, viewMode]);
 
   const selectedOrders = useMemo(() => {
     if (!closureMode) return eligibleOrders;
@@ -390,7 +332,6 @@ export const useClientOrdersModal = ({
           : group,
       ),
     );
-    invalidateModalQueryCache();
   };
 
   const handleUpdateCacambaFull = async (
@@ -432,7 +373,6 @@ export const useClientOrdersModal = ({
           : group,
       ),
     );
-    invalidateModalQueryCache();
   };
 
   const handleDownload = async () => {
@@ -508,7 +448,6 @@ export const useClientOrdersModal = ({
       });
 
       await onClosureStateChanged?.();
-      invalidateModalQueryCache();
       await fetchEligibleOrders();
       return createdGroup;
     } finally {
@@ -642,7 +581,6 @@ export const useClientOrdersModal = ({
           : group,
       ),
     );
-    invalidateModalQueryCache();
     await onClosureStateChanged?.();
   };
 
@@ -703,7 +641,6 @@ export const useClientOrdersModal = ({
 
     setSelectedGroupId(groupId);
     setIsEditingInvoice(false);
-    invalidateModalQueryCache();
     await onClosureStateChanged?.();
     await fetchEligibleOrders();
   };
@@ -753,7 +690,6 @@ export const useClientOrdersModal = ({
 
     setSelectedGroupId(groupId);
     setPixInfo(nextPixInfo);
-    invalidateModalQueryCache();
     await onClosureStateChanged?.();
   };
 
@@ -802,7 +738,6 @@ export const useClientOrdersModal = ({
     });
 
     setSelectedCacambaIds((prev) => prev.filter((id) => id !== cacambaId));
-    invalidateModalQueryCache();
     await onClosureStateChanged?.();
     await fetchEligibleOrders();
   };
@@ -831,12 +766,6 @@ export const useClientOrdersModal = ({
     isLoadingHistory,
     isInitialOrdersLoading,
     hasLoadedInitialClosureGroups,
-    ordersPage,
-    setOrdersPage,
-    ordersPagination,
-    groupsPage,
-    groupsPagination,
-    changeGroupsPage,
     cacambaMetaModal,
     setCacambaMetaModal,
     selectedOrders,

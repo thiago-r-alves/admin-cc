@@ -42,22 +42,39 @@ describe('FechamentoPage', () => {
     modalSpy.mockReset();
   });
 
-  it('envia a busca paginada apenas depois do debounce', async () => {
+  it('busca a lista completa e filtra clientes localmente', async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       void input;
-      return buildJsonResponse({ items: [], page: 1, pageSize: 25, totalItems: 0, totalPages: 1 });
+      return buildJsonResponse([
+        {
+          _id: 'cli-1',
+          clientName: 'Ana Materiais',
+          hasPendingClosureItems: true,
+          hasGeneratedClosureGroups: false,
+        },
+        {
+          _id: 'cli-2',
+          clientName: 'Bruno Obras',
+          hasPendingClosureItems: true,
+          hasGeneratedClosureGroups: false,
+        },
+      ]);
     });
     vi.stubGlobal('fetch', fetchMock);
     render(<FechamentoPage />);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('Ana Materiais')).toBeInTheDocument();
+    expect(screen.getByText('Bruno Obras')).toBeInTheDocument();
 
     const input = screen.getByLabelText('Buscar Cliente');
-    fireEvent.change(input, { target: { value: 'a' } });
     fireEvent.change(input, { target: { value: 'ana' } });
 
-    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes('q=ana'))).toBe(true));
-    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes('q=')).length).toBe(1);
-    expect(String(fetchMock.mock.calls.at(-1)?.[0])).toContain('paginated=true');
+    await waitFor(() => expect(screen.queryByText('Bruno Obras')).not.toBeInTheDocument());
+    expect(screen.getByText('Ana Materiais')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const requestUrl = String(fetchMock.mock.calls[0]?.[0]);
+    expect(requestUrl).not.toContain('q=');
+    expect(requestUrl).not.toContain('paginated=true');
   });
 
   it('separa os botões de criar fechamento e consultar notas geradas', async () => {
