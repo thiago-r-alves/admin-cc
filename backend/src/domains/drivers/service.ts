@@ -13,6 +13,7 @@ type CompleteOrderProofPayload = {
 };
 
 const MAX_SIGNATURE_BYTES = 1_500_000;
+const REUSABLE_DELIVERY_PROOF_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 const parseSignatureDataUrl = (value: unknown) => {
   if (typeof value !== 'string') return null;
@@ -50,20 +51,14 @@ const normalizeProofMatchValue = (value: unknown) =>
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 
-export const getSaoPauloDayRange = (now = new Date()) => {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Sao_Paulo',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(now);
-  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value || '';
-  const start = new Date(`${get('year')}-${get('month')}-${get('day')}T00:00:00-03:00`);
-  return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000 - 1) };
+export const getReusableDeliveryProofRange = (now = new Date()) => {
+  const end = now;
+  const start = new Date(end.getTime() - REUSABLE_DELIVERY_PROOF_WINDOW_MS);
+  return { start, end };
 };
 
 const findReusableDeliveryProof = async (order: any, driverId: string, now = new Date()) => {
-  const { start, end } = getSaoPauloDayRange(now);
+  const { start, end } = getReusableDeliveryProofRange(now);
   const candidates = await OrderModel.find({
     _id: { $ne: order._id },
     clientId: order.clientId,

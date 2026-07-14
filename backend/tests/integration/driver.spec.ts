@@ -447,7 +447,7 @@ describe('Driver APIs', () => {
     expect(complete.body.order.deliveryProof.signatureImageUrl).toBeFalsy();
   });
 
-  it('reutiliza automaticamente a primeira assinatura do dia no mesmo cliente, obra e motorista', async () => {
+  it('reutiliza automaticamente a primeira assinatura recente no mesmo cliente, obra e motorista', async () => {
     const app = await loadApp();
     const { driver } = await ensureUsers();
     const token = signToken(String(driver._id), 'motorista');
@@ -483,7 +483,7 @@ describe('Driver APIs', () => {
     }));
   });
 
-  it('reutiliza sem responsável, mas exige novo comprovante para obra, motorista ou dia diferente', async () => {
+  it('reutiliza sem responsável, mas exige novo comprovante para obra, motorista ou assinatura expirada', async () => {
     const app = await loadApp();
     const { driver } = await ensureUsers();
     const otherDriver = await UserModel.create({ username: 'motorista-reuso-2', password: '123', role: 'motorista' });
@@ -523,14 +523,14 @@ describe('Driver APIs', () => {
     expect(driverResult.status).toBe(428);
 
     await OrderModel.findByIdAndUpdate(source._id, {
-      'deliveryProof.capturedAt': new Date(Date.now() - 25 * 60 * 60 * 1000),
+      'deliveryProof.capturedAt': new Date(Date.now() - 3 * 60 * 60 * 1000),
     });
-    const nextDayOrder = await createOrderForDriver(String(driver._id), 'entrega', client);
-    const dayResult = await request(app)
-      .patch(`/driver/orders/${nextDayOrder._id}/complete`)
+    const expiredProofOrder = await createOrderForDriver(String(driver._id), 'entrega', client);
+    const expiredProofResult = await request(app)
+      .patch(`/driver/orders/${expiredProofOrder._id}/complete`)
       .set('Authorization', `Bearer ${token}`)
       .send({ reuseProof: true });
-    expect(dayResult.status).toBe(428);
+    expect(expiredProofResult.status).toBe(428);
   });
 
   it('PATCH /driver/orders/:id/complete rejeita pedido sem comprovante válido', async () => {
