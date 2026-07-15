@@ -49,10 +49,10 @@ test.describe('Acompanhamentos - dias na obra', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(
-          deliveries.map((delivery, index) => ({
+          deliveries.map((delivery) => ({
             ...baseOrder,
             _id: `ord-age-${delivery.id}`,
-            orderNumber: 7000 + index,
+            orderNumber: delivery.serviceOrder,
             contactNumber: delivery.phone,
             cacambas: [
               {
@@ -101,7 +101,7 @@ test.describe('Acompanhamentos - dias na obra', () => {
     await expect(page.getByText('Caçamba #103')).toHaveCount(0);
 
     await page.getByLabel('Telefone').fill('');
-    await page.locator('#filtro-ordem-servico').fill('333');
+    await page.locator('#filtro-ordem-servico-digital').fill('333');
     await expect(page.getByText('Caçamba #103')).toBeVisible();
     await expect(
       page.getByTestId('acompanhamento-card-cac-age-medium').getByText('333', { exact: true }),

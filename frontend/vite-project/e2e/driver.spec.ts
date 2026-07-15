@@ -21,7 +21,7 @@ const addCacambaToDeliveryOrder = async (page: Page) => {
   await card.getByRole('button', { name: /Registrar entrega/i }).click();
   await page.locator('#cacamba-numero').fill('777');
   await page.locator('#cacamba-imagem').setInputFiles(tinyPngFile);
-  await page.getByRole('button', { name: 'Registrar', exact: true }).click();
+  await submitCacambaRegistration(page);
   await expect(card.getByText('#999')).toBeVisible();
   return card;
 };
@@ -35,6 +35,12 @@ const drawSignature = async (page: Page) => {
   await page.mouse.move(box.x + 160, box.y + 92);
   await page.mouse.move(box.x + 260, box.y + 58);
   await page.mouse.up();
+};
+
+const cacambaDialog = (page: Page) => page.getByRole('dialog', { name: /Registrar Ca.*amba/i });
+
+const submitCacambaRegistration = async (page: Page) => {
+  await cacambaDialog(page).getByRole('button', { name: 'Registrar', exact: true }).click();
 };
 
 const proofDialog = (page: Page) => page.getByRole('dialog', { name: 'Comprovante da locação' });
@@ -58,7 +64,7 @@ test.describe('Motorista', () => {
   });
 
   test('abre modal de registrar cacamba com badge do tipo', async ({ page }) => {
-    await page.getByRole('button', { name: /\+ Adicionar Caçamba/i }).first().click();
+    await page.getByRole('button', { name: /Registrar (entrega|retirada)/i }).first().click();
     await expect(page.getByText(/Registrar Ca.*amba/i)).toBeVisible();
     await expect(page.getByText(/Dados da Ca.*amba/i)).toBeVisible();
     await expect(page.locator('form').getByText(/Retirada|Entrega/).last()).toBeVisible();
@@ -69,7 +75,7 @@ test.describe('Motorista', () => {
   });
 
   test('exibe acao de concluir pedido quando ha pelo menos uma cacamba', async ({ page }) => {
-    await expect(page.getByRole('button', { name: 'Concluir Pedido' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Concluir pedido' })).toBeVisible();
   });
 
   test('imagem ampliada da cacamba cabe na tela', async ({ page }) => {
@@ -98,23 +104,23 @@ test.describe('Motorista', () => {
   test('oculta concluir pedido quando nao ha cacamba', async ({ page }) => {
     const emptyCard = page.locator('article', { hasText: '#2232' }).first();
     await expect(emptyCard).toBeVisible();
-    await expect(emptyCard.getByRole('button', { name: 'Concluir Pedido' })).toHaveCount(0);
+    await expect(emptyCard.getByRole('button', { name: 'Concluir pedido' })).toHaveCount(0);
   });
 
   test('registra cacamba com sucesso', async ({ page }) => {
     const card = page.locator('article', { hasText: '#2232' }).first();
-    await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
+    await card.getByRole('button', { name: /Registrar entrega/i }).click();
 
     await page.locator('#cacamba-numero').fill('777');
     await page.locator('#cacamba-imagem').setInputFiles(tinyPngFile);
-    await page.getByRole('button', { name: 'Registrar' }).click();
+    await submitCacambaRegistration(page);
 
     await expect(card.getByText('#999')).toBeVisible();
   });
 
   test('numero da cacamba aceita somente tres digitos', async ({ page }) => {
     const card = page.locator('article', { hasText: '#2232' }).first();
-    await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
+    await card.getByRole('button', { name: /Registrar entrega/i }).click();
 
     const numeroInput = page.locator('#cacamba-numero');
     await numeroInput.fill('12a');
@@ -129,20 +135,19 @@ test.describe('Motorista', () => {
     });
 
     await numeroInput.fill('12');
-    await page.getByRole('button', { name: 'Registrar' }).click();
+    await expect(cacambaDialog(page).getByRole('button', { name: 'Registrar', exact: true })).toBeDisabled();
 
-    await expect(page.getByRole('alert')).toHaveText('Número da caçamba deve conter exatamente 3 dígitos.');
     expect(postCount).toBe(0);
   });
 
   test('valida erro ao registrar cacamba sem imagem', async ({ page }) => {
     const card = page.locator('article', { hasText: '#2232' }).first();
-    await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
+    await card.getByRole('button', { name: /Registrar entrega/i }).click();
 
     await page.locator('#cacamba-numero').fill('555');
-    await page.getByRole('button', { name: 'Registrar' }).click();
+    await expect(cacambaDialog(page).getByRole('button', { name: 'Registrar', exact: true })).toBeDisabled();
 
-    await expect(page.getByText(/Imagem.*obrigat.ria/i)).toBeVisible();
+    await expect(page.getByText(/Imagem.*obrigat.ria/i)).toHaveCount(0);
   });
 
   test('exibe o motivo retornado pela API quando a cacamba nao pode ser registrada', async ({ page }) => {
@@ -161,7 +166,7 @@ test.describe('Motorista', () => {
     });
 
     const card = page.locator('article', { hasText: '#2232' }).first();
-    await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
+    await card.getByRole('button', { name: /Registrar entrega/i }).click();
     await page.locator('#cacamba-numero').fill('777');
     await page.locator('#cacamba-imagem').setInputFiles({
       name: 'cacamba.png',
@@ -171,16 +176,16 @@ test.describe('Motorista', () => {
         'base64',
       ),
     });
-    await page.getByRole('button', { name: 'Registrar' }).click();
+    await submitCacambaRegistration(page);
 
     await expect(page.getByRole('alert')).toContainText('já está entregue para Cliente B');
     await expect(page.getByText(/Registrar Ca.*amba/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Registrar' })).toBeEnabled();
+    await expect(cacambaDialog(page).getByRole('button', { name: 'Registrar', exact: true })).toBeEnabled();
   });
 
   test('retirada exige tipo de conteudo no cadastro de cacamba', async ({ page }) => {
     const card = page.locator('article', { hasText: '#2231' }).first();
-    await card.getByRole('button', { name: /\+ Adicionar Caçamba/i }).click();
+    await card.getByRole('button', { name: /Registrar retirada/i }).click();
 
     let postCount = 0;
     await page.route('**/driver/orders/*/cacambas', async (route) => {
@@ -199,7 +204,7 @@ test.describe('Motorista', () => {
         'base64',
       ),
     });
-    await page.getByRole('button', { name: 'Registrar' }).click();
+    await expect(cacambaDialog(page).getByRole('button', { name: 'Registrar', exact: true })).toBeDisabled();
 
     expect(postCount).toBe(0);
   });
@@ -220,7 +225,7 @@ test.describe('Motorista', () => {
 
   test('conclui retirada com assinatura e remove da lista de ativos', async ({ page }) => {
     const card = page.locator('article', { hasText: '#2231' }).first();
-    await card.getByRole('button', { name: 'Concluir Pedido' }).click();
+    await card.getByRole('button', { name: 'Concluir pedido' }).click();
     await expect(proofDialog(page)).toBeVisible();
     await drawSignature(page);
     await submitSignedProof(page);
@@ -229,7 +234,7 @@ test.describe('Motorista', () => {
 
   test('conclui entrega com assinatura digital', async ({ page }) => {
     const card = await addCacambaToDeliveryOrder(page);
-    await card.getByRole('button', { name: 'Concluir Pedido' }).click();
+    await card.getByRole('button', { name: 'Concluir pedido' }).click();
 
     await expect(proofDialog(page)).toBeVisible();
     await drawSignature(page);
@@ -241,7 +246,7 @@ test.describe('Motorista', () => {
 
   test('reutiliza automaticamente a primeira assinatura na troca do mesmo cliente e obra', async ({ page }) => {
     const deliveryCard = await addCacambaToDeliveryOrder(page);
-    await deliveryCard.getByRole('button', { name: 'Concluir Pedido' }).click();
+    await deliveryCard.getByRole('button', { name: 'Concluir pedido' }).click();
 
     await expect(proofDialog(page)).toHaveCount(0);
     await expect(page.locator('article', { hasText: '#2232' })).toHaveCount(0);
@@ -250,7 +255,7 @@ test.describe('Motorista', () => {
 
   test('conclui entrega sem responsável no local', async ({ page }) => {
     const card = await addCacambaToDeliveryOrder(page);
-    await card.getByRole('button', { name: 'Concluir Pedido' }).click();
+    await card.getByRole('button', { name: 'Concluir pedido' }).click();
 
     await page.getByRole('button', { name: 'Sem responsável' }).click();
     await page.getByLabel('Confirmo que não havia responsável no local.').check();
@@ -265,12 +270,13 @@ test.describe('Motorista', () => {
     const card = await addCacambaToDeliveryOrder(page);
     let completeCount = 0;
     page.on('request', (request) => {
-      if (request.url().includes('/driver/orders/ord-3/complete') && request.method() === 'PATCH') {
+      const body = request.postData() || '';
+      if (request.url().includes('/driver/orders/ord-3/complete') && request.method() === 'PATCH' && body.includes('"proof"')) {
         completeCount += 1;
       }
     });
 
-    await card.getByRole('button', { name: 'Concluir Pedido' }).click();
+    await card.getByRole('button', { name: 'Concluir pedido' }).click();
     await submitSignedProof(page);
     await expect(page.getByRole('alert')).toHaveText('Colete a assinatura pelo recebimento da locação.');
     expect(completeCount).toBe(0);
@@ -278,6 +284,15 @@ test.describe('Motorista', () => {
 
   test('mantem pedido ativo quando concluir falha (500)', async ({ page }) => {
     await page.route('**/driver/orders/*/complete', async (route) => {
+      const body = route.request().postData() || '';
+      if (!body.includes('"proof"')) {
+        await route.fulfill({
+          status: 428,
+          contentType: 'application/json',
+          body: JSON.stringify({ requiresProof: true }),
+        });
+        return;
+      }
       await route.fulfill({
         status: 500,
         contentType: 'application/json',
@@ -286,7 +301,7 @@ test.describe('Motorista', () => {
     });
 
     const card = page.locator('article', { hasText: '#2231' }).first();
-    await card.getByRole('button', { name: 'Concluir Pedido' }).click();
+    await card.getByRole('button', { name: 'Concluir pedido' }).click();
     await drawSignature(page);
     await submitSignedProof(page);
     await expect(page.locator('article', { hasText: '#2231' })).toHaveCount(1);
@@ -355,7 +370,7 @@ test.describe('Motorista', () => {
     });
 
     const card = page.locator('article', { hasText: '#2231' }).first();
-    await card.getByRole('button', { name: 'Ver rota' }).click();
+    await card.getByRole('button', { name: 'Abrir no Maps' }).click();
 
     const opened = await page.evaluate(() => window.__openedUrls ?? []);
     expect(opened.length).toBeGreaterThan(0);

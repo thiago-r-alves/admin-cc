@@ -21,7 +21,6 @@ test.describe('Admin correcao de cacambas', () => {
     await expect(page.getByText(/Editar Caçamba/)).toBeVisible();
 
     await page.getByPlaceholder('Ex: 501').fill('436');
-    await page.getByPlaceholder('Ex: 123').fill('678');
     await page.locator('form').last().locator('select').nth(1).selectOption('Entulho limpo');
     await page.getByRole('button', { name: /Salvar/ }).click();
 
@@ -40,7 +39,6 @@ test.describe('Admin correcao de cacambas', () => {
     await expect(page.getByText(/Editar Caçamba/)).toBeVisible();
 
     await page.getByPlaceholder('Ex: 501').fill('436');
-    await page.getByPlaceholder('Ex: 123').fill('678');
     await page.getByRole('button', { name: /Salvar/ }).click();
 
     await expect(page.getByTestId('acompanhamento-card-cac-2').getByText('Caçamba #436')).toBeVisible();

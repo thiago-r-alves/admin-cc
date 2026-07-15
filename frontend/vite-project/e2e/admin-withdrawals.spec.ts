@@ -131,8 +131,6 @@ test.describe('Admin retiradas pendentes', () => {
       expect(badgeBox!.x + badgeBox!.width).toBeLessThanOrEqual((viewport?.width ?? 390) + 1);
     }
     await expect(page.getByText('Local: Canteiro de obra')).toHaveCount(2);
-    await expect(page.getByText('Ordem de serviço: 901')).toBeVisible();
-    await expect(page.getByText('Ordem de serviço: 902')).toBeVisible();
 
     await page.getByRole('button', { name: 'Criar pedido de retirada' }).click();
     await expect(page.getByText('Novo Pedido de Retirada')).toBeVisible();

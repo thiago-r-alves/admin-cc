@@ -26,7 +26,8 @@ test.describe('Admin', () => {
     const card = page.getByTestId('order-card-ord-2');
     await expect(card).toBeVisible();
     await expect(card.getByText('Comprovante da locação')).toBeVisible();
-    await expect(card.getByText('adalberto')).toBeVisible();
+    await expect(card.getByText('Comprovante coletado por')).toBeVisible();
+    await expect(card.getByText('Motorista: adalberto')).toBeVisible();
     await expect(card.getByRole('img', { name: 'Assinatura pelo recebimento da locação' })).toBeVisible();
   });
 
@@ -126,8 +127,10 @@ test.describe('Admin', () => {
     await expect(page.getByRole('button', { name: /Gerar fechamento do cliente/i }).first()).toBeVisible();
     await page.getByRole('button', { name: /Gerar fechamento do cliente/i }).first().click();
 
-    await expect(page.getByText(/Total do cliente \(Retiradas\)/i)).toBeVisible();
-    await expect(page.getByText(/Pedidos de/i)).toBeVisible();
+    const modal = page.getByTestId('client-orders-modal');
+    await expect(modal).toBeVisible();
+    await expect(modal.getByRole('heading', { name: /Pedidos de/i })).toBeVisible();
+    await expect(modal.getByText(/Total do fechamento/i)).toBeVisible();
   });
 
   test('modal de pedidos do fechamento mostra resumo e selecao de cacambas', async ({ page, isMobile }) => {
@@ -138,8 +141,9 @@ test.describe('Admin', () => {
     await expect(page.getByRole('button', { name: /Gerar fechamento do cliente/i }).first()).toBeVisible();
     await page.getByRole('button', { name: /Gerar fechamento do cliente/i }).first().click();
 
-    await expect(page.getByText(/Total do cliente \(Retiradas\)/i)).toBeVisible();
-    await expect(page.getByText(/Selecionar para pagamento/i).first()).toBeVisible();
+    const modal = page.getByTestId('client-orders-modal');
+    await expect(modal.getByText(/Total do fechamento/i)).toBeVisible();
+    await expect(modal.getByText(/Selecionar para pagamento/i).first()).toBeVisible();
   });
 
   test('no fechamento nao permite selecionar pagamento para cacamba sem valor e exibe aviso', async ({ page, isMobile }) => {
@@ -285,9 +289,9 @@ test.describe('Admin', () => {
     await expect(page.getByText(/TOTAL:/i)).toBeVisible();
   });
 
-  test('renderiza secao de concluidos sem botao de download quando a feature esta desativada', async ({ page }) => {
+  test('renderiza secao de concluidos com botao de download de pedido', async ({ page }) => {
     await expect(page.getByText('#1500')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Baixar Pedido' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Baixar Pedido' }).first()).toBeVisible();
   });
 
   test('mostra data de entrega anterior em retirada na visualizacao admin', async ({ page }) => {
