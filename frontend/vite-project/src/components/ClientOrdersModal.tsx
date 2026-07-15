@@ -79,34 +79,45 @@ const PanelTitle = twComponent('h3', 'm-0 text-[0.78rem] font-black uppercase tr
 
 const GroupsLayout = twComponent(
   'div',
-  'grid min-h-0 flex-1 grid-cols-[280px_minmax(0,1fr)] gap-3 px-5 pb-5 pt-4 max-[900px]:grid-cols-1',
+  'grid min-h-0 flex-1 grid-cols-[300px_minmax(0,1fr)] gap-4 px-5 pb-5 pt-4 max-[900px]:grid-cols-1 max-sm:px-3',
 );
 
-const GroupList = twComponent('div', 'min-h-0 overflow-auto rounded-lg border border-gray-200');
+const GroupList = twComponent('div', 'min-h-0 overflow-auto rounded-ui-lg border border-gray-200 bg-white shadow-[0_8px_22px_rgba(15,23,42,0.04)]');
 
 const GroupItem = twComponent<'button', { $active: boolean }>(
   'button',
   '',
   ({ $active }) =>
     cn(
-      'w-full cursor-pointer border-0 border-b border-red-100 px-3 py-[0.7rem] text-left',
-      $active ? 'bg-brand-soft' : 'bg-white',
+      'w-full cursor-pointer border-0 border-b border-gray-100 px-4 py-3 text-left transition hover:bg-gray-50',
+      $active ? 'bg-brand-soft ring-1 ring-inset ring-brand-border' : 'bg-white',
     ),
 );
 
 const GroupDetail = twComponent(
   'div',
-  'flex min-h-0 flex-col gap-[0.8rem] overflow-y-auto rounded-lg border border-gray-200 bg-white p-[0.9rem]',
+  'flex min-h-0 flex-col gap-4 overflow-y-auto rounded-ui-lg border border-gray-200 bg-[#f8fafc] p-4 shadow-[0_8px_22px_rgba(15,23,42,0.04)] max-sm:p-3',
 );
 
-const MetaRow = twComponent('div', 'flex flex-wrap items-center justify-between gap-4');
+const DetailSection = twComponent('section', 'rounded-ui-lg border border-gray-200 bg-white p-4 shadow-[0_6px_18px_rgba(15,23,42,0.035)]');
 
-const ValueHighlight = twComponent(
-  'div',
-  'rounded-lg border border-brand-border bg-brand-soft px-[0.9rem] py-[0.8rem] font-black text-brand',
-);
+const DetailSectionHeader = twComponent('div', 'mb-3 flex flex-wrap items-start justify-between gap-3');
 
-const InvoiceRow = twComponent('div', 'flex flex-wrap gap-[0.6rem] max-sm:flex-col');
+const DetailTitle = twComponent('h3', 'm-0 text-[1rem] font-black text-gray-950');
+
+const DetailSubtitle = twComponent('p', 'm-0 mt-1 text-[0.78rem] font-bold text-gray-500');
+
+const DetailPill = twComponent('span', 'inline-flex min-h-8 items-center rounded-full border border-brand-border bg-brand-soft px-3 text-[0.72rem] font-black uppercase tracking-[0.04em] text-brand');
+
+const DetailStatsGrid = twComponent('div', 'grid grid-cols-3 gap-2 max-[1180px]:grid-cols-2 max-sm:grid-cols-1');
+
+const DetailStat = twComponent('div', 'rounded-lg border border-gray-100 bg-gray-50 px-3 py-2');
+
+const DetailLabel = twComponent('div', 'text-[0.68rem] font-black uppercase tracking-[0.04em] text-gray-500');
+
+const DetailValue = twComponent('div', 'mt-1 break-words text-[0.95rem] font-black text-gray-950');
+
+const InvoiceRow = twComponent('div', 'grid gap-[0.6rem]');
 
 const InvoiceInput = twComponent(
   'input',
@@ -139,6 +150,22 @@ const HighlightButton = twComponent(
 );
 
 const ActionButtonsRow = twComponent('div', 'flex flex-wrap gap-[0.6rem]');
+
+const PrimaryActionsRow = twComponent('div', 'flex flex-wrap gap-[0.6rem]');
+
+const GroupItemHeader = twComponent('div', 'mb-1 flex items-start justify-between gap-2');
+
+const GroupItemTitle = twComponent('div', 'text-[0.95rem] font-black text-gray-950');
+
+const GroupItemDate = twComponent('div', 'whitespace-nowrap text-[0.75rem] font-bold text-gray-500');
+
+const GroupItemMeta = twComponent('div', 'mt-2 flex flex-wrap items-center gap-2');
+
+const GroupItemChip = twComponent('span', 'rounded-full border border-gray-200 bg-gray-50 px-2 py-1 text-[0.66rem] font-black uppercase tracking-[0.04em] text-gray-700');
+
+const GroupItemPreview = twComponent('div', 'truncate text-[0.78rem] font-semibold text-gray-600');
+
+const CacambasSectionHeader = twComponent('div', 'mb-3 flex flex-wrap items-center justify-between gap-2');
 
 const PaymentMethodRow = twComponent('div', 'grid grid-cols-2 gap-2');
 
@@ -248,6 +275,8 @@ const getGroupTotal = (group: IClosureGroup | null) =>
     const price = Number(cacamba.price);
     return Number.isFinite(price) ? sum + price : sum;
   }, 0);
+
+const formatPixInfoPreview = (pixInfo?: string) => pixInfo?.trim() || 'Sem informações adicionadas';
 
 const historyTypeOptions: Array<{ value: ClientOrdersHistoryType; label: string }> = [
   { value: 'all', label: 'Todos os pedidos' },
@@ -654,166 +683,223 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
     const canShareOnWhatsApp = Boolean(normalizeBrazilianWhatsAppNumber(client.contactNumber));
     const canShareByEmail = Boolean(normalizeEmailAddress(client.email));
     const isFinalizedPixGroup = group.paymentMethod === 'pix' && group.status === 'paga';
+    const groupNumber = getGroupDisplayNumber(group, 0, closureGroups.length || 1);
+    const paymentLabel = group.paymentMethod === 'pix' ? 'Pix' : 'Nota fiscal';
+    const groupDate = formatGroupReferenceDate(group.status, group.createdAt, group.updatedAt);
+    const groupTotal = formatCurrency(group.totalAmount ?? getGroupTotal(group));
 
     return (
       <>
-        <div>
-          <strong>{group.paymentMethod === 'pix' ? 'Detalhes do Pix' : 'Detalhes da nota fiscal'}</strong>
-        </div>
-        <MetaRow>
-          <div>Grupo #{getGroupDisplayNumber(group, 0, closureGroups.length || 1)}</div>
-          <div>{formatGroupReferenceDate(group.status, group.createdAt, group.updatedAt)}</div>
-        </MetaRow>
-        <div>Pagamento: {group.paymentMethod === 'pix' ? 'Pix' : 'NF'}</div>
-        {group.paymentMethod !== 'pix' && <div>NF atual: {group.invoiceNumber || '-'}</div>}
-        {group.paymentMethod !== 'pix' && (
-          <ValueHighlight>
-            Valor total da nota: {formatCurrency(group.totalAmount ?? getGroupTotal(group))}
-          </ValueHighlight>
-        )}
-        {group.paymentMethod === 'pix' && (
+        <DetailSection>
+          <DetailSectionHeader>
+            <div>
+              <DetailTitle>{group.paymentMethod === 'pix' ? 'Detalhes do Pix' : 'Detalhes da nota fiscal'}</DetailTitle>
+              <DetailSubtitle>
+                Grupo #{groupNumber} • {groupDate}
+              </DetailSubtitle>
+            </div>
+            <DetailPill>{paymentLabel}</DetailPill>
+          </DetailSectionHeader>
+
+          <DetailStatsGrid>
+            <DetailStat>
+              <DetailLabel>{group.paymentMethod === 'pix' ? 'Total' : 'Valor total da nota:'}</DetailLabel>
+              <DetailValue>{groupTotal}</DetailValue>
+            </DetailStat>
+            <DetailStat>
+              <DetailLabel>Pagamento</DetailLabel>
+              <DetailValue>{paymentLabel}</DetailValue>
+            </DetailStat>
+            {group.paymentMethod === 'pix' ? (
+              <DetailStat>
+                <DetailLabel>Pix</DetailLabel>
+                <DetailValue>{formatPixInfoPreview(group.pixInfo)}</DetailValue>
+              </DetailStat>
+            ) : (
+              <DetailStat>
+                <DetailLabel>Nota fiscal</DetailLabel>
+                <DetailValue>NF atual: {group.invoiceNumber || '-'}</DetailValue>
+              </DetailStat>
+            )}
+          </DetailStatsGrid>
+        </DetailSection>
+
+        <DetailSection>
+          <DetailSectionHeader>
+            <div>
+              <DetailTitle>Ações</DetailTitle>
+              <DetailSubtitle>Baixe, compartilhe ou atualize este fechamento.</DetailSubtitle>
+            </div>
+          </DetailSectionHeader>
+
+          {group.paymentMethod === 'pix' && (
+            <PrimaryActionsRow className="mb-3">
+              {group.pixCopyPaste && (
+                <SecondaryButton
+                  type="button"
+                  data-testid="closure-group-copy-pix"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(group.pixCopyPaste || '');
+                      setInvoiceFeedback(null);
+                      setToastFeedback({ tone: 'success', message: 'Código Pix copiado.' });
+                    } catch {
+                      setInvoiceFeedback({
+                        tone: 'error',
+                        message: 'Não foi possível copiar o código Pix.',
+                      });
+                    }
+                  }}
+                >
+                  Copiar código do Pix
+                </SecondaryButton>
+              )}
+              {isFinalizedPixGroup && (
+                <SecondaryButton
+                  type="button"
+                  data-testid="closure-group-edit-pix-info"
+                  onClick={() => {
+                    setPixInfo(group.pixInfo || '');
+                    setEditingPixInfoGroup(group);
+                  }}
+                >
+                  Editar informações do Pix
+                </SecondaryButton>
+              )}
+              {group.status === 'pix_pendente' && (
+                <HighlightButton
+                  type="button"
+                  data-testid="closure-group-mark-pix-paid"
+                  onClick={() => handleMarkPixPaid(group)}
+                >
+                  Marcar Pix como pago
+                </HighlightButton>
+              )}
+            </PrimaryActionsRow>
+          )}
+
           <ActionButtonsRow>
-            {group.pixCopyPaste && (
+            <HighlightButton
+              type="button"
+              data-testid="closure-group-download"
+              style={{ background: 'rgb(227, 6, 19)', color: 'rgb(255, 255, 255)' }}
+              onClick={() => downloadExistingClosureGroup(group)}
+            >
+              Baixar nota
+            </HighlightButton>
+            {group.status === 'paga' && (
               <SecondaryButton
                 type="button"
-                data-testid="closure-group-copy-pix"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(group.pixCopyPaste || '');
-                    setInvoiceFeedback(null);
-                    setToastFeedback({ tone: 'success', message: 'Código Pix copiado.' });
-                  } catch {
-                    setInvoiceFeedback({
-                      tone: 'error',
-                      message: 'Não foi possível copiar o código Pix.',
-                    });
-                  }
-                }}
-              >
-                Copiar código do Pix
-              </SecondaryButton>
-            )}
-            {isFinalizedPixGroup && (
-              <SecondaryButton
-                type="button"
-                data-testid="closure-group-edit-pix-info"
+                data-testid="closure-group-receipt-download"
                 onClick={() => {
-                  setPixInfo(group.pixInfo || '');
-                  setEditingPixInfoGroup(group);
+                  setReceiptGroup(group);
+                  setReceiptRecipientName('');
                 }}
               >
-                Editar informações do Pix
+                Baixar recibo
               </SecondaryButton>
             )}
-            {group.status === 'pix_pendente' && (
-              <HighlightButton
-                type="button"
-                data-testid="closure-group-mark-pix-paid"
-                onClick={() => handleMarkPixPaid(group)}
-              >
-                Marcar Pix como pago
-              </HighlightButton>
-            )}
-          </ActionButtonsRow>
-        )}
-        {group.paymentMethod === 'pix' && !isFinalizedPixGroup && (
-          <InvoiceRow>
-            <PixInfoInput
-              value={pixInfo}
-              onChange={(event) => setPixInfo(event.target.value)}
-              placeholder="Informações do Pix"
-              aria-label="Informações do Pix"
-              data-testid="closure-group-pix-info-input"
-            />
-            <SaveInvoiceButton
-              type="button"
-              data-testid="closure-group-save-pix-info"
-              onClick={handleSavePixInfo}
-            >
-              Salvar informações do Pix
-            </SaveInvoiceButton>
-          </InvoiceRow>
-        )}
-        <ActionButtonsRow>
-          <HighlightButton
-            type="button"
-            data-testid="closure-group-download"
-            style={{ background: 'rgb(227, 6, 19)', color: 'rgb(255, 255, 255)' }}
-            onClick={() => downloadExistingClosureGroup(group)}
-          >
-            Baixar nota
-          </HighlightButton>
-          {group.status === 'paga' && (
-            <SecondaryButton
-              type="button"
-              data-testid="closure-group-receipt-download"
-              onClick={() => {
-                setReceiptGroup(group);
-                setReceiptRecipientName('');
-              }}
-            >
-              Baixar recibo
-            </SecondaryButton>
-          )}
-          {canShareOnWhatsApp && (
-            <SecondaryButton
-              type="button"
-              data-testid="closure-group-share-whatsapp"
-              onClick={() => handleShareOnWhatsApp(group)}
-            >
-              Enviar por WhatsApp
-            </SecondaryButton>
-          )}
-          {canShareByEmail && (
-            <SecondaryButton
-              type="button"
-              data-testid="closure-group-share-email"
-              onClick={() => handleShareByEmail(group)}
-            >
-              Enviar por email
-            </SecondaryButton>
-          )}
-          {group.invoiceNumber && !isEditingInvoice && (
-            <SecondaryButton
-              type="button"
-              data-testid="closure-group-edit-invoice"
-              onClick={() => {
-                setInvoiceNumber(group.invoiceNumber || '');
-                setIsEditingInvoice(true);
-              }}
-            >
-              Editar NF
-            </SecondaryButton>
-          )}
-        </ActionButtonsRow>
-        {group.paymentMethod !== 'pix' && (group.status === 'nota_fiscal_pendente' || isEditingInvoice) && (
-          <InvoiceRow>
-            <InvoiceInput
-              value={invoiceNumber}
-              onChange={(event) => setInvoiceNumber(event.target.value)}
-              placeholder="Número da nota fiscal"
-              data-testid="closure-group-invoice-input"
-            />
-            <SaveInvoiceButton
-              type="button"
-              data-testid="closure-group-save-invoice"
-              onClick={handleSaveInvoice}
-            >
-              {isEditingInvoice ? 'Salvar alteração' : 'Salvar NF'}
-            </SaveInvoiceButton>
-            {isEditingInvoice && (
+            {canShareOnWhatsApp && (
               <SecondaryButton
                 type="button"
+                data-testid="closure-group-share-whatsapp"
+                onClick={() => handleShareOnWhatsApp(group)}
+              >
+                Enviar por WhatsApp
+              </SecondaryButton>
+            )}
+            {canShareByEmail && (
+              <SecondaryButton
+                type="button"
+                data-testid="closure-group-share-email"
+                onClick={() => handleShareByEmail(group)}
+              >
+                Enviar por email
+              </SecondaryButton>
+            )}
+            {group.invoiceNumber && !isEditingInvoice && (
+              <SecondaryButton
+                type="button"
+                data-testid="closure-group-edit-invoice"
                 onClick={() => {
                   setInvoiceNumber(group.invoiceNumber || '');
-                  setIsEditingInvoice(false);
+                  setIsEditingInvoice(true);
                 }}
               >
-                Cancelar
+                Editar NF
               </SecondaryButton>
             )}
-          </InvoiceRow>
+          </ActionButtonsRow>
+        </DetailSection>
+
+        {group.paymentMethod === 'pix' && !isFinalizedPixGroup && (
+          <DetailSection>
+            <DetailSectionHeader>
+              <div>
+                <DetailTitle>Informações do Pix</DetailTitle>
+                <DetailSubtitle>Use este campo para observações ou dados do comprovante.</DetailSubtitle>
+              </div>
+            </DetailSectionHeader>
+            <InvoiceRow>
+              <PixInfoInput
+                value={pixInfo}
+                onChange={(event) => setPixInfo(event.target.value)}
+                placeholder="Informações do Pix"
+                aria-label="Informações do Pix"
+                data-testid="closure-group-pix-info-input"
+              />
+              <ActionButtonsRow>
+                <SaveInvoiceButton
+                  type="button"
+                  data-testid="closure-group-save-pix-info"
+                  onClick={handleSavePixInfo}
+                >
+                  Salvar informações do Pix
+                </SaveInvoiceButton>
+              </ActionButtonsRow>
+            </InvoiceRow>
+          </DetailSection>
         )}
+
+        {group.paymentMethod !== 'pix' && (group.status === 'nota_fiscal_pendente' || isEditingInvoice) && (
+          <DetailSection>
+            <DetailSectionHeader>
+              <div>
+                <DetailTitle>Nota fiscal</DetailTitle>
+                <DetailSubtitle>Informe ou atualize o número da nota fiscal.</DetailSubtitle>
+              </div>
+            </DetailSectionHeader>
+            <InvoiceRow>
+              <InvoiceInput
+                value={invoiceNumber}
+                onChange={(event) => setInvoiceNumber(event.target.value)}
+                placeholder="Número da nota fiscal"
+                data-testid="closure-group-invoice-input"
+              />
+              <ActionButtonsRow>
+                <SaveInvoiceButton
+                  type="button"
+                  data-testid="closure-group-save-invoice"
+                  onClick={handleSaveInvoice}
+                >
+                  {isEditingInvoice ? 'Salvar alteração' : 'Salvar NF'}
+                </SaveInvoiceButton>
+                {isEditingInvoice && (
+                  <SecondaryButton
+                    type="button"
+                    onClick={() => {
+                      setInvoiceNumber(group.invoiceNumber || '');
+                      setIsEditingInvoice(false);
+                    }}
+                  >
+                    Cancelar
+                  </SecondaryButton>
+                )}
+              </ActionButtonsRow>
+            </InvoiceRow>
+          </DetailSection>
+        )}
+
         {selectedPendingReturnIds.length > 0 && (
           <ActionButtonsRow className="mb-3 justify-end">
             <SecondaryButton
@@ -829,21 +915,30 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
             </SecondaryButton>
           </ActionButtonsRow>
         )}
-        <CacambaList
-          cacambas={group.cacambaIds || []}
-          onImageClick={setModalImage}
-          showTitle={false}
-          onEdit={(cacamba) => setEditingCacamba({ cacamba, orderType: cacamba.tipo })}
-          editLabel="Editar caçamba"
-          adminMetaActions
-          canEditPrice
-          onEditPrice={(cacamba) => setCacambaMetaModal({ mode: 'price', cacamba })}
-          onReturnToPending={(cacamba) => setPendingReturn({ group, cacambas: [cacamba] })}
-          returnToPendingSelectable
-          selectedReturnToPendingIds={selectedPendingReturnIds}
-          onToggleReturnToPending={togglePendingReturnSelection}
-          showDeliveryDateForRetirada
-        />
+
+        <DetailSection>
+          <CacambasSectionHeader>
+            <div>
+              <DetailTitle>Caçambas do fechamento</DetailTitle>
+              <DetailSubtitle>{group.cacambaIds?.length || 0} caçamba(s) neste grupo.</DetailSubtitle>
+            </div>
+          </CacambasSectionHeader>
+          <CacambaList
+            cacambas={group.cacambaIds || []}
+            onImageClick={setModalImage}
+            showTitle={false}
+            onEdit={(cacamba) => setEditingCacamba({ cacamba, orderType: cacamba.tipo })}
+            editLabel="Editar caçamba"
+            adminMetaActions
+            canEditPrice
+            onEditPrice={(cacamba) => setCacambaMetaModal({ mode: 'price', cacamba })}
+            onReturnToPending={(cacamba) => setPendingReturn({ group, cacambas: [cacamba] })}
+            returnToPendingSelectable
+            selectedReturnToPendingIds={selectedPendingReturnIds}
+            onToggleReturnToPending={togglePendingReturnSelection}
+            showDeliveryDateForRetirada
+          />
+        </DetailSection>
       </>
     );
   };
@@ -1143,17 +1238,23 @@ const ClientOrdersModal: React.FC<ClientOrdersModalProps> = ({
                           }}
                           data-testid={`closure-group-item-${group._id}`}
                         >
-                          <div>
-                            <strong>
+                          <GroupItemHeader>
+                            <GroupItemTitle>
                               Grupo #{getGroupDisplayNumber(group, index, closureGroups.length)}
-                            </strong>
-                          </div>
-                          <div>
+                            </GroupItemTitle>
+                            <GroupItemDate>
+                              {formatGroupReferenceDate(group.status, group.createdAt, group.updatedAt)}
+                            </GroupItemDate>
+                          </GroupItemHeader>
+                          <GroupItemPreview>
                             {group.paymentMethod === 'pix'
-                              ? `Pix: ${group.pixInfo || '-'}`
+                              ? `Pix: ${formatPixInfoPreview(group.pixInfo)}`
                               : `NF: ${group.invoiceNumber || '-'}`}
-                          </div>
-                          {group.paymentMethod !== 'pix' && <div>NF</div>}
+                          </GroupItemPreview>
+                          <GroupItemMeta>
+                            <GroupItemChip>{formatCurrency(group.totalAmount ?? getGroupTotal(group))}</GroupItemChip>
+                            <GroupItemChip>{group.status.replace(/_/g, ' ')}</GroupItemChip>
+                          </GroupItemMeta>
                         </GroupItem>
                       ))}
                     </GroupList>
