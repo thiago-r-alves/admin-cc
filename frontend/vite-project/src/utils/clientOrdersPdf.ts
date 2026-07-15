@@ -23,7 +23,7 @@ type AutoTableFn = (doc: JsPdfDocument, options: Record<string, unknown>) => voi
 type AutoTableCellHookData = {
   section?: string;
   column?: { index?: number };
-  cell?: { styles?: { textColor?: number[] } };
+  cell?: { styles?: { textColor?: number[]; fontStyle?: string } };
 };
 
 const formatDateTime = (value?: string) => (value ? new Date(value).toLocaleString('pt-BR') : '-');
@@ -66,7 +66,8 @@ const formatClientNameWithDocument = (client: IClient) => {
 };
 
 const projectRed: [number, number, number] = [227, 6, 19];
-const detailsIdentifierColumns = new Set([0, 6, 10]);
+const printableTextStyles = { textColor: [0, 0, 0], fontStyle: 'bold' };
+const printableHeadStyles = { fillColor: projectRed, textColor: [255, 255, 255], fontStyle: 'bold' };
 const companyLogoUrl = '/logo-central-cacambas-pdf.png';
 const companyLogoWidth = 49;
 const companyLogoAspectRatio = 300 / 110;
@@ -181,14 +182,11 @@ const mapLocalLabel = (local?: string) => {
   return local || '-';
 };
 
-const colorDetailsIdentifiers = (data: AutoTableCellHookData) => {
-  const columnIndex = data.column?.index;
-  if (data.section !== 'body' || !data.cell || typeof columnIndex !== 'number') return;
-  if (!detailsIdentifierColumns.has(columnIndex)) return;
-
+const enforcePrintableBodyText = (data: AutoTableCellHookData) => {
+  if (data.section !== 'body' || !data.cell) return;
   data.cell.styles = {
     ...(data.cell.styles || {}),
-    textColor: projectRed,
+    ...printableTextStyles,
   };
 };
 
@@ -235,13 +233,13 @@ export async function buildClientOrdersPdf(
       companyLogoWidth / companyLogoAspectRatio,
     );
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(31, 41, 55);
+    doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
     const qrX = pageWidth - horizontalMargin - pixQrSize;
     const qrY = pdfHeaderTop - 1;
     const bankDetailsRight = qrX - 5;
     doc.text(bankDetails[0], bankDetailsRight, pdfHeaderTop + 3, { align: 'right' });
-    doc.setFont('helvetica', 'normal');
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     bankDetails.slice(1).forEach((line, index) => {
       doc.text(line, bankDetailsRight, pdfHeaderTop + 8 + index * 4.8, {
@@ -270,8 +268,8 @@ export async function buildClientOrdersPdf(
   autoTable(doc, {
     head: [['Resumo do Relatorio', '']],
     body: summaryBody,
-    styles: { fontSize: 9, cellPadding: 2 },
-    headStyles: { fillColor: projectRed },
+    styles: { fontSize: 9, cellPadding: 2, ...printableTextStyles },
+    headStyles: printableHeadStyles,
     margin: { top: pdfHeaderBottom, right: horizontalMargin, left: horizontalMargin },
     willDrawPage: drawPageHeader,
   });
@@ -327,8 +325,8 @@ export async function buildClientOrdersPdf(
     ]],
     body: flattenedCacambas.length ? flattenedCacambas : [['-', '-', '-', '-', '-', '-', '-', '-', '-', '-', '-']],
     tableWidth: availableTableWidth,
-    styles: { fontSize: 6.4, cellPadding: 1.2, valign: 'middle' },
-    headStyles: { fillColor: projectRed },
+    styles: { fontSize: 6.4, cellPadding: 1.2, valign: 'middle', ...printableTextStyles },
+    headStyles: printableHeadStyles,
     columnStyles: {
       0: { cellWidth: 14 },
       1: { cellWidth: 30 },
@@ -344,7 +342,7 @@ export async function buildClientOrdersPdf(
     },
     margin: { top: pdfHeaderBottom, right: horizontalMargin, left: horizontalMargin },
     willDrawPage: drawPageHeader,
-    didParseCell: colorDetailsIdentifiers,
+    didParseCell: enforcePrintableBodyText,
   });
 
   const safeName = (client.clientName || 'cliente').replace(/[^\w-]+/g, '_');

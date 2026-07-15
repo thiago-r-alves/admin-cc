@@ -206,11 +206,11 @@ describe('buildClientOrdersPdf', () => {
       return cell.styles.textColor;
     };
 
-    expect(getBodyTextColorForColumn(0)).toEqual([227, 6, 19]);
-    expect(getBodyTextColorForColumn(6)).toEqual([227, 6, 19]);
-    expect(getBodyTextColorForColumn(10)).toEqual([227, 6, 19]);
-    expect(getBodyTextColorForColumn(5)).toBeUndefined();
-    expect(getBodyTextColorForColumn(9)).toBeUndefined();
+    expect(getBodyTextColorForColumn(0)).toEqual([0, 0, 0]);
+    expect(getBodyTextColorForColumn(6)).toEqual([0, 0, 0]);
+    expect(getBodyTextColorForColumn(10)).toEqual([0, 0, 0]);
+    expect(getBodyTextColorForColumn(5)).toEqual([0, 0, 0]);
+    expect(getBodyTextColorForColumn(9)).toEqual([0, 0, 0]);
     expect(addImageMock).toHaveBeenCalledWith(
       expect.any(Uint8Array),
       'PNG',

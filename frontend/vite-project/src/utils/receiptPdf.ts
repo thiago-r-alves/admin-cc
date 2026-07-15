@@ -16,7 +16,7 @@ type JsPdfDocument = InstanceType<typeof import('jspdf').jsPDF>;
 const companyLogoUrl = '/logo-central-cacambas-pdf.png';
 const receiptSignatureUrl = '/receipt-signature.png';
 const projectRed: [number, number, number] = [227, 6, 19];
-const textBlack: [number, number, number] = [17, 24, 39];
+const textBlack: [number, number, number] = [0, 0, 0];
 const receiptCompanyName = 'CENTRAL TRANSPORTES E LOCAÇÕES LTDA - ME';
 const receiptCompanyCnpj = '14.071.560/0001-41';
 const receiptCompanyAddress = 'Av: Central, 1011 - Chácaras Reunidas - São José dos Campos - São Paulo';
@@ -194,7 +194,7 @@ const drawRichWrappedText = (
   };
 
   tokens.forEach((token) => {
-    doc.setFont('helvetica', token.bold ? 'bold' : 'normal');
+    doc.setFont('helvetica', 'bold');
     token.text.split(/(\s+)/).forEach((part) => {
       if (!part) return;
       if (/^\s+$/.test(part)) {
@@ -230,7 +230,7 @@ const drawSignature = (doc: JsPdfDocument, signatureImage: Uint8Array) => {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.text(receiptCompanyName, 16, 228);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.text(`C.N.P.J n ${receiptCompanyCnpj}`, 16, 234);
 };
@@ -268,7 +268,7 @@ export async function buildClosureReceiptPdf(input: ClosureReceiptPdfInput): Pro
   const amountText = amountToPortugueseWords(totalAmount);
   const description = buildReceiptDescription(client, group);
 
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
   doc.setTextColor(...textBlack);
   drawRichWrappedText(
@@ -288,6 +288,8 @@ export async function buildClosureReceiptPdf(input: ClosureReceiptPdfInput): Pro
   );
 
   doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...textBlack);
   doc.text(formatReceiptDate(group.updatedAt), 16, 181);
   drawSignature(doc, signatureImage);
 
