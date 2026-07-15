@@ -77,6 +77,32 @@ describe('FechamentoPage', () => {
     expect(requestUrl).not.toContain('paginated=true');
   });
 
+  it('pagina a lista de fechamento em 10 clientes por pagina', async () => {
+    const clients = Array.from({ length: 12 }, (_, index) => ({
+      _id: `cli-${index + 1}`,
+      clientName: `Cliente ${String(index + 1).padStart(2, '0')}`,
+      hasPendingClosureItems: true,
+      hasGeneratedClosureGroups: false,
+    }));
+    const fetchMock = vi.fn(() => buildJsonResponse(clients));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<FechamentoPage />);
+
+    expect(await screen.findByText('Cliente 01')).toBeInTheDocument();
+    expect(screen.getByText('Cliente 10')).toBeInTheDocument();
+    expect(screen.queryByText('Cliente 11')).not.toBeInTheDocument();
+    expect(screen.getByText('12 resultados • Página 1 de 2')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
+
+    expect(await screen.findByText('Cliente 11')).toBeInTheDocument();
+    expect(screen.getByText('Cliente 12')).toBeInTheDocument();
+    expect(screen.queryByText('Cliente 01')).not.toBeInTheDocument();
+    expect(screen.getByText('12 resultados • Página 2 de 2')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('separa os botões de criar fechamento e consultar notas geradas', async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       const url = String(input);

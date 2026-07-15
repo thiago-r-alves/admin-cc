@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { IClient } from '../interfaces';
 import ClientOrdersModal from '../components/ClientOrdersModal';
 import ActionFeedbackBanner from '../components/ActionFeedbackBanner';
+import Pagination from '../components/ui/Pagination';
 import type { ClientOrdersModalProps } from '../components/clientOrdersModal/types';
 import { ClosureClientList } from '../features/closure/ClosureClientList';
 import { ClosureFilters } from '../features/closure/ClosureFilters';
@@ -16,6 +17,7 @@ import {
 } from '../features/closure/closure.styles';
 
 const apiUrl = import.meta.env.VITE_API_URL;
+const CLOSURE_CLIENTS_PER_PAGE = 10;
 type OrdersModalViewMode = NonNullable<ClientOrdersModalProps['viewMode']>;
 type OpeningOrdersModal = {
   clientId: string;
@@ -28,6 +30,7 @@ const FechamentoPage: React.FC = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [paymentStatus, setPaymentStatus] = useState<ClosurePaymentStatus>('all');
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [selectedClientSnapshot, setSelectedClientSnapshot] = useState<IClient | null>(null);
@@ -110,6 +113,12 @@ const FechamentoPage: React.FC = () => {
     ].some((value) => normClosureSearch(value).includes(q)));
   }, [clients, search]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredClients.length / CLOSURE_CLIENTS_PER_PAGE));
+  const paginatedClients = useMemo(() => {
+    const startIndex = (page - 1) * CLOSURE_CLIENTS_PER_PAGE;
+    return filteredClients.slice(startIndex, startIndex + CLOSURE_CLIENTS_PER_PAGE);
+  }, [filteredClients, page]);
+
   const openOrdersModal = (
     client: IClient,
     viewMode: OrdersModalViewMode = 'create_closure',
@@ -139,6 +148,16 @@ const FechamentoPage: React.FC = () => {
   }, [clients, selectedClientId, selectedClientSnapshot]);
 
   const showBlockingLoading = loading && !isOrdersModalOpen;
+
+  useEffect(() => {
+    setPage(1);
+  }, [startDate, endDate, paymentStatus, search]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void fetchClosureClients(), 400);
@@ -172,13 +191,21 @@ const FechamentoPage: React.FC = () => {
       />
 
       <ClosureClientList
-        clients={filteredClients}
+        clients={paginatedClients}
         loading={showBlockingLoading}
         paymentStatus={paymentStatus}
         openingAction={openingOrdersModal}
         onOpenCreateClosure={(client) => openOrdersModal(client, 'create_closure')}
         onOpenGeneratedNotes={(client) => openOrdersModal(client, 'generated_notes')}
       />
+      {!showBlockingLoading && filteredClients.length > CLOSURE_CLIENTS_PER_PAGE && (
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={filteredClients.length}
+          onPageChange={setPage}
+        />
+      )}
       {isOrdersModalOpen && modalClient && (
         <ClientOrdersModal
           client={modalClient}
