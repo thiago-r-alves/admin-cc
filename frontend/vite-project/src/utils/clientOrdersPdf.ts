@@ -48,6 +48,23 @@ const formatClientAddress = (client: IClient) => {
   return addressParts.join(' - ') || '-';
 };
 
+const formatCpfCnpj = (value?: string) => {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length === 11) {
+    return digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  }
+  if (digits.length === 14) {
+    return digits.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  }
+  return String(value || '').trim();
+};
+
+const formatClientNameWithDocument = (client: IClient) => {
+  const clientName = String(client.clientName || '').trim() || '-';
+  const cnpjCpf = formatCpfCnpj(client.cnpjCpf);
+  return cnpjCpf ? `${clientName} - ${cnpjCpf}` : clientName;
+};
+
 const projectRed: [number, number, number] = [227, 6, 19];
 const detailsIdentifierColumns = new Set([0, 6, 10]);
 const companyLogoUrl = '/logo-central-cacambas-pdf.png';
@@ -242,7 +259,7 @@ export async function buildClientOrdersPdf(
   const periodText = startLabel && endLabel ? `${startLabel} ate ${endLabel}` : '';
   const totalCacambas = orders.reduce((sum, order) => sum + (order.cacambas?.length || 0), 0);
   const summaryBody = [
-    ['Cliente', client.clientName || '-'],
+    ['Cliente', formatClientNameWithDocument(client)],
     ['Endereco', formatClientAddress(client)],
     ...(periodText ? [['Periodo', periodText]] : []),
     ['Total do cliente', formatCurrency(clientTotal)],

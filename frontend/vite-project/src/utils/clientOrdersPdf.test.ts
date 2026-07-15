@@ -133,6 +133,7 @@ describe('buildClientOrdersPdf', () => {
         client: {
           _id: 'cli-1',
           clientName: 'Cliente Teste',
+          cnpjCpf: '12345678000190',
           address: 'Rua Central',
           addressNumber: '123',
           neighborhood: 'Centro',
@@ -155,6 +156,7 @@ describe('buildClientOrdersPdf', () => {
     const allPdfText = JSON.stringify([summary.head, summary.body, details.head, details.body]);
 
     expect(summary.head).toEqual([['Resumo do Relatorio', '']]);
+    expect(summary.body).toContainEqual(['Cliente', 'Cliente Teste - 12.345.678/0001-90']);
     expect(summary.body).toContainEqual([
       'Endereco',
       'Rua Central, 123 - Centro - Sao Jose dos Campos - CEP 12200-000',
