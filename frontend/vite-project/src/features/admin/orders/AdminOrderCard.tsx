@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { ICacamba, IOrder, OrderType } from '../../../interfaces';
 import CacambaList from '../../../components/CacambaList';
 import { apiUrl } from '../../../services/api';
@@ -48,6 +49,8 @@ export const AdminOrderCard = ({
   onDeleteOrder,
   onDeleteCacamba,
 }: AdminOrderCardProps) => {
+  const [showPaymentQrChoice, setShowPaymentQrChoice] = useState(false);
+  const [isDownloadingOrderPdf, setIsDownloadingOrderPdf] = useState(false);
   const hasCacambas = (order.cacambas?.length ?? 0) > 0;
   const canCorrectOrder = order.status === 'pendente' && !hasCacambas;
   const contactText = [order.contactName, order.contactNumber ? `(${order.contactNumber})` : '']
@@ -58,6 +61,16 @@ export const AdminOrderCard = ({
   const proofImageUrl = proof?.signatureImageUrl
     ? (proof.signatureImageUrl.startsWith('http') ? proof.signatureImageUrl : `${apiUrl}${proof.signatureImageUrl}`)
     : '';
+  const downloadOrder = async (includePaymentQrCode: boolean) => {
+    try {
+      setIsDownloadingOrderPdf(true);
+      const { downloadOrderPdf } = await import('../../../utils/orderPdf');
+      await downloadOrderPdf(order, { includePaymentQrCode });
+      setShowPaymentQrChoice(false);
+    } finally {
+      setIsDownloadingOrderPdf(false);
+    }
+  };
 
   return (
     <OrderCard key={order._id} status={order.status} data-testid={`order-card-${order._id}`}>
@@ -184,8 +197,11 @@ export const AdminOrderCard = ({
               <DownloadOrderButton
                 type="button"
                 onClick={async () => {
-                  const { downloadOrderPdf } = await import('../../../utils/orderPdf');
-                  downloadOrderPdf(order);
+                  if (order.type === 'entrega') {
+                    setShowPaymentQrChoice(true);
+                    return;
+                  }
+                  await downloadOrder(false);
                 }}
               >
                 Baixar Pedido
@@ -194,6 +210,50 @@ export const AdminOrderCard = ({
           </OrderActions>
         </OrderFooter>
       </OrderCardBody>
+      {showPaymentQrChoice && (
+        <div
+          className="fixed inset-0 z-[1300] flex items-center justify-center bg-gray-900/60 p-4"
+          role="presentation"
+          onClick={() => {
+            if (!isDownloadingOrderPdf) setShowPaymentQrChoice(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`payment-qr-title-${order._id}`}
+            className="w-[min(460px,94vw)] rounded-ui-lg border border-red-100 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.28)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="border-b border-red-100 px-5 py-4">
+              <h3 id={`payment-qr-title-${order._id}`} className="m-0 text-[1.05rem] font-black text-gray-950">
+                Incluir QR Code de pagamento?
+              </h3>
+              <p className="mb-0 mt-2 text-[0.88rem] font-semibold leading-5 text-gray-600">
+                Deseja que a nota deste pedido de entrega saia com QR Code Pix e informações de pagamento?
+              </p>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2 px-5 py-4">
+              <button
+                type="button"
+                className="min-h-11 cursor-pointer rounded-ui-md border border-gray-300 bg-white px-4 py-2 text-sm font-black text-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isDownloadingOrderPdf}
+                onClick={() => downloadOrder(false)}
+              >
+                Baixar sem QR Code
+              </button>
+              <button
+                type="button"
+                className="min-h-11 cursor-pointer rounded-ui-md border border-brand bg-brand px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isDownloadingOrderPdf}
+                onClick={() => downloadOrder(true)}
+              >
+                {isDownloadingOrderPdf ? 'Gerando...' : 'Incluir QR Code Pix'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </OrderCard>
   );
 };

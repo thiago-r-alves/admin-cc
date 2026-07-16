@@ -26,6 +26,7 @@ const autoTableMock = vi.fn((doc: MockPdfDoc, options: AutoTableOptions) => {
 });
 const addImageMock = vi.fn();
 const saveMock = vi.fn();
+const textMock = vi.fn();
 
 vi.mock('../services/api', () => ({
   apiUrl: 'http://api.local',
@@ -39,13 +40,17 @@ vi.mock('jspdf', () => ({
     setFont: vi.fn(),
     setFontSize: vi.fn(),
     setTextColor: vi.fn(),
-    text: vi.fn(),
+    text: textMock,
     save: saveMock,
   })),
 }));
 
 vi.mock('jspdf-autotable', () => ({
   default: autoTableMock,
+}));
+
+vi.mock('qrcode', () => ({
+  toDataURL: vi.fn(async (text: string) => `data:image/png;base64,qr-${text}`),
 }));
 
 const baseOrder: IOrder = {
@@ -65,6 +70,7 @@ const baseOrder: IOrder = {
   imageUrls: [],
   createdAt: '2026-05-16T10:00:00.000Z',
   updatedAt: '2026-05-16T11:00:00.000Z',
+  cacambaPrice: 250,
 };
 
 const findProofTable = () =>
@@ -79,6 +85,7 @@ describe('downloadOrderPdf', () => {
     autoTableMock.mockClear();
     addImageMock.mockClear();
     saveMock.mockClear();
+    textMock.mockClear();
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
@@ -109,7 +116,7 @@ describe('downloadOrderPdf', () => {
     expect(saveMock).toHaveBeenCalledWith('Cliente_Teste_os_digital_101.pdf');
   });
 
-  it('remove cabecalho e campos desnecessarios da tabela principal', async () => {
+  it('remove cabecalho e campos desnecessarios da tabela principal mantendo valor total', async () => {
     await downloadOrderPdf(baseOrder);
 
     const table = firstTable();
@@ -118,13 +125,13 @@ describe('downloadOrderPdf', () => {
       ['Número do Pedido', '101'],
       ['Tipo', 'Entrega'],
       ['Cliente', 'Cliente Teste'],
+      ['Valor Total', expect.stringMatching(/R\$\s?250,00/)],
       ['Endereço', 'Rua A, 10 - Centro'],
       ['Motorista', 'Motorista Teste'],
       ['Finalizado em', expect.any(String)],
     ]);
     const tableText = JSON.stringify(table?.body);
     expect(tableText).not.toContain('Campo');
-    expect(tableText).not.toContain('Valor');
     expect(tableText).not.toContain('Status');
     expect(tableText).not.toContain('Contato');
     expect(tableText).not.toContain('Criado em');
@@ -141,6 +148,44 @@ describe('downloadOrderPdf', () => {
     expect(saveMock).toHaveBeenCalledWith('Cliente_Sao_Jose_Obra_1_os_digital_987.pdf');
   });
 
+  it('inclui QR Code Pix com dados ao lado apos a assinatura sem criar secao de pagamento', async () => {
+    await downloadOrderPdf({
+      ...baseOrder,
+      deliveryProof: {
+        type: 'signed',
+        signatureImageUrl: '/files/signature-1',
+        capturedAt: '2026-05-16T11:00:00.000Z',
+        capturedBy: 'drv-1',
+        driverNameSnapshot: 'motorista teste',
+      },
+    }, { includePaymentQrCode: true });
+
+    const tables = autoTableMock.mock.calls.map((call) => call[1] as AutoTableOptions);
+    const tablesText = JSON.stringify(tables);
+    expect(tables.some((table) => table.head?.[0]?.[0] === 'Pagamento Pix')).toBe(false);
+    expect(tablesText).not.toContain('Valor do pedido');
+    expect(tablesText).not.toContain('Pix copia e cola');
+    expect(textMock.mock.calls.map(([text]) => text)).toEqual(expect.arrayContaining([
+      'QR Code Pix para pagamento',
+      'Dados Pix',
+      'Banco: Sicredi',
+      'Ag.: 0710  C/C: 58930-2',
+      'PIX CNPJ: 14.071.560/0001-41',
+    ]));
+    const textCalls = textMock.mock.calls.map(([text]) => text);
+    expect(textCalls.indexOf('Assinatura pelo recebimento da locação')).toBeLessThan(
+      textCalls.indexOf('QR Code Pix para pagamento'),
+    );
+    expect(addImageMock).toHaveBeenCalledWith(
+      expect.stringContaining('data:image/png;base64,qr-'),
+      'PNG',
+      expect.any(Number),
+      expect.any(Number),
+      42,
+      42,
+    );
+  });
+
   it('usa vermelho padrao do projeto nos cabecalhos do pdf', async () => {
     await downloadOrderPdf({
       ...baseOrder,
@@ -152,6 +197,7 @@ describe('downloadOrderPdf', () => {
           paymentStatus: 'pendente',
           local: 'via_publica',
           contentType: 'Entulho limpo',
+          price: 120,
           orderId: 'ord-1',
           createdAt: '2026-05-16T10:30:00.000Z',
         },
@@ -162,6 +208,7 @@ describe('downloadOrderPdf', () => {
           paymentStatus: 'pendente',
           local: 'canteiro_obra',
           contentType: 'Terra',
+          price: 130,
           orderId: 'ord-1',
           createdAt: '2026-05-16T10:35:00.000Z',
         },
@@ -173,13 +220,16 @@ describe('downloadOrderPdf', () => {
     expect(tables[1]?.body).toEqual(expect.arrayContaining([
       ['Local', 'Via Publica'],
       ['Conteúdo', 'Entulho Limpo'],
+      ['Valor', expect.stringMatching(/R\$\s?120,00/)],
       ['Local', 'Canteiro De Obra'],
       ['Conteúdo', 'Terra'],
+      ['Valor', expect.stringMatching(/R\$\s?130,00/)],
     ]));
     expect(JSON.stringify(tables[1]?.body)).not.toContain('"Tipo"');
     expect(tables[1]?.headStyles?.fillColor).toEqual([227, 6, 19]);
     expect(tables[1]?.headStyles?.textColor).toEqual([255, 255, 255]);
     expect(tables[1]?.headStyles?.fontStyle).toBe('bold');
+    expect(findProofTable()?.head).toEqual([['Comprovante da locação', '']]);
     expect(findProofTable()?.headStyles?.fillColor).toEqual([227, 6, 19]);
   });
 

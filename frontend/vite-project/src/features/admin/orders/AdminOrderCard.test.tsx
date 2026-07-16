@@ -1,9 +1,27 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { IOrder } from '../../../interfaces';
 import { AdminOrderCard } from './AdminOrderCard';
 
+vi.mock('../../../utils/orderPdf', () => ({
+  downloadOrderPdf: vi.fn(async () => undefined),
+}));
+
 describe('AdminOrderCard comprovante reutilizado', () => {
+  const renderCard = (order: IOrder) =>
+    render(
+      <AdminOrderCard
+        order={order}
+        onOpenImage={vi.fn()}
+        onEditCacamba={vi.fn()}
+        onEditCacambaPrice={vi.fn()}
+        onCorrectOrder={vi.fn()}
+        onChangeClient={vi.fn()}
+        onDeleteOrder={vi.fn()}
+        onDeleteCacamba={vi.fn()}
+      />,
+    );
+
   it('exibe origem, coletor e motorista atual separadamente', () => {
     const order: IOrder = {
       _id: 'ord-2',
@@ -32,23 +50,42 @@ describe('AdminOrderCard comprovante reutilizado', () => {
       },
     };
 
-    render(
-      <AdminOrderCard
-        order={order}
-        onOpenImage={vi.fn()}
-        onEditCacamba={vi.fn()}
-        onEditCacambaPrice={vi.fn()}
-        onCorrectOrder={vi.fn()}
-        onChangeClient={vi.fn()}
-        onDeleteOrder={vi.fn()}
-        onDeleteCacamba={vi.fn()}
-      />,
-    );
+    renderCard(order);
 
     expect(screen.getByText('Comprovante reutilizado')).toBeInTheDocument();
     expect(screen.getByText('#101')).toBeInTheDocument();
     expect(screen.getByText('Motorista coletor')).toBeInTheDocument();
     expect(screen.getByText('Motorista atual')).toBeInTheDocument();
     expect(screen.getByText('Portaria fechada.')).toBeInTheDocument();
+  });
+
+  it('pergunta se deve incluir QR Code Pix ao baixar pedido de entrega', async () => {
+    const { downloadOrderPdf } = await import('../../../utils/orderPdf');
+    const order: IOrder = {
+      _id: 'ord-entrega',
+      orderNumber: 303,
+      clientName: 'Cliente Entrega',
+      contactName: 'Contato',
+      contactNumber: '123',
+      neighborhood: 'Centro',
+      address: 'Rua A',
+      addressNumber: '10',
+      type: 'entrega',
+      priority: 0,
+      status: 'concluido',
+      motorista: { _id: 'drv-1', username: 'Motorista' },
+      cacambaPrice: 250,
+    };
+
+    renderCard(order);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Baixar Pedido' }));
+    expect(screen.getByRole('dialog', { name: 'Incluir QR Code de pagamento?' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Incluir QR Code Pix' }));
+
+    await waitFor(() =>
+      expect(downloadOrderPdf).toHaveBeenCalledWith(order, { includePaymentQrCode: true }),
+    );
   });
 });
