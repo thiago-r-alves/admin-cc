@@ -130,7 +130,11 @@ test.describe('Admin retiradas pendentes', () => {
       expect(badgeBox!.x).toBeGreaterThanOrEqual(0);
       expect(badgeBox!.x + badgeBox!.width).toBeLessThanOrEqual((viewport?.width ?? 390) + 1);
     }
-    await expect(page.getByText('Local: Canteiro de obra')).toHaveCount(2);
+    for (const cacambaId of ['cac-due-901', 'cac-due-902']) {
+      const cacambaCard = page.getByTestId(`cacamba-card-${cacambaId}`);
+      await expect(cacambaCard.getByText('Local:', { exact: true })).toBeVisible();
+      await expect(cacambaCard.getByText('Canteiro de obra', { exact: true })).toBeVisible();
+    }
 
     await page.getByRole('button', { name: 'Criar pedido de retirada' }).click();
     await expect(page.getByText('Novo Pedido de Retirada')).toBeVisible();
