@@ -62,16 +62,71 @@ describe('CacambaList', () => {
     expect(screen.getByText('Entrega')).toBeInTheDocument();
   });
 
+  it('organiza detalhes, foto e ações em uma estrutura responsiva', () => {
+    render(
+      <CacambaList
+        cacambas={[
+          {
+            ...baseCacamba,
+            contentType: 'Entulho limpo',
+            price: 180,
+            paymentStatus: 'pendente',
+            imageUrl: 'https://example.test/cacamba.jpg',
+          },
+        ]}
+        showTitle={false}
+        selectable
+        selectedCacambaIds={[]}
+        onToggleSelect={vi.fn()}
+        onEdit={vi.fn()}
+        responsibility={{ driverName: 'Joao Motorista', placa: 'abc1d23' }}
+      />,
+    );
+
+    const card = screen.getByTestId('cacamba-card-cac-1');
+    const details = screen.getByTestId('cacamba-details-cac-1');
+    const actions = screen.getByTestId('cacamba-actions-cac-1');
+    const image = screen.getByAltText('Foto da caçamba 415');
+
+    expect(card.tagName).toBe('ARTICLE');
+    expect(details).toHaveClass(
+      'grid-cols-1',
+      'min-[460px]:grid-cols-2',
+      'min-[900px]:grid-cols-3',
+      'min-[1200px]:grid-cols-4',
+    );
+    expect(actions).toHaveClass(
+      'grid-cols-1',
+      'min-[480px]:grid-cols-2',
+      'min-[760px]:flex',
+    );
+    expect(image).toHaveClass(
+      'h-28',
+      'w-full',
+      'min-[641px]:h-[92px]',
+      'min-[641px]:w-[92px]',
+    );
+  });
+
+  it('nao reserva rodape nem area de imagem quando o card nao possui esses conteudos', () => {
+    render(<CacambaList cacambas={[baseCacamba]} showTitle={false} />);
+
+    expect(screen.queryByTestId('cacamba-actions-cac-1')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  });
+
   it('exibe motorista e placa responsaveis pela caçamba', () => {
     render(
       <CacambaList
         cacambas={[baseCacamba]}
         showTitle={false}
-        responsibility={{ driverName: 'Joao Motorista', placa: 'abc1d23' }}
+        responsibility={{ driverName: 'joao motorista', placa: 'abc1d23' }}
       />,
     );
 
     expect(screen.getByText(/Joao Motorista/)).toBeInTheDocument();
+    expect(screen.queryByText(/joao motorista/)).not.toBeInTheDocument();
     expect(screen.getByText(/ABC1D23/)).toBeInTheDocument();
   });
 

@@ -7,6 +7,7 @@ import {
   NotificationStatus,
   PageTitle,
 } from './driver.styles';
+import { formatDriverName } from '../../utils/formatDriverName';
 
 type DriverHeaderPanelProps = {
   role: string | null;
@@ -19,9 +20,8 @@ type DriverHeaderPanelProps = {
 };
 
 const formatDriverTitle = (driverName: string) => {
-  const trimmedName = driverName.trim();
-  if (!trimmedName) return 'Painel do Motorista';
-  return `Painel do ${trimmedName.charAt(0).toUpperCase()}${trimmedName.slice(1)}`;
+  const formattedName = formatDriverName(driverName, '');
+  return formattedName ? `Painel do ${formattedName}` : 'Painel do Motorista';
 };
 
 export const DriverHeaderPanel = ({

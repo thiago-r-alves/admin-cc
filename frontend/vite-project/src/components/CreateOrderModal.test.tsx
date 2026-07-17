@@ -41,7 +41,7 @@ const client = {
   city: 'São José dos Campos',
 };
 
-const drivers = [{ _id: 'driver-1', username: 'Motorista 1' }];
+const drivers = [{ _id: 'driver-1', username: 'motorista 1' }];
 
 const submitCreateOrderForm = () => {
   const form = screen.getByRole('button', { name: /criar pedido/i }).closest('form');
@@ -77,9 +77,11 @@ describe('CreateOrderModal', () => {
     const onClose = vi.fn();
     render(<CreateOrderModal onClose={onClose} onOrderCreated={onOrderCreated} drivers={drivers} />);
 
-    fireEvent.change(await screen.findByLabelText('Digite nome, CPF ou CNPJ...'), {
+    const clientInput = await screen.findByLabelText('Digite nome, CPF ou CNPJ...');
+    fireEvent.change(clientInput, {
       target: { value: client._id },
     });
+    expect(await screen.findByRole('option', { name: 'Motorista 1' })).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('order-type-entrega'));
 
     expect(screen.getByPlaceholderText('Ex: 180,00')).toBeInTheDocument();

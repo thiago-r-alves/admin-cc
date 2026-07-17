@@ -6,6 +6,7 @@ import type {
   SingleValue,
   StylesConfig,
 } from 'react-select';
+import { formatDriverName } from '../utils/formatDriverName';
 import { twComponent } from '../utils/twComponent';
 
 const fieldClass = 'box-border min-h-[38px] w-full rounded-ui-md border border-brand-border bg-white px-[0.65rem] py-[0.55rem] text-[0.9rem] text-gray-700 focus:border-brand focus:outline-none focus:ring-[3px] focus:ring-brand-focus';
@@ -691,7 +692,9 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                       >
                         <option value="">Selecione...</option>
                         {drivers.map(driver => (
-                          <option key={driver._id} value={driver._id}>{driver.username}</option>
+                          <option key={driver._id} value={driver._id}>
+                            {formatDriverName(driver.username)}
+                          </option>
                         ))}
                       </Select>
                     </Field>

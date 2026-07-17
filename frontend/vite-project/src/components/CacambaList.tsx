@@ -2,6 +2,7 @@
 import type { DriverRef, ICacamba } from '../interfaces';
 import { twComponent } from '../utils/twComponent';
 import { cn } from '../utils/cn';
+import { formatDriverName } from '../utils/formatDriverName';
 import {
   hasValidContentType as hasClosureValidContentType,
   hasValidPrice as hasClosureValidPrice,
@@ -12,17 +13,30 @@ import {
 const EmptyState = twComponent('div', 'py-4 text-center text-gray-500');
 const Container = twComponent('div', 'flex flex-col gap-3');
 const Title = twComponent('h3', 'm-0 text-[1.05rem] font-black text-gray-950');
-const CacambaCard = twComponent('div', 'rounded-lg border border-red-200 bg-slate-50 px-[0.85rem] py-[0.78rem]');
-const CardContent = twComponent('div', 'mb-[0.72rem] flex items-start justify-between gap-3');
-const InfoSection = twComponent('div', 'min-w-0 flex-auto');
-const HeaderInfo = twComponent('div', 'flex min-w-0 flex-wrap items-center gap-2');
-const SelectionLabel = twComponent('label', 'flex min-h-9 cursor-pointer items-center gap-2 rounded-ui-md border border-gray-300 bg-white px-[0.9rem] py-[0.42rem] text-[0.9rem] font-extrabold text-gray-700');
+const CacambaCard = twComponent(
+  'article',
+  'overflow-hidden rounded-ui-lg border border-gray-200 border-l-[3px] border-l-brand bg-white shadow-[0_5px_16px_rgba(15,23,42,0.05)]',
+);
+const CardContent = twComponent<'div', { $hasImage: boolean }>(
+  'div',
+  'grid grid-cols-1 items-start gap-4 p-4 max-[640px]:gap-3 max-[640px]:p-3',
+  ({ $hasImage }) => ($hasImage ? 'min-[641px]:grid-cols-[minmax(0,1fr)_92px]' : ''),
+);
+const InfoSection = twComponent('div', 'min-w-0');
+const HeaderInfo = twComponent(
+  'div',
+  'flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-gray-100 pb-3',
+);
+const SelectionLabel = twComponent(
+  'label',
+  'flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-ui-md border border-gray-300 bg-white px-[0.9rem] py-[0.55rem] text-center text-[0.9rem] font-extrabold text-gray-700 transition-colors hover:border-brand hover:bg-brand-soft hover:text-brand min-[760px]:w-auto',
+);
 const SelectionInput: React.FC<React.InputHTMLAttributes<HTMLInputElement>> = ({ className, ...props }) => (
-  <input type="checkbox" className={cn('h-4 w-4 cursor-pointer', className)} {...props} />
+  <input type="checkbox" className={cn('h-4 w-4 cursor-pointer accent-[#e30613]', className)} {...props} />
 );
 const CacambaNumber: React.FC<React.HTMLAttributes<HTMLSpanElement>> = ({ className, style, ...props }) => (
   <span
-    className={cn('text-[1.02rem] font-black text-brand', className)}
+    className={cn('text-[1.08rem] font-black leading-none text-brand', className)}
     style={{ color: 'rgb(227, 6, 19)', ...style }}
     {...props}
   />
@@ -58,18 +72,37 @@ export interface CacambaResponsibility {
   placa?: string;
 }
 
-const infoTextClass = 'm-0 mt-[0.3rem] text-sm leading-[1.4] text-gray-700 [&_strong]:text-gray-950';
-const DateInfo = twComponent('p', infoTextClass);
-const LocalInfo = twComponent('span', 'mt-[0.18rem] block text-[0.82rem] text-gray-700 [&_strong]:text-gray-950');
-const ContentTypeInfo = twComponent('p', infoTextClass);
-const PriceInfo = twComponent('p', infoTextClass);
-const ResponsibilityInfo = twComponent('p', `${infoTextClass} flex flex-wrap gap-[0.55rem]`);
+const DetailsGrid = twComponent(
+  'dl',
+  'm-0 mt-3 grid grid-cols-1 gap-x-4 gap-y-3 min-[460px]:grid-cols-2 min-[900px]:grid-cols-3 min-[1200px]:grid-cols-4',
+);
+const DetailItem = twComponent('div', 'min-w-0 border-l-2 border-gray-200 pl-2.5');
+const DetailLabel = twComponent(
+  'dt',
+  'm-0 text-[0.66rem] font-black uppercase leading-tight tracking-[0.045em] text-gray-500',
+);
+const DetailValue = twComponent(
+  'dd',
+  'm-0 mt-1 min-w-0 break-words text-[0.88rem] font-extrabold leading-[1.35] text-gray-900',
+);
 const BlockedWarning = twComponent('div', 'mt-2 whitespace-pre-line rounded-ui-lg border border-red-300 bg-red-50 px-[0.7rem] py-[0.55rem] text-[0.9rem] font-bold text-red-900');
-const ImageContainer = twComponent('div', 'ml-[0.35rem] flex-none');
-const ImageButton = twComponent('button', 'relative min-h-11 min-w-11 cursor-pointer rounded-ui-md border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-focus-strong');
-const CacambaImage = twComponent('img', 'h-[76px] w-[76px] rounded-ui-md border border-gray-300 bg-white object-cover');
-const ActionRow = twComponent('div', 'flex flex-wrap gap-2');
-const ActionButton = twComponent<'button', { $variant?: 'danger' | 'secondary' }>('button', 'min-h-11 cursor-pointer rounded-ui-md border px-[0.9rem] py-[0.55rem] text-[0.92rem] font-extrabold shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-focus-strong', ({ $variant }) =>
+const ImageContainer = twComponent(
+  'div',
+  'w-full min-w-0 min-[641px]:col-start-2 min-[641px]:row-start-1 min-[641px]:w-[92px]',
+);
+const ImageButton = twComponent(
+  'button',
+  'relative block min-h-11 w-full cursor-pointer overflow-hidden rounded-ui-md border border-gray-300 bg-white p-0 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-focus-strong',
+);
+const CacambaImage = twComponent(
+  'img',
+  'h-28 w-full bg-white object-cover transition-transform duration-200 hover:scale-[1.03] min-[641px]:h-[92px] min-[641px]:w-[92px]',
+);
+const ActionRow = twComponent(
+  'div',
+  'grid grid-cols-1 gap-2 border-t border-gray-200 bg-slate-50 px-4 py-3 min-[480px]:grid-cols-2 min-[760px]:flex min-[760px]:flex-wrap max-[640px]:px-3',
+);
+const ActionButton = twComponent<'button', { $variant?: 'danger' | 'secondary' }>('button', 'min-h-11 w-full cursor-pointer rounded-ui-md border px-[0.9rem] py-[0.55rem] text-[0.9rem] font-extrabold shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand-focus-strong min-[760px]:w-auto', ({ $variant }) =>
   $variant === 'danger'
     ? 'border-red-300 bg-white text-red-700 hover:border-red-700 hover:bg-red-50'
     : 'border-gray-300 bg-white text-gray-700 hover:border-brand hover:bg-brand-soft hover:text-brand',
@@ -123,13 +156,13 @@ const isObjectIdLike = (value: string) => /^[a-f0-9]{24}$/i.test(value);
 
 const getDriverName = (motorista?: DriverRef, explicitDriverName?: string) => {
   const explicit = String(explicitDriverName || '').trim();
-  if (explicit) return explicit;
+  if (explicit) return formatDriverName(explicit, '');
   if (!motorista) return '';
   if (typeof motorista === 'string') {
     const value = motorista.trim();
-    return isObjectIdLike(value) ? '' : value;
+    return isObjectIdLike(value) ? '' : formatDriverName(value, '');
   }
-  return String(motorista.username || '').trim();
+  return formatDriverName(motorista.username, '');
 };
 
 const getCacambaResponsibility = (
@@ -237,10 +270,41 @@ const CacambaList: React.FC<CacambaListProps> = ({
         const currentStatusBadges = normalizeStatusBadges(statusBadges?.[cacamba._id]);
         const responsible = getCacambaResponsibility(cacamba, responsibility);
         const hasResponsibleInfo = showResponsibility && Boolean(responsible.driverName || responsible.placa);
+        const movementDate = formatDateTime(cacamba.createdAt);
+        const showSelectAction = selectable && isSelectableInClosure;
+        const showEditAction = Boolean(onEdit);
+        const showDeleteAction = !selectable && Boolean(onDelete);
+        const showReturnToPendingAction = !selectable && Boolean(onReturnToPending);
+        const showMissingContentAction =
+          selectable && isRetirada && isPendingClosure && missingContentType && Boolean(onEditContentType);
+        const showMissingValueAction =
+          selectable &&
+          (isRetirada || isEntrega) &&
+          isPendingClosure &&
+          missingValue &&
+          Boolean(onEditPrice);
+        const showAdminContentAction =
+          !selectable && adminMetaActions && isRetirada && Boolean(onEditContentType);
+        const showAdminPriceAction =
+          adminMetaActions &&
+          canEditPrice &&
+          (!selectable || !isPendingClosure) &&
+          (isRetirada || isEntrega) &&
+          Boolean(onEditPrice);
+        const hasActions =
+          showSelectAction ||
+          showEditAction ||
+          showDeleteAction ||
+          showReturnToPendingAction ||
+          showMissingContentAction ||
+          showMissingValueAction ||
+          showAdminContentAction ||
+          showAdminPriceAction;
+        const isSelectedForPayment = selectedCacambaIds.includes(cacamba._id);
 
         return (
-          <CacambaCard key={cacamba._id}>
-            <CardContent>
+          <CacambaCard key={cacamba._id} data-testid={`cacamba-card-${cacamba._id}`}>
+            <CardContent $hasImage={Boolean(imageUrl)}>
               <InfoSection>
                 <HeaderInfo>
                   <CacambaNumber>#{cacamba.numero}</CacambaNumber>
@@ -252,7 +316,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
                   {isPaid && <PaymentBadge>Paga</PaymentBadge>}
                   {currentStatusBadges.map((badge, index) => (
                     <StatusBadge
-                      key={`${badge.tone}-${badge.label}`}
+                      key={`${badge.tone}-${badge.label}-${index}`}
                       $tone={badge.tone}
                       data-testid={`cacamba-status-badge-${cacamba._id}-${index}`}
                     >
@@ -261,59 +325,67 @@ const CacambaList: React.FC<CacambaListProps> = ({
                   ))}
                 </HeaderInfo>
 
-                {showDeliveryDateForRetirada && isRetirada && (
-                  <DateInfo>
-                    <strong>Entregue em:</strong> {deliveryDate || 'Data não disponível'}
-                  </DateInfo>
-                )}
+                <DetailsGrid data-testid={`cacamba-details-${cacamba._id}`}>
+                  {showDeliveryDateForRetirada && isRetirada && (
+                    <DetailItem>
+                      <DetailLabel>Entregue em:</DetailLabel>
+                      <DetailValue>{deliveryDate || 'Data não disponível'}</DetailValue>
+                    </DetailItem>
+                  )}
 
-                <DateInfo>
-                  {isRetirada ? <strong>Retirada em:</strong> : <strong>Entregue em:</strong>}{' '}
-                  {cacamba.createdAt
-                    ? new Date(cacamba.createdAt).toLocaleString('pt-BR')
-                    : 'Data não disponível'}
-                </DateInfo>
+                  <DetailItem>
+                    <DetailLabel>{isRetirada ? 'Retirada em:' : 'Entregue em:'}</DetailLabel>
+                    <DetailValue>{movementDate || 'Data não disponível'}</DetailValue>
+                  </DetailItem>
 
-                {cacamba.local && (
-                  <LocalInfo>
-                    <strong>Local:</strong>{' '}
-                    {cacamba.local === 'via_publica'
-                      ? 'Via pública'
-                      : cacamba.local === 'canteiro_obra'
-                        ? 'Canteiro de obra'
-                        : cacamba.local}
-                  </LocalInfo>
-                )}
+                  {cacamba.local && (
+                    <DetailItem>
+                      <DetailLabel>Local:</DetailLabel>
+                      <DetailValue>
+                        {cacamba.local === 'via_publica'
+                          ? 'Via pública'
+                          : cacamba.local === 'canteiro_obra'
+                            ? 'Canteiro de obra'
+                            : cacamba.local}
+                      </DetailValue>
+                    </DetailItem>
+                  )}
 
-                {hasResponsibleInfo && (
-                  <ResponsibilityInfo>
-                    <span>
-                      <strong>Motorista:</strong> {responsible.driverName || '-'}
-                    </span>
-                    <span>
-                      <strong>Placa:</strong> {responsible.placa || '-'}
-                    </span>
-                  </ResponsibilityInfo>
-                )}
+                  {hasResponsibleInfo && (
+                    <>
+                      <DetailItem>
+                        <DetailLabel>Motorista:</DetailLabel>
+                        <DetailValue>{responsible.driverName || '-'}</DetailValue>
+                      </DetailItem>
+                      <DetailItem>
+                        <DetailLabel>Placa:</DetailLabel>
+                        <DetailValue>{responsible.placa || '-'}</DetailValue>
+                      </DetailItem>
+                    </>
+                  )}
 
-                {cacamba.contentType && (
-                  <ContentTypeInfo>
-                    <strong>Conteúdo:</strong> {cacamba.contentType}
-                  </ContentTypeInfo>
-                )}
+                  {cacamba.contentType && (
+                    <DetailItem>
+                      <DetailLabel>Conteúdo:</DetailLabel>
+                      <DetailValue>{cacamba.contentType}</DetailValue>
+                    </DetailItem>
+                  )}
 
-                {hasValidPrice && (
-                  <PriceInfo>
-                    <strong>Valor:</strong>{' '}
-                    {cacamba.price?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </PriceInfo>
-                )}
+                  {hasValidPrice && (
+                    <DetailItem>
+                      <DetailLabel>Valor:</DetailLabel>
+                      <DetailValue>
+                        {cacamba.price?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </DetailValue>
+                    </DetailItem>
+                  )}
+                </DetailsGrid>
 
                 {warningText && <BlockedWarning>{warningText}</BlockedWarning>}
               </InfoSection>
 
-              <ImageContainer>
-                {cacamba.imageUrl ? (
+              {cacamba.imageUrl && imageUrl && (
+                <ImageContainer>
                   <ImageButton
                     type="button"
                     aria-label={`Ampliar foto da caçamba ${cacamba.numero}`}
@@ -338,71 +410,78 @@ const CacambaList: React.FC<CacambaListProps> = ({
                     />
                     <span aria-hidden="true" className="absolute bottom-1 right-1 rounded bg-black/70 px-1.5 py-0.5 text-xs text-white">⌕</span>
                   </ImageButton>
-                ) : null}
-              </ImageContainer>
+                </ImageContainer>
+              )}
             </CardContent>
 
-            <ActionRow>
-              {selectable && isSelectableInClosure && (
-                <SelectionLabel>
-                  <SelectionInput
-                    checked={selectedCacambaIds.includes(cacamba._id)}
-                    onChange={(event) => onToggleSelect?.(cacamba, event.target.checked)}
-                    aria-label="Selecionar para pagamento"
-                  />
-                  Selecionar para pagamento
-                </SelectionLabel>
-              )}
-              {onEdit && (
-                <ActionButton type="button" $variant="secondary" onClick={() => onEdit(cacamba)}>
-                  {editLabel}
-                </ActionButton>
-              )}
-              {!selectable && onDelete && (
-                <ActionButton type="button" $variant="danger" onClick={() => onDelete(cacamba._id)} aria-label={`Excluir caçamba ${cacamba.numero}`}>
-                  Excluir
-                </ActionButton>
-              )}
-              {!selectable && onReturnToPending && (
-                returnToPendingSelectable ? (
-                  <SelectionLabel>
-                    <SelectionInput
-                      checked={selectedReturnToPendingIds.includes(cacamba._id)}
-                      onChange={(event) => onToggleReturnToPending?.(cacamba, event.target.checked)}
-                      aria-label={`Selecionar caçamba ${cacamba.numero} para voltar a pendente`}
-                    />
-                    Voltar para pendente
-                  </SelectionLabel>
-                ) : (
-                  <ActionButton
-                    $variant="secondary"
-                    onClick={() => onReturnToPending(cacamba)}
+            {hasActions && (
+              <ActionRow data-testid={`cacamba-actions-${cacamba._id}`}>
+                {showSelectAction && (
+                  <SelectionLabel
+                    className={cn(
+                      isSelectedForPayment && 'border-brand bg-brand-soft text-brand',
+                    )}
                   >
-                    Voltar para pendente
+                    <SelectionInput
+                      checked={isSelectedForPayment}
+                      onChange={(event) => onToggleSelect?.(cacamba, event.target.checked)}
+                      aria-label="Selecionar para pagamento"
+                    />
+                    Selecionar para pagamento
+                  </SelectionLabel>
+                )}
+                {showEditAction && onEdit && (
+                  <ActionButton type="button" $variant="secondary" onClick={() => onEdit(cacamba)}>
+                    {editLabel}
                   </ActionButton>
-                )
-              )}
-              {selectable && isRetirada && isPendingClosure && missingContentType && onEditContentType && (
-                <ActionButton $variant="secondary" onClick={() => onEditContentType(cacamba)}>
-                  Adicionar conteúdo
-                </ActionButton>
-              )}
-              {selectable && (isRetirada || isEntrega) && isPendingClosure && missingValue && onEditPrice && (
-                <ActionButton $variant="secondary" onClick={() => onEditPrice(cacamba)}>
-                  Adicionar valor
-                </ActionButton>
-              )}
-              {!selectable && adminMetaActions && isRetirada && onEditContentType && (
-                <ActionButton $variant="secondary" onClick={() => onEditContentType(cacamba)}>
-                  Editar conteúdo
-                </ActionButton>
-              )}
-              {adminMetaActions && canEditPrice && (!selectable || !isPendingClosure) && (isRetirada || isEntrega) && onEditPrice && (
-                <ActionButton $variant="secondary" onClick={() => onEditPrice(cacamba)}>
-                  {typeof cacamba.price === 'number' ? 'Editar valor' : 'Adicionar valor'}
-                </ActionButton>
-              )}
-            </ActionRow>
+                )}
+                {showDeleteAction && onDelete && (
+                  <ActionButton type="button" $variant="danger" onClick={() => onDelete(cacamba._id)} aria-label={`Excluir caçamba ${cacamba.numero}`}>
+                    Excluir
+                  </ActionButton>
+                )}
+                {showReturnToPendingAction && onReturnToPending && (
+                  returnToPendingSelectable ? (
+                    <SelectionLabel>
+                      <SelectionInput
+                        checked={selectedReturnToPendingIds.includes(cacamba._id)}
+                        onChange={(event) => onToggleReturnToPending?.(cacamba, event.target.checked)}
+                        aria-label={`Selecionar caçamba ${cacamba.numero} para voltar a pendente`}
+                      />
+                      Voltar para pendente
+                    </SelectionLabel>
+                  ) : (
+                    <ActionButton
+                      type="button"
+                      $variant="secondary"
+                      onClick={() => onReturnToPending(cacamba)}
+                    >
+                      Voltar para pendente
+                    </ActionButton>
+                  )
+                )}
+                {showMissingContentAction && onEditContentType && (
+                  <ActionButton type="button" $variant="secondary" onClick={() => onEditContentType(cacamba)}>
+                    Adicionar conteúdo
+                  </ActionButton>
+                )}
+                {showMissingValueAction && onEditPrice && (
+                  <ActionButton type="button" $variant="secondary" onClick={() => onEditPrice(cacamba)}>
+                    Adicionar valor
+                  </ActionButton>
+                )}
+                {showAdminContentAction && onEditContentType && (
+                  <ActionButton type="button" $variant="secondary" onClick={() => onEditContentType(cacamba)}>
+                    Editar conteúdo
+                  </ActionButton>
+                )}
+                {showAdminPriceAction && onEditPrice && (
+                  <ActionButton type="button" $variant="secondary" onClick={() => onEditPrice(cacamba)}>
+                    {typeof cacamba.price === 'number' ? 'Editar valor' : 'Adicionar valor'}
+                  </ActionButton>
+                )}
+              </ActionRow>
+            )}
           </CacambaCard>
         );
       })}

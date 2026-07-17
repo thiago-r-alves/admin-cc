@@ -27,7 +27,7 @@ test.describe('Admin', () => {
     await expect(card).toBeVisible();
     await expect(card.getByText('Comprovante da locação')).toBeVisible();
     await expect(card.getByText('Comprovante coletado por')).toBeVisible();
-    await expect(card.getByText('Motorista: adalberto')).toBeVisible();
+    await expect(card.getByText('Adalberto').first()).toBeVisible();
     await expect(card.getByRole('img', { name: 'Assinatura pelo recebimento da locação' })).toBeVisible();
   });
 
@@ -277,7 +277,7 @@ test.describe('Admin', () => {
     await openMenuIfMobile(page, isMobile);
     await page.getByRole('button', { name: 'Motoristas' }).click();
     await expect(page.getByText('Gerenciar Motoristas')).toBeVisible();
-    await expect(page.getByText('adalberto')).toBeVisible();
+    await expect(page.getByText('Adalberto')).toBeVisible();
     await expect(page.getByRole('button', { name: /\+ Adicionar Motorista/i })).toBeVisible();
   });
 
@@ -292,6 +292,65 @@ test.describe('Admin', () => {
   test('renderiza secao de concluidos com botao de download de pedido', async ({ page }) => {
     await expect(page.getByText('#1500')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Baixar Pedido' }).first()).toBeVisible();
+  });
+
+  test('card da cacamba reorganiza foto e acoes entre desktop e mobile', async ({ page, isMobile }) => {
+    const card = page.getByTestId('cacamba-card-cac-2');
+    const image = card.getByRole('img', { name: 'Foto da caçamba 415' });
+
+    await expect(card).toBeVisible();
+    await expect(image).toBeVisible();
+    await card.scrollIntoViewIfNeeded();
+
+    const layout = await card.evaluate((element) => {
+      const details = element.querySelector('[data-testid="cacamba-details-cac-2"]');
+      const actions = element.querySelector('[data-testid="cacamba-actions-cac-2"]');
+      const photo = element.querySelector('img[alt="Foto da caçamba 415"]');
+      const photoFrame = photo?.parentElement;
+      const buttons = actions ? Array.from(actions.querySelectorAll('button')) : [];
+
+      if (!details || !actions || !photoFrame || buttons.length < 2) return null;
+
+      const detailsRect = details.getBoundingClientRect();
+      const actionsRect = actions.getBoundingClientRect();
+      const photoFrameRect = photoFrame.getBoundingClientRect();
+      const firstButtonRect = buttons[0].getBoundingClientRect();
+      const secondButtonRect = buttons[1].getBoundingClientRect();
+
+      return {
+        hasHorizontalOverflow: element.scrollWidth > element.clientWidth + 1,
+        detailsWidth: detailsRect.width,
+        detailsLeft: detailsRect.left,
+        detailsBottom: detailsRect.bottom,
+        photoWidth: photoFrameRect.width,
+        photoLeft: photoFrameRect.left,
+        photoTop: photoFrameRect.top,
+        actionsDisplay: getComputedStyle(actions).display,
+        actionsInnerWidth:
+          actionsRect.width -
+          Number.parseFloat(getComputedStyle(actions).paddingLeft) -
+          Number.parseFloat(getComputedStyle(actions).paddingRight),
+        firstButtonWidth: firstButtonRect.width,
+        firstButtonTop: firstButtonRect.top,
+        secondButtonTop: secondButtonRect.top,
+      };
+    });
+
+    expect(layout).not.toBeNull();
+    expect(layout!.hasHorizontalOverflow).toBe(false);
+
+    if (isMobile) {
+      expect(layout!.photoTop).toBeGreaterThanOrEqual(layout!.detailsBottom - 1);
+      expect(layout!.photoWidth).toBeGreaterThanOrEqual(layout!.detailsWidth - 1);
+      expect(layout!.actionsDisplay).toBe('grid');
+      expect(layout!.firstButtonWidth).toBeGreaterThanOrEqual(layout!.actionsInnerWidth - 1);
+      expect(layout!.secondButtonTop).toBeGreaterThan(layout!.firstButtonTop);
+    } else {
+      expect(layout!.photoLeft).toBeGreaterThan(layout!.detailsLeft);
+      expect(layout!.photoWidth).toBe(92);
+      expect(layout!.actionsDisplay).toBe('flex');
+      expect(Math.abs(layout!.secondButtonTop - layout!.firstButtonTop)).toBeLessThanOrEqual(1);
+    }
   });
 
   test('mostra data de entrega anterior em retirada na visualizacao admin', async ({ page }) => {

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IOrder } from '../interfaces';
 import CorrectOrderModal from './CorrectOrderModal';
 
-const driver = { _id: 'driver-1', username: 'Motorista 1' };
+const driver = { _id: 'driver-1', username: 'motorista 1' };
 
 const baseOrder: IOrder = {
   _id: 'order-1',
@@ -55,6 +55,10 @@ describe('CorrectOrderModal', () => {
       />,
     );
 
+    expect(screen.getByRole('option', { name: 'Motorista 1' })).toBeInTheDocument();
+    expect(screen.getByText('Motorista atual:').parentElement).toHaveTextContent(
+      'Motorista atual: Motorista 1',
+    );
     expect(screen.getByLabelText('Valor da caçamba (R$)')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Tipo do pedido'), { target: { value: 'entrega' } });

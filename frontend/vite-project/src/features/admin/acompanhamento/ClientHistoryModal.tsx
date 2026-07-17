@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { ICacamba, IOrder } from '../../../interfaces';
 import { apiUrl } from '../../../services/api';
 import { cn } from '../../../utils/cn';
+import { formatDriverName } from '../../../utils/formatDriverName';
 import { formatOrderAddress } from '../admin.helpers';
 import {
   AcompanhamentoImage,
@@ -41,8 +42,8 @@ const getOrderTime = (order: IOrder) => {
 const getDriverName = (order: IOrder) => {
   const driver = order.motorista;
   if (!driver) return '-';
-  if (typeof driver === 'string') return driver;
-  return driver.username || '-';
+  if (typeof driver === 'string') return formatDriverName(driver);
+  return formatDriverName(driver.username);
 };
 
 const getImageUrl = (imageUrl?: string) => {

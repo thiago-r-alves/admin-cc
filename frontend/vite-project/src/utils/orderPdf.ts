@@ -1,5 +1,6 @@
 import type { IOrder, ICacamba } from '../interfaces';
 import { apiUrl } from '../services/api';
+import { formatDriverName } from './formatDriverName';
 
 type JsPdfDocument = InstanceType<typeof import('jspdf').jsPDF>;
 type JsPdfWithAutoTable = JsPdfDocument & { lastAutoTable?: { finalY?: number } };
@@ -64,7 +65,7 @@ const formatLocal = (local?: string) => {
 
 const getDriverDisplayName = (driver: IOrder['motorista']) => {
   if (!driver || typeof driver === 'string') return '-';
-  return toTitleCase(driver.username || '-');
+  return formatDriverName(driver.username);
 };
 
 const formatFileNamePart = (value?: string | number) =>
@@ -225,7 +226,7 @@ export async function downloadOrderPdf(order: IOrder, options: DownloadOrderPdfO
     const proofStartY = startY > 260 ? 16 : startY;
     const driverName =
       proof?.driverNameSnapshot
-        ? toTitleCase(proof.driverNameSnapshot)
+        ? formatDriverName(proof.driverNameSnapshot)
         : getDriverDisplayName(order.motorista);
     const proofBody = !proof
       ? [['Comprovante', 'Sem comprovante digital']]

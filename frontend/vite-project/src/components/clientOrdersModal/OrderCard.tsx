@@ -1,6 +1,7 @@
 import React from 'react';
 import type { ICacamba, IOrder, OrderType } from '../../interfaces';
 import { cn } from '../../utils/cn';
+import { formatDriverName } from '../../utils/formatDriverName';
 import CacambaList from '../CacambaList';
 
 const isObjectIdLike = (value: string) => /^[a-f0-9]{24}$/i.test(value);
@@ -8,9 +9,9 @@ const isObjectIdLike = (value: string) => /^[a-f0-9]{24}$/i.test(value);
 const getDriverName = (order: IOrder) => {
   if (!order.motorista) return '';
   if (typeof order.motorista === 'string') {
-    return isObjectIdLike(order.motorista) ? '' : order.motorista;
+    return isObjectIdLike(order.motorista) ? '' : formatDriverName(order.motorista, '');
   }
-  return order.motorista.username || '';
+  return formatDriverName(order.motorista.username, '');
 };
 
 interface OrderCardProps {

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import type { IDriver, IOrder, OrderType } from '../interfaces';
+import { formatDriverName } from '../utils/formatDriverName';
 import { twComponent } from '../utils/twComponent';
 
 const fieldClass = 'min-h-[42px] w-full rounded-ui-md border border-brand-border bg-white px-[0.7rem] py-[0.6rem] text-[0.9rem] text-gray-700 focus:border-brand focus:outline-none focus:ring-[3px] focus:ring-brand-focus';
@@ -54,8 +55,11 @@ const CorrectOrderModal: React.FC<CorrectOrderModalProps> = ({
   const [error, setError] = useState('');
 
   const currentDriverName = useMemo(() => {
-    if (typeof order.motorista === 'object' && order.motorista?.username) return order.motorista.username;
-    return drivers.find((driver) => driver._id === getDriverId(order))?.username || '-';
+    const driverName =
+      typeof order.motorista === 'object' && order.motorista?.username
+        ? order.motorista.username
+        : drivers.find((driver) => driver._id === getDriverId(order))?.username;
+    return formatDriverName(driverName);
   }, [drivers, order]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -169,7 +173,7 @@ const CorrectOrderModal: React.FC<CorrectOrderModalProps> = ({
                   <option value="">Selecione...</option>
                   {drivers.map((driver) => (
                     <option key={driver._id} value={driver._id}>
-                      {driver.username}
+                      {formatDriverName(driver.username)}
                     </option>
                   ))}
                 </Select>

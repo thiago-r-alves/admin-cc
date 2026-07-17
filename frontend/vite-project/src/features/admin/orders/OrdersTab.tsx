@@ -1,5 +1,6 @@
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import type { IDriver, IOrder } from '../../../interfaces';
+import { formatDriverName } from '../../../utils/formatDriverName';
 import { ADMIN_PAGE_SIZE } from '../admin.constants';
 import {
   AddOrderButton,
@@ -64,19 +65,22 @@ export const OrdersTab = ({
         Seleção de motorista
       </FilterLabel>
       <DriverTabsBar>
-        {drivers.map((driver) => (
-          <DriverTabButton
-            key={driver._id}
-            active={driver._id === selectedDriverId}
-            onClick={() => onSelectDriver(driver._id)}
-          >
-            <span className="initial">{driver.username.charAt(0).toUpperCase()}</span>
-            <span className="meta">
-              <span className="name">{driver.username}</span>
-              <span className="count">{pendingCountByDriver[driver._id] ?? 0} pendentes</span>
-            </span>
-          </DriverTabButton>
-        ))}
+        {drivers.map((driver) => {
+          const driverName = formatDriverName(driver.username);
+          return (
+            <DriverTabButton
+              key={driver._id}
+              active={driver._id === selectedDriverId}
+              onClick={() => onSelectDriver(driver._id)}
+            >
+              <span className="initial">{driverName.charAt(0)}</span>
+              <span className="meta">
+                <span className="name">{driverName}</span>
+                <span className="count">{pendingCountByDriver[driver._id] ?? 0} pendentes</span>
+              </span>
+            </DriverTabButton>
+          );
+        })}
       </DriverTabsBar>
     </DriverFilterPanel>
 

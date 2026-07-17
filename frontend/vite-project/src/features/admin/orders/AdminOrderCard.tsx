@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { ICacamba, IOrder, OrderType } from '../../../interfaces';
 import CacambaList from '../../../components/CacambaList';
 import { apiUrl } from '../../../services/api';
+import { formatDriverName } from '../../../utils/formatDriverName';
 import { SHOW_ORDER_DOWNLOAD_BUTTON, typeLabels } from '../admin.constants';
 import { formatOrderAddress } from '../admin.helpers';
 import {
@@ -61,6 +62,11 @@ export const AdminOrderCard = ({
   const proofImageUrl = proof?.signatureImageUrl
     ? (proof.signatureImageUrl.startsWith('http') ? proof.signatureImageUrl : `${apiUrl}${proof.signatureImageUrl}`)
     : '';
+  const proofDriverName = formatDriverName(proof?.driverNameSnapshot);
+  const orderDriverName = formatDriverName(
+    (typeof order.motorista === 'object' ? order.motorista?.username : '') ||
+      proof?.driverNameSnapshot,
+  );
   const downloadOrder = async (includePaymentQrCode: boolean) => {
     try {
       setIsDownloadingOrderPdf(true);
@@ -144,8 +150,8 @@ export const AdminOrderCard = ({
                 {proof.type === 'no_responsible' && <span className="w-fit rounded-ui-md border border-red-300 bg-red-50 px-2 py-1 text-xs font-black uppercase text-red-800">Sem responsável no local</span>}
                 <InfoGrid>
                   <InfoTile><InfoLabel>Data/Hora</InfoLabel><InfoValue>{proofDate && !Number.isNaN(proofDate.getTime()) ? proofDate.toLocaleString('pt-BR') : '-'}</InfoValue></InfoTile>
-                  <InfoTile><InfoLabel>Comprovante coletado por</InfoLabel><InfoValue>{proof.driverNameSnapshot || '-'}</InfoValue></InfoTile>
-                  <InfoTile><InfoLabel>Motorista do pedido</InfoLabel><InfoValue>{(typeof order.motorista === 'object' ? order.motorista?.username : '') || proof.driverNameSnapshot || '-'}</InfoValue></InfoTile>
+                  <InfoTile><InfoLabel>Comprovante coletado por</InfoLabel><InfoValue>{proofDriverName}</InfoValue></InfoTile>
+                  <InfoTile><InfoLabel>Motorista do pedido</InfoLabel><InfoValue>{orderDriverName}</InfoValue></InfoTile>
                   {proof.isReused && <InfoTile><InfoLabel>OS digital de origem</InfoLabel><InfoValue>#{proof.reusedFromOrderNumber ?? '-'}</InfoValue></InfoTile>}
                   {proof.type === 'no_responsible' && <InfoTile><InfoLabel>Observação</InfoLabel><InfoValue>{proof.note || '-'}</InfoValue></InfoTile>}
                 </InfoGrid>

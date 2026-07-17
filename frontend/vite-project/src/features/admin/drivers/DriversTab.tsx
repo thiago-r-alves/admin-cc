@@ -1,4 +1,5 @@
 import type { IDriver } from '../../../interfaces';
+import { formatDriverName } from '../../../utils/formatDriverName';
 import { DriverEditIcon, DriverPersonIcon, DriverTrashIcon } from '../AdminIcons';
 import {
   AddDriverButton,
@@ -46,7 +47,7 @@ export const DriversTab = ({
                 <DriverPersonIcon />
               </DriverAvatar>
               <div>
-                <DriverName>{driver.username}</DriverName>
+                <DriverName>{formatDriverName(driver.username)}</DriverName>
                 <DriverRole>Motorista</DriverRole>
               </div>
             </DriverInfo>

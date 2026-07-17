@@ -1,4 +1,5 @@
 import type { IClient, IOrder } from '../interfaces';
+import { formatDriverName } from './formatDriverName';
 
 type DownloadClientOrdersPdfInput = {
   client: IClient;
@@ -149,10 +150,15 @@ const isObjectIdLike = (value: string) => /^[a-f0-9]{24}$/i.test(value);
 const getDriverName = (order: IOrder) => {
   if (!order.motorista) return 'Nao informado';
   if (typeof order.motorista === 'string') {
-    return isObjectIdLike(order.motorista) ? 'Nao informado' : order.motorista;
+    return isObjectIdLike(order.motorista)
+      ? 'Nao informado'
+      : formatDriverName(order.motorista, 'Nao informado');
   }
   if (typeof order.motorista === 'object' && 'username' in order.motorista) {
-    return String((order.motorista as { username?: string }).username || 'Nao informado');
+    return formatDriverName(
+      (order.motorista as { username?: string }).username,
+      'Nao informado',
+    );
   }
   return 'Nao informado';
 };
@@ -170,7 +176,7 @@ const getActionColumns = (
 ) => {
   if (!action) return ['-', '-', '-', '-'];
   const date = formatDateTime(action.date);
-  const driver = action.driverName || 'Nao informado';
+  const driver = formatDriverName(action.driverName, 'Nao informado');
   const placa = action.placa ? action.placa.toUpperCase() : '-';
   const orderNumber = action.orderNumber ?? '-';
   return [date, driver, placa, String(orderNumber)];

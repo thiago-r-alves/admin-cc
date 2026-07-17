@@ -16,7 +16,7 @@ test.describe('Admin change client', () => {
   };
 
   test('corrige cliente de pedido concluído e transfere fechamento pago para o novo cliente', async ({ page }) => {
-    await page.getByRole('button', { name: 'jhonatan' }).click();
+    await page.getByRole('button', { name: 'Jhonatan' }).click();
     const completedCard = page.locator('div').filter({ hasText: '#2234' }).first();
     await expect(completedCard.getByText('3GK HOLDING E PARTICIPACOES OBRA 1')).toBeVisible();
 
@@ -56,7 +56,7 @@ test.describe('Admin change client', () => {
       await route.fallback();
     });
 
-    await page.getByRole('button', { name: 'jhonatan' }).click();
+    await page.getByRole('button', { name: 'Jhonatan' }).click();
     const completedCard = page.locator('div').filter({ hasText: '#2234' }).first();
     await completedCard.getByRole('button', { name: 'Corrigir Cliente' }).click();
     await expect(page.getByTestId('change-order-client-modal')).toBeVisible();

@@ -54,8 +54,8 @@ describe('AdminOrderCard comprovante reutilizado', () => {
 
     expect(screen.getByText('Comprovante reutilizado')).toBeInTheDocument();
     expect(screen.getByText('#101')).toBeInTheDocument();
-    expect(screen.getByText('Motorista coletor')).toBeInTheDocument();
-    expect(screen.getByText('Motorista atual')).toBeInTheDocument();
+    expect(screen.getByText('Motorista Coletor')).toBeInTheDocument();
+    expect(screen.getByText('Motorista Atual')).toBeInTheDocument();
     expect(screen.getByText('Portaria fechada.')).toBeInTheDocument();
   });
 

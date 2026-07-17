@@ -17,6 +17,7 @@ import type {
   OrderType,
 } from '../../../interfaces';
 import { apiUrl } from '../../../services/api';
+import { formatDriverName } from '../../../utils/formatDriverName';
 import {
   formatDaysOnSite,
   formatOrderAddress,
@@ -497,7 +498,7 @@ export const AcompanhamentoTab = ({
             {items.map(({ numero, cacamba, order, activeCacambaCount }) => {
               const motoristaNome =
                 typeof order.motorista === 'object' && order.motorista !== null
-                  ? (order.motorista as { username?: string }).username
+                  ? formatDriverName((order.motorista as { username?: string }).username, '')
                   : '';
               const contato = [order.contactName, order.contactNumber].filter(Boolean).join(' - ');
               const localLabel =
