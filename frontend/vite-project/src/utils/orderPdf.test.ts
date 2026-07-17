@@ -116,7 +116,7 @@ describe('downloadOrderPdf', () => {
     expect(saveMock).toHaveBeenCalledWith('Cliente_Teste_os_digital_101.pdf');
   });
 
-  it('remove cabecalho e campos desnecessarios da tabela principal mantendo valor total', async () => {
+  it('remove cabecalho, campos desnecessarios e valor total da tabela principal', async () => {
     await downloadOrderPdf(baseOrder);
 
     const table = firstTable();
@@ -125,7 +125,6 @@ describe('downloadOrderPdf', () => {
       ['Número do Pedido', '101'],
       ['Tipo', 'Entrega'],
       ['Cliente', 'Cliente Teste'],
-      ['Valor Total', expect.stringMatching(/R\$\s?250,00/)],
       ['Endereço', 'Rua A, 10 - Centro'],
       ['Motorista', 'Motorista Teste'],
       ['Finalizado em', expect.any(String)],
@@ -135,6 +134,8 @@ describe('downloadOrderPdf', () => {
     expect(tableText).not.toContain('Status');
     expect(tableText).not.toContain('Contato');
     expect(tableText).not.toContain('Criado em');
+    expect(tableText).not.toContain('Valor');
+    expect(tableText).not.toContain('R$');
     expect(saveMock).toHaveBeenCalledWith('Cliente_Teste_os_digital_101.pdf');
   });
 
@@ -220,12 +221,12 @@ describe('downloadOrderPdf', () => {
     expect(tables[1]?.body).toEqual(expect.arrayContaining([
       ['Local', 'Via Publica'],
       ['Conteúdo', 'Entulho Limpo'],
-      ['Valor', expect.stringMatching(/R\$\s?120,00/)],
       ['Local', 'Canteiro De Obra'],
       ['Conteúdo', 'Terra'],
-      ['Valor', expect.stringMatching(/R\$\s?130,00/)],
     ]));
     expect(JSON.stringify(tables[1]?.body)).not.toContain('"Tipo"');
+    expect(JSON.stringify(tables[1]?.body)).not.toContain('"Valor"');
+    expect(JSON.stringify(tables[1]?.body)).not.toContain('R$');
     expect(tables[1]?.headStyles?.fillColor).toEqual([227, 6, 19]);
     expect(tables[1]?.headStyles?.textColor).toEqual([255, 255, 255]);
     expect(tables[1]?.headStyles?.fontStyle).toBe('bold');

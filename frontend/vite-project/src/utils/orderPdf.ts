@@ -130,14 +130,6 @@ const getOrderPaymentAmount = (order: IOrder) => {
   }, 0);
 };
 
-const formatCurrency = (value: number) =>
-  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-const formatCacambaPrice = (cacamba: ICacamba) => {
-  const price = Number(cacamba.price);
-  return Number.isFinite(price) && price > 0 ? formatCurrency(price) : '-';
-};
-
 export async function downloadOrderPdf(order: IOrder, options: DownloadOrderPdfOptions = {}) {
   const { jsPDF } = await import('jspdf');
   const autoTableModule = await import('jspdf-autotable');
@@ -159,7 +151,6 @@ export async function downloadOrderPdf(order: IOrder, options: DownloadOrderPdfO
       ['Número do Pedido', String(orderNumber)],
       ['Tipo', toTitleCase(order.type)],
       ['Cliente', legacyOrder.client?.clientName || order.clientName || '-'],
-      ['Valor Total', formatCurrency(getOrderPaymentAmount(order))],
       [
         'Endereço',
         `${order.address || ''}, ${order.addressNumber || ''} - ${order.neighborhood || ''}`
@@ -190,7 +181,6 @@ export async function downloadOrderPdf(order: IOrder, options: DownloadOrderPdfO
         detailsBody.push(['Registrada em', fmt(c.createdAt)]);
         detailsBody.push(['Local', formatLocal(c.local)]);
         detailsBody.push(['Conteúdo', toTitleCase(c.contentType)]);
-        detailsBody.push(['Valor', formatCacambaPrice(c)]);
         detailsBody.push(['', '']);
       });
 
