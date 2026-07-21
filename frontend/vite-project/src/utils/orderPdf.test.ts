@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { toDataURL } from 'qrcode';
-import type { IOrder } from '../interfaces';
+import type { ICacamba, IOrder } from '../interfaces';
 import { downloadOrderPdf } from './orderPdf';
 
 type AutoTableOptions = {
@@ -237,7 +237,7 @@ describe('downloadOrderPdf', () => {
   });
 
   it('gera nota individual contendo somente a cacamba selecionada', async () => {
-    const individualCacamba = {
+    const individualCacamba: ICacamba = {
       _id: 'cac-2',
       numero: '102',
       tipo: 'entrega' as const,
@@ -285,7 +285,7 @@ describe('downloadOrderPdf', () => {
   });
 
   it('usa o valor da cacamba no QR Code Pix da nota individual', async () => {
-    const individualCacamba = {
+    const individualCacamba: ICacamba = {
       _id: 'cac-1',
       numero: '101',
       tipo: 'entrega' as const,
