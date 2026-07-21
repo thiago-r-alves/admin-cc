@@ -51,8 +51,13 @@ export const AdminOrderCard = ({
   onDeleteCacamba,
 }: AdminOrderCardProps) => {
   const [showPaymentQrChoice, setShowPaymentQrChoice] = useState(false);
+  const [paymentQrCacamba, setPaymentQrCacamba] = useState<ICacamba | null>(null);
   const [isDownloadingOrderPdf, setIsDownloadingOrderPdf] = useState(false);
   const hasCacambas = (order.cacambas?.length ?? 0) > 0;
+  const canDownloadIndividualCacambaPdf =
+    SHOW_ORDER_DOWNLOAD_BUTTON &&
+    order.status === 'concluido' &&
+    (order.cacambas?.length ?? 0) > 1;
   const canCorrectOrder = order.status === 'pendente' && !hasCacambas;
   const contactText = [order.contactName, order.contactNumber ? `(${order.contactNumber})` : '']
     .filter(Boolean)
@@ -67,15 +72,28 @@ export const AdminOrderCard = ({
     (typeof order.motorista === 'object' ? order.motorista?.username : '') ||
       proof?.driverNameSnapshot,
   );
-  const downloadOrder = async (includePaymentQrCode: boolean) => {
+  const downloadOrder = async (includePaymentQrCode: boolean, individualCacamba?: ICacamba) => {
     try {
       setIsDownloadingOrderPdf(true);
       const { downloadOrderPdf } = await import('../../../utils/orderPdf');
-      await downloadOrderPdf(order, { includePaymentQrCode });
+      await downloadOrderPdf(order, {
+        includePaymentQrCode,
+        ...(individualCacamba ? { individualCacamba } : {}),
+      });
       setShowPaymentQrChoice(false);
+      setPaymentQrCacamba(null);
     } finally {
       setIsDownloadingOrderPdf(false);
     }
+  };
+
+  const handleDownloadIndividualCacambaPdf = async (cacamba: ICacamba) => {
+    if (order.type === 'entrega') {
+      setPaymentQrCacamba(cacamba);
+      setShowPaymentQrChoice(true);
+      return;
+    }
+    await downloadOrder(false, cacamba);
   };
 
   return (
@@ -133,6 +151,7 @@ export const AdminOrderCard = ({
                 const cacamba = (order.cacambas || []).find((item) => item._id === cacambaId);
                 if (cacamba) onDeleteCacamba(cacamba);
               } : undefined}
+              onDownloadIndividualPdf={canDownloadIndividualCacambaPdf ? handleDownloadIndividualCacambaPdf : undefined}
               showDeliveryDateForRetirada
               responsibility={{ motorista: order.motorista, placa: order.placa }}
             />
@@ -204,6 +223,7 @@ export const AdminOrderCard = ({
                 type="button"
                 onClick={async () => {
                   if (order.type === 'entrega') {
+                    setPaymentQrCacamba(null);
                     setShowPaymentQrChoice(true);
                     return;
                   }
@@ -221,7 +241,10 @@ export const AdminOrderCard = ({
           className="fixed inset-0 z-[1300] flex items-center justify-center bg-gray-900/60 p-4"
           role="presentation"
           onClick={() => {
-            if (!isDownloadingOrderPdf) setShowPaymentQrChoice(false);
+            if (!isDownloadingOrderPdf) {
+              setShowPaymentQrChoice(false);
+              setPaymentQrCacamba(null);
+            }
           }}
         >
           <div
@@ -236,7 +259,7 @@ export const AdminOrderCard = ({
                 Incluir QR Code de pagamento?
               </h3>
               <p className="mb-0 mt-2 text-[0.88rem] font-semibold leading-5 text-gray-600">
-                Deseja que a nota deste pedido de entrega saia com QR Code Pix e informações de pagamento?
+                Deseja que a nota {paymentQrCacamba ? `individual da caçamba ${paymentQrCacamba.numero}` : 'deste pedido de entrega'} saia com QR Code Pix e informações de pagamento?
               </p>
             </div>
             <div className="flex flex-wrap justify-end gap-2 px-5 py-4">
@@ -244,7 +267,7 @@ export const AdminOrderCard = ({
                 type="button"
                 className="min-h-11 cursor-pointer rounded-ui-md border border-gray-300 bg-white px-4 py-2 text-sm font-black text-gray-700 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isDownloadingOrderPdf}
-                onClick={() => downloadOrder(false)}
+                onClick={() => downloadOrder(false, paymentQrCacamba || undefined)}
               >
                 Baixar sem QR Code
               </button>
@@ -252,7 +275,7 @@ export const AdminOrderCard = ({
                 type="button"
                 className="min-h-11 cursor-pointer rounded-ui-md border border-brand bg-brand px-4 py-2 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isDownloadingOrderPdf}
-                onClick={() => downloadOrder(true)}
+                onClick={() => downloadOrder(true, paymentQrCacamba || undefined)}
               >
                 {isDownloadingOrderPdf ? 'Gerando...' : 'Incluir QR Code Pix'}
               </button>

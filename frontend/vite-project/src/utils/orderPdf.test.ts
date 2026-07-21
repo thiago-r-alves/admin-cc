@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { toDataURL } from 'qrcode';
 import type { IOrder } from '../interfaces';
 import { downloadOrderPdf } from './orderPdf';
 
@@ -86,6 +87,7 @@ describe('downloadOrderPdf', () => {
     addImageMock.mockClear();
     saveMock.mockClear();
     textMock.mockClear();
+    vi.mocked(toDataURL).mockClear();
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
@@ -232,6 +234,80 @@ describe('downloadOrderPdf', () => {
     expect(tables[1]?.headStyles?.fontStyle).toBe('bold');
     expect(findProofTable()?.head).toEqual([['Comprovante da locação', '']]);
     expect(findProofTable()?.headStyles?.fillColor).toEqual([227, 6, 19]);
+  });
+
+  it('gera nota individual contendo somente a cacamba selecionada', async () => {
+    const individualCacamba = {
+      _id: 'cac-2',
+      numero: '102',
+      tipo: 'entrega' as const,
+      paymentStatus: 'pendente' as const,
+      local: 'canteiro_obra' as const,
+      contentType: 'Terra',
+      price: 130,
+      orderId: 'ord-1',
+      createdAt: '2026-05-16T10:35:00.000Z',
+    };
+
+    await downloadOrderPdf({
+      ...baseOrder,
+      cacambas: [
+        {
+          _id: 'cac-1',
+          numero: '101',
+          tipo: 'entrega',
+          paymentStatus: 'pendente',
+          local: 'via_publica',
+          contentType: 'Entulho limpo',
+          price: 120,
+          orderId: 'ord-1',
+          createdAt: '2026-05-16T10:30:00.000Z',
+        },
+        individualCacamba,
+      ],
+    }, { individualCacamba });
+
+    const detailsTable = autoTableMock.mock.calls
+      .map((call) => call[1] as AutoTableOptions)
+      .find((table) => table.head?.[0]?.[0] === 'Detalhes Individuais');
+    const detailsText = JSON.stringify(detailsTable?.body);
+
+    expect(detailsTable?.body).toEqual(expect.arrayContaining([
+      ['Número', '102'],
+      ['Local', 'Canteiro De Obra'],
+      ['Conteúdo', 'Terra'],
+    ]));
+    expect(detailsText).not.toContain('101');
+    expect(detailsText).not.toContain('Entulho Limpo');
+    expect(detailsText).not.toContain('"Valor"');
+    expect(detailsText).not.toContain('R$');
+    expect(saveMock).toHaveBeenCalledWith('Cliente_Teste_os_digital_101_cacamba_102.pdf');
+  });
+
+  it('usa o valor da cacamba no QR Code Pix da nota individual', async () => {
+    const individualCacamba = {
+      _id: 'cac-1',
+      numero: '101',
+      tipo: 'entrega' as const,
+      paymentStatus: 'pendente' as const,
+      local: 'via_publica' as const,
+      contentType: 'Entulho limpo',
+      price: 120,
+      orderId: 'ord-1',
+      createdAt: '2026-05-16T10:30:00.000Z',
+    };
+
+    await downloadOrderPdf({
+      ...baseOrder,
+      cacambas: [individualCacamba],
+      cacambaPrice: 250,
+    }, { includePaymentQrCode: true, individualCacamba });
+
+    expect(toDataURL).toHaveBeenCalledWith(
+      expect.stringContaining('120.00'),
+      expect.objectContaining({ width: 240 }),
+    );
+    expect(String(vi.mocked(toDataURL).mock.calls[0]?.[0])).not.toContain('250.00');
   });
 
   it('usa texto preto real e mais forte para melhorar impressao', async () => {

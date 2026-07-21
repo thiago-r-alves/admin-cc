@@ -120,6 +120,8 @@ interface CacambaListProps {
   canEditPrice?: boolean;
   onEditContentType?: (cacamba: ICacamba) => void;
   onEditPrice?: (cacamba: ICacamba) => void;
+  onDownloadIndividualPdf?: (cacamba: ICacamba) => void;
+  downloadIndividualPdfLabel?: string;
   selectable?: boolean;
   selectedCacambaIds?: string[];
   onToggleSelect?: (cacamba: ICacamba, checked: boolean) => void;
@@ -188,6 +190,8 @@ const CacambaList: React.FC<CacambaListProps> = ({
   canEditPrice = false,
   onEditContentType,
   onEditPrice,
+  onDownloadIndividualPdf,
+  downloadIndividualPdfLabel = 'Baixar nota individual',
   selectable = false,
   selectedCacambaIds = [],
   onToggleSelect,
@@ -291,6 +295,7 @@ const CacambaList: React.FC<CacambaListProps> = ({
           (!selectable || !isPendingClosure) &&
           (isRetirada || isEntrega) &&
           Boolean(onEditPrice);
+        const showDownloadIndividualPdfAction = !selectable && Boolean(onDownloadIndividualPdf);
         const hasActions =
           showSelectAction ||
           showEditAction ||
@@ -299,7 +304,8 @@ const CacambaList: React.FC<CacambaListProps> = ({
           showMissingContentAction ||
           showMissingValueAction ||
           showAdminContentAction ||
-          showAdminPriceAction;
+          showAdminPriceAction ||
+          showDownloadIndividualPdfAction;
         const isSelectedForPayment = selectedCacambaIds.includes(cacamba._id);
 
         return (
@@ -478,6 +484,11 @@ const CacambaList: React.FC<CacambaListProps> = ({
                 {showAdminPriceAction && onEditPrice && (
                   <ActionButton type="button" $variant="secondary" onClick={() => onEditPrice(cacamba)}>
                     {typeof cacamba.price === 'number' ? 'Editar valor' : 'Adicionar valor'}
+                  </ActionButton>
+                )}
+                {showDownloadIndividualPdfAction && onDownloadIndividualPdf && (
+                  <ActionButton type="button" $variant="secondary" onClick={() => onDownloadIndividualPdf(cacamba)}>
+                    {downloadIndividualPdfLabel}
                   </ActionButton>
                 )}
               </ActionRow>

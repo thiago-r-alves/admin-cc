@@ -7,6 +7,7 @@ type JsPdfWithAutoTable = JsPdfDocument & { lastAutoTable?: { finalY?: number } 
 type AutoTableFn = (doc: JsPdfDocument, options: Record<string, unknown>) => void;
 type DownloadOrderPdfOptions = {
   includePaymentQrCode?: boolean;
+  individualCacamba?: ICacamba;
 };
 type OrderWithLegacyFields = IOrder & {
   numeroPedido?: number | string;
@@ -121,7 +122,11 @@ const buildPixCopyPaste = (amount: number) => {
   return `${payloadWithoutCrc}${crc16Ccitt(payloadWithoutCrc)}`;
 };
 
-const getOrderPaymentAmount = (order: IOrder) => {
+const getOrderPaymentAmount = (order: IOrder, individualCacamba?: ICacamba) => {
+  if (individualCacamba) {
+    const cacambaPrice = Number(individualCacamba.price);
+    if (Number.isFinite(cacambaPrice) && cacambaPrice > 0) return cacambaPrice;
+  }
   const orderPrice = Number(order.cacambaPrice);
   if (Number.isFinite(orderPrice) && orderPrice > 0) return orderPrice;
   return (order.cacambas || []).reduce((sum, cacamba) => {
@@ -131,6 +136,7 @@ const getOrderPaymentAmount = (order: IOrder) => {
 };
 
 export async function downloadOrderPdf(order: IOrder, options: DownloadOrderPdfOptions = {}) {
+  const { individualCacamba } = options;
   const { jsPDF } = await import('jspdf');
   const autoTableModule = await import('jspdf-autotable');
   const autoTable = ('default' in autoTableModule ? autoTableModule.default : autoTableModule) as AutoTableFn;
@@ -163,9 +169,11 @@ export async function downloadOrderPdf(order: IOrder, options: DownloadOrderPdfO
   });
 
   // Resumo das caçambas na MESMA página (sem addPage)
-  if (order.cacambas?.length) {
+  const pdfCacambas = individualCacamba ? [individualCacamba] : order.cacambas || [];
+
+  if (pdfCacambas.length) {
     // Ajuste de fonte se muitas caçambas
-    const total = order.cacambas.length;
+    const total = pdfCacambas.length;
     const fontSize = total > 12 ? 7 : total > 8 ? 8 : 9;
 
     // Detalhes individuais condensados em uma tabela só (para não gerar múltiplas)
@@ -175,7 +183,7 @@ export async function downloadOrderPdf(order: IOrder, options: DownloadOrderPdfO
       const detailsTitleY = afterSummaryY + 8; // aumenta o espaço
 
       const detailsBody: string[][] = [];
-      order.cacambas.forEach((c: ICacamba, i) => {
+      pdfCacambas.forEach((c: ICacamba, i) => {
         detailsBody.push([`Caçamba ${i + 1}`, '']);
         detailsBody.push(['Número', c.numero || '-']);
         detailsBody.push(['Registrada em', fmt(c.createdAt)]);
@@ -267,7 +275,7 @@ export async function downloadOrderPdf(order: IOrder, options: DownloadOrderPdfO
   }
 
   if (options.includePaymentQrCode) {
-    const amount = getOrderPaymentAmount(order);
+    const amount = getOrderPaymentAmount(order, individualCacamba);
     const pixCopyPaste = buildPixCopyPaste(amount);
     const { toDataURL: toQrDataUrl } = await import('qrcode');
     const pixQrCode = await toQrDataUrl(pixCopyPaste, {
@@ -299,5 +307,8 @@ export async function downloadOrderPdf(order: IOrder, options: DownloadOrderPdfO
   }
 
   const clientName = legacyOrder.client?.clientName || order.clientName || 'cliente';
-  doc.save(`${formatFileNamePart(clientName)}_os_digital_${formatFileNamePart(orderNumber)}.pdf`);
+  const individualSuffix = individualCacamba
+    ? `_cacamba_${formatFileNamePart(individualCacamba.numero || individualCacamba._id)}`
+    : '';
+  doc.save(`${formatFileNamePart(clientName)}_os_digital_${formatFileNamePart(orderNumber)}${individualSuffix}.pdf`);
 }
