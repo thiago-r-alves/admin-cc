@@ -20,6 +20,7 @@ const ClientPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingClient, setEditingClient] = useState<IClient | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasLoadedInitially, setHasLoadedInitially] = useState(false);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -38,7 +39,6 @@ const ClientPage: React.FC = () => {
     if (cached) {
       setClients(cached.items);
       setPagination({ totalItems: cached.totalItems, totalPages: cached.totalPages });
-      setLoading(false);
     } else {
       setLoading(true);
     }
@@ -54,11 +54,19 @@ const ClientPage: React.FC = () => {
       if (signal?.aborted) return;
       setClients(data.items);
       setPagination({ totalItems: data.totalItems, totalPages: data.totalPages });
+      setHasLoadedInitially(true);
     } catch (error) {
       if (signal?.aborted) return;
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        void fetchClients(signal);
+        return;
+      }
       console.error('Erro ao buscar clientes:', error);
+      setHasLoadedInitially(true);
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   }, [apiUrl, debouncedSearch, page]);
 
@@ -173,7 +181,7 @@ const ClientPage: React.FC = () => {
     setShowForm(true);
   };
 
-  if (loading) return <LoadingScreen fullHeight={false} />;
+  if (!hasLoadedInitially) return <LoadingScreen fullHeight={false} />;
 
   return (
     <Container>
