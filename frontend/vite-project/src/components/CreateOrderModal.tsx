@@ -72,6 +72,7 @@ export type CreateOrderPreset = {
   neighborhood?: string;
   address?: string;
   addressNumber?: string;
+  reference?: string;
   city?: string;
   cep?: string;
   plannedWithdrawalCacambaIds: string[];
@@ -96,6 +97,7 @@ type CreateOrderForm = {
   neighborhood: string;
   address: string;
   addressNumber: string;
+  reference: string;
   city: string;
   cep: string;
   type: OrderType | '';
@@ -112,6 +114,7 @@ const emptyForm: CreateOrderForm = {
   neighborhood: '',
   address: '',
   addressNumber: '',
+  reference: '',
   city: '',
   cep: '',
   type: '',
@@ -128,6 +131,7 @@ const formFromPreset = (preset: CreateOrderPreset): CreateOrderForm => ({
   neighborhood: preset.neighborhood || '',
   address: preset.address || '',
   addressNumber: preset.addressNumber || '',
+  reference: preset.reference || '',
   city: preset.city ?? '',
   cep: preset.cep ?? '',
   type: 'retirada',
@@ -328,6 +332,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
       neighborhood: selectedClient.neighborhood || '',
       address: selectedClient.address || '',
       addressNumber: selectedClient.addressNumber || '',
+      reference: selectedClient.reference || '',
       city: selectedClient.city ?? '',
       cep: selectedClient.cep ?? '',
     }));
@@ -382,6 +387,7 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
         neighborhood: form.neighborhood,
         address: form.address,
         addressNumber: form.addressNumber,
+        reference: form.reference.trim(),
         type: orderType,
         priority: 0,
         placa: form.placa,
@@ -699,6 +705,19 @@ const CreateOrderModal: React.FC<CreateOrderModalProps> = ({ onClose, onOrderCre
                         onChange={e => setForm(f => ({ ...f, neighborhood: e.target.value }))}
                         disabled={isPresetWithdrawal}
                       />
+                    </Field>
+
+                    <Field $span={2}>
+                      <Label htmlFor="order-reference">Referência (opcional)</Label>
+                      <Input
+                        id="order-reference"
+                        name="reference"
+                        type="text"
+                        value={form.reference}
+                        onChange={e => setForm(f => ({ ...f, reference: e.target.value }))}
+                        placeholder="Ex: Ao lado da farmácia"
+                      />
+                      <FetchingHint>Ponto de referência para o motorista.</FetchingHint>
                     </Field>
 
                     <Field>

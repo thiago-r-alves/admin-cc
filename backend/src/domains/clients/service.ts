@@ -22,8 +22,8 @@ import {
 } from '../closures/helpers';
 import { buildOrderClientSnapshot } from '../orders/helpers';
 
-const CLIENT_SELECT = 'clientName contactName contactNumber neighborhood address addressNumber cnpjCpf email rgInscricaoEstadual city cep createdAt updatedAt';
-const ORDER_SELECT = '_id orderNumber clientId clientName contactName contactNumber neighborhood address addressNumber type priority status motorista cacambas createdAt updatedAt cnpjCpf city cep placa';
+const CLIENT_SELECT = 'clientName contactName contactNumber neighborhood address addressNumber reference cnpjCpf email rgInscricaoEstadual city cep createdAt updatedAt';
+const ORDER_SELECT = '_id orderNumber clientId clientName contactName contactNumber neighborhood address addressNumber reference type priority status motorista cacambas createdAt updatedAt cnpjCpf city cep placa';
 const CACAMBA_SELECT = '_id numero tipo paymentStatus closureGroupId contentType price imageUrl orderId local createdAt horaServicoDigitos';
 
 const parsePagination = (query: Record<string, unknown>) => {
@@ -290,6 +290,7 @@ export const createClient = async (payload: Record<string, unknown>) =>
     neighborhood: payload.neighborhood,
     address: payload.address,
     addressNumber: payload.addressNumber,
+    reference: payload.reference || '',
     cnpjCpf: payload.cnpjCpf || '',
     email: payload.email || '',
     rgInscricaoEstadual: payload.rgInscricaoEstadual || '',
@@ -306,6 +307,7 @@ export const updateClient = async (id: string, payload: Record<string, unknown>)
     'neighborhood',
     'address',
     'addressNumber',
+    'reference',
     'cnpjCpf',
     'email',
     'rgInscricaoEstadual',

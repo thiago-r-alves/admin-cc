@@ -76,6 +76,14 @@ const formatContactPhone = (value?: string) => {
   return rawValue || '-';
 };
 
+const formatContact = (name?: string, phone?: string) => {
+  const contactName = String(name || '').trim();
+  const contactPhone = String(phone || '').trim();
+  return [contactName, contactPhone ? formatContactPhone(contactPhone) : '']
+    .filter(Boolean)
+    .join(' - ') || '-';
+};
+
 const formatClientNameWithDocument = (client: IClient) => {
   const clientName = String(client.clientName || '').trim() || '-';
   const cnpjCpf = formatCpfCnpj(client.cnpjCpf);
@@ -278,10 +286,12 @@ export async function buildClientOrdersPdf(
   const endLabel = formatFilterDate(endDate);
   const periodText = startLabel && endLabel ? `${startLabel} ate ${endLabel}` : '';
   const totalCacambas = orders.reduce((sum, order) => sum + (order.cacambas?.length || 0), 0);
+  const clientEmail = String(client.email || '').trim();
   const summaryBody = [
     ['Cliente', formatClientNameWithDocument(client)],
     ['Endereco', formatClientAddress(client)],
-    ['Telefone de contato', formatContactPhone(client.contactNumber)],
+    ['Telefone de contato', formatContact(client.contactName, client.contactNumber)],
+    ...(clientEmail ? [['E-mail', clientEmail]] : []),
     ...(periodText ? [['Periodo', periodText]] : []),
     ['Total do cliente', formatCurrency(clientTotal)],
     ['Pedidos no relatorio', String(orders.length)],
@@ -293,6 +303,7 @@ export async function buildClientOrdersPdf(
     body: summaryBody,
     styles: { fontSize: 9, cellPadding: 2, ...printableTextStyles },
     headStyles: printableHeadStyles,
+    columnStyles: { 0: { minCellWidth: 45 } },
     margin: { top: pdfHeaderBottom, right: horizontalMargin, left: horizontalMargin },
     willDrawPage: drawPageHeader,
   });

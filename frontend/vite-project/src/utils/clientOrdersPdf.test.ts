@@ -134,7 +134,9 @@ describe('buildClientOrdersPdf', () => {
           _id: 'cli-1',
           clientName: 'Cliente Teste',
           cnpjCpf: '12345678000190',
-          contactNumber: '12981956675',
+          contactName: '  Responsável da obra  ',
+          contactNumber: '+55 12 98195-6675',
+          email: '  cliente@example.com  ',
           address: 'Rua Central',
           addressNumber: '123',
           neighborhood: 'Centro',
@@ -145,7 +147,7 @@ describe('buildClientOrdersPdf', () => {
         endDate: '2026-05-31',
         type: 'retirada',
         clientTotal: 120,
-        orders: [baseOrder],
+        orders: [{ ...baseOrder, contactName: 'Contato antigo', contactNumber: '11988887777' }],
       },
       { output: 'blob' },
     );
@@ -162,7 +164,13 @@ describe('buildClientOrdersPdf', () => {
       'Endereco',
       'Rua Central, 123 - Centro - Sao Jose dos Campos - CEP 12200-000',
     ]);
-    expect(summary.body).toContainEqual(['Telefone de contato', '(12) 98195-6675']);
+    const phoneRowIndex = summary.body?.findIndex(([label]) => label === 'Telefone de contato') ?? -1;
+    expect(phoneRowIndex).toBeGreaterThanOrEqual(0);
+    expect(summary.body?.slice(phoneRowIndex, phoneRowIndex + 2)).toEqual([
+      ['Telefone de contato', 'Responsável da obra - (12) 98195-6675'],
+      ['E-mail', 'cliente@example.com'],
+    ]);
+    expect(JSON.stringify(summary.body)).not.toContain('Contato antigo');
     expect(summary.headStyles?.fillColor).toEqual([227, 6, 19]);
     expect(details.headStyles?.fillColor).toEqual([227, 6, 19]);
     expect(details.tableWidth).toBe(277);
@@ -239,6 +247,61 @@ describe('buildClientOrdersPdf', () => {
     );
     expect(summary.margin?.top).toBe(46);
     expect(details.margin?.top).toBe(46);
+  });
+
+  it.each([
+    { scenario: 'nome sem telefone', contactName: '  Responsável da obra  ', contactNumber: undefined, expected: 'Responsável da obra' },
+    { scenario: 'nome com telefone vazio', contactName: 'Responsável da obra', contactNumber: ' \n\t ', expected: 'Responsável da obra' },
+    { scenario: 'telefone sem nome', contactName: undefined, contactNumber: '12981956675', expected: '(12) 98195-6675' },
+    { scenario: 'telefone com DDI e nome vazio', contactName: ' \n\t ', contactNumber: '  +55 12 98195-6675  ', expected: '(12) 98195-6675' },
+    { scenario: 'telefone fixo com DDI', contactName: undefined, contactNumber: '+55 12 3333-4444', expected: '(12) 3333-4444' },
+    { scenario: 'contato ausente', contactName: undefined, contactNumber: undefined, expected: '-' },
+    { scenario: 'contato somente com espaços', contactName: ' \n\t ', contactNumber: ' \n\t ', expected: '-' },
+  ])('formata contato parcial: $scenario', async ({ contactName, contactNumber, expected }) => {
+    await buildClientOrdersPdf(
+      {
+        client: { _id: 'cli-1', clientName: 'Cliente Teste', contactName, contactNumber },
+        clientTotal: 120,
+        orders: [baseOrder],
+      },
+      { output: 'blob' },
+    );
+
+    const summary = autoTableMock.mock.calls[0]?.[1];
+    expect(summary?.body).toContainEqual(['Telefone de contato', expected]);
+  });
+
+  it.each([undefined, '', ' \n\t '])('omite e-mail ausente ou vazio (%j)', async (email) => {
+    await buildClientOrdersPdf(
+      {
+        client: { _id: 'cli-1', clientName: 'Cliente Teste', email },
+        clientTotal: 120,
+        orders: [baseOrder],
+      },
+      { output: 'blob' },
+    );
+
+    const summary = autoTableMock.mock.calls[0]?.[1];
+    expect(summary?.body?.some(([label]) => label === 'E-mail')).toBe(false);
+  });
+
+  it('mantém o contato cadastrado vazio mesmo quando os pedidos têm contatos diferentes', async () => {
+    await buildClientOrdersPdf(
+      {
+        client: { _id: 'cli-1', clientName: 'Cliente Teste' },
+        clientTotal: 240,
+        orders: [
+          { ...baseOrder, contactName: 'Contato antigo', contactNumber: '11988887777' },
+          { ...baseOrder, _id: 'ord-3', contactName: 'Outro contato', contactNumber: '12977776666' },
+        ],
+      },
+      { output: 'blob' },
+    );
+
+    const summary = autoTableMock.mock.calls[0]?.[1];
+    expect(summary?.body).toContainEqual(['Telefone de contato', '-']);
+    expect(JSON.stringify(summary?.body)).not.toContain('Contato antigo');
+    expect(JSON.stringify(summary?.body)).not.toContain('Outro contato');
   });
 
   it('gera PDF de fechamento para entrega ainda em obra com retirada vazia', async () => {

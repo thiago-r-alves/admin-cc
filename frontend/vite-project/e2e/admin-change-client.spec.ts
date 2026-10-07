@@ -28,7 +28,13 @@ test.describe('Admin change client', () => {
     await clientInput.fill('PFF');
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
+    const changeResponse = page.waitForResponse(
+      (response) => new URL(response.url()).pathname === '/orders/ord-5/change-client' && response.request().method() === 'PATCH',
+    );
     await page.getByRole('button', { name: 'Confirmar correção' }).click();
+    const changed = await changeResponse;
+    expect(changed.request().postDataJSON()).toEqual({ clientId: 'cli-2' });
+    expect((await changed.json()).order.reference).toBe('Usar portão do pedido original');
 
     await expect(page.getByText(/Cliente corrigido com sucesso/i)).toBeVisible();
     await expect(completedCard.getByText('PFF INOVA IND E COM DE MAQ OBRA 1')).toBeVisible();

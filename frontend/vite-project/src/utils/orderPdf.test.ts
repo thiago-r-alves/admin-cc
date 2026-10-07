@@ -152,6 +152,43 @@ describe('downloadOrderPdf', () => {
     ]));
   });
 
+  it('inclui a referência depois do endereço sem alterar o texto do endereço', async () => {
+    await downloadOrderPdf({
+      ...baseOrder,
+      reference: '  Portão azul, ao lado da padaria.  ',
+    });
+
+    const rows = firstTable()?.body;
+    const addressIndex = rows?.findIndex(([label]) => label === 'Endereço') ?? -1;
+    expect(addressIndex).toBeGreaterThanOrEqual(0);
+    expect(rows?.[addressIndex]).toEqual(['Endereço', 'Rua A, 10 - Centro']);
+    expect(rows?.[addressIndex + 1]).toEqual(['Referência', 'Portão azul, ao lado da padaria.']);
+  });
+
+  it.each([undefined, '', ' \n\t '])('omite referência ausente ou vazia (%j)', async (reference) => {
+    await downloadOrderPdf({ ...baseOrder, reference });
+
+    expect(firstTable()?.body?.some(([label]) => label === 'Referência')).toBe(false);
+  });
+
+  it.each([false, true])('preserva referência longa no PDF, individual: %s', async (individual) => {
+    const reference = `Entrada pelo portão lateral.\n${'Seguir pelo corredor até a obra. '.repeat(30).trim()}`;
+    const cacamba: ICacamba = {
+      _id: 'cac-1',
+      numero: '101',
+      tipo: 'entrega',
+      orderId: baseOrder._id,
+      createdAt: baseOrder.createdAt || '',
+    };
+
+    await downloadOrderPdf(
+      { ...baseOrder, reference, cacambas: [cacamba] },
+      individual ? { individualCacamba: cacamba } : {},
+    );
+
+    expect(firstTable()?.body).toContainEqual(['Referência', reference]);
+  });
+
   it('mantem apenas o telefone quando o nome do contato nao foi informado', async () => {
     await downloadOrderPdf({
       ...baseOrder,

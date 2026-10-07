@@ -54,6 +54,7 @@ type Order = {
   neighborhood: string;
   address: string;
   addressNumber: string;
+  reference?: string;
   placa?: string;
   type: 'entrega' | 'retirada';
   priority: number;
@@ -66,6 +67,21 @@ type Order = {
   cacambaPrice?: number;
   plannedWithdrawalCacambaIds?: string[];
   deliveryProof?: DeliveryProof;
+};
+
+type Client = {
+  _id: string;
+  clientName: string;
+  cnpjCpf: string;
+  contactName: string;
+  contactNumber: string;
+  address: string;
+  addressNumber: string;
+  reference?: string;
+  neighborhood: string;
+  city: string;
+  cep: string;
+  createdAt: string;
 };
 
 type BillingBucket = {
@@ -81,7 +97,7 @@ const initialDrivers: Driver[] = [
   { _id: 'drv-2', username: 'jhonatan' },
 ];
 
-const initialClients = [
+const initialClients: Client[] = [
   {
     _id: 'cli-1',
     clientName: '3GK HOLDING E PARTICIPACOES OBRA 1',
@@ -90,6 +106,7 @@ const initialClients = [
     contactNumber: '(12) 98195-6675',
     address: 'Rodovia Geraldo Scavone',
     addressNumber: '4975',
+    reference: 'Entrada pela portaria lateral',
     neighborhood: 'Jardim Califórnia',
     city: 'Jacareí',
     cep: '12338-500',
@@ -124,6 +141,7 @@ const initialOrders: Order[] = [
     neighborhood: 'Chácaras Reunidas',
     address: 'Rua Januaria',
     addressNumber: '821',
+    reference: 'Portão azul ao lado da farmácia. Entrar pela lateral e procurar a equipe no galpão dos fundos, depois da guarita de segurança.',
     placa: 'FT02E29',
     type: 'retirada',
     priority: 0,
@@ -268,6 +286,7 @@ const initialOrders: Order[] = [
     address: 'Rodovia Geraldo Scavone',
     addressNumber: '4975',
     placa: 'QWE1R23',
+    reference: 'Usar portão do pedido original',
     type: 'retirada',
     priority: 0,
     status: 'concluido',
@@ -481,6 +500,7 @@ export const setupMockApi = async (page: Page, options: { enableReusableProof?: 
         neighborhood: String(body.neighborhood ?? ''),
         address: String(body.address ?? ''),
         addressNumber: String(body.addressNumber ?? ''),
+        reference: String(body.reference ?? '').trim(),
         placa: String(body.placa ?? ''),
         type: (body.type as 'entrega' | 'retirada') ?? 'entrega',
         priority: Number(body.priority ?? 0),
@@ -504,6 +524,7 @@ export const setupMockApi = async (page: Page, options: { enableReusableProof?: 
       const idx = orders.findIndex((o) => o._id === id);
       if (idx === -1) return json(route, { message: 'Pedido não encontrado' }, 404);
       const next = { ...orders[idx], ...body, updatedAt: nowIso };
+      if ('reference' in body) next.reference = String(body.reference ?? '').trim();
       if (body.motorista) {
         const d = drivers.find((driver) => driver._id === body.motorista);
         next.motorista = d ? { _id: d._id, username: d.username } : String(body.motorista);
@@ -957,6 +978,7 @@ export const setupMockApi = async (page: Page, options: { enableReusableProof?: 
         contactNumber: String(body.contactNumber ?? ''),
         address: String(body.address ?? ''),
         addressNumber: String(body.addressNumber ?? ''),
+        reference: String(body.reference ?? '').trim(),
         neighborhood: String(body.neighborhood ?? ''),
         city: String(body.city ?? ''),
         cep: String(body.cep ?? ''),
@@ -973,6 +995,7 @@ export const setupMockApi = async (page: Page, options: { enableReusableProof?: 
       clients[idx] = {
         ...clients[idx],
         ...Object.fromEntries(Object.entries(body).map(([k, v]) => [k, String(v ?? '')])),
+        ...('reference' in body ? { reference: String(body.reference ?? '').trim() } : {}),
       };
       return json(route, clients[idx]);
     }

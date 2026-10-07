@@ -167,6 +167,7 @@ export async function downloadOrderPdf(order: IOrder, options: DownloadOrderPdfO
   const doc = new jsPDF() as JsPdfWithAutoTable;
   const fmt = (d?: string) => (d ? new Date(d).toLocaleString('pt-BR') : '-');
   const legacyOrder = order as OrderWithLegacyFields;
+  const reference = order.reference?.trim();
 
   // Determina número do pedido (fallback)
   const orderNumber =
@@ -186,6 +187,7 @@ export async function downloadOrderPdf(order: IOrder, options: DownloadOrderPdfO
         'Endereço',
         `${order.address || ''}, ${order.addressNumber || ''} - ${order.neighborhood || ''}`
       ],
+      ...(reference ? [['Referência', reference]] : []),
       ['Motorista', getDriverDisplayName(order.motorista)],
       ['Finalizado em', fmt(order.updatedAt)]
     ],

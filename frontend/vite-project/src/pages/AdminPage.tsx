@@ -241,6 +241,7 @@ const AdminPage: React.FC = () => {
       neighborhood: order.neighborhood,
       address: order.address,
       addressNumber: order.addressNumber,
+      reference: order.reference,
       city: order.city,
       cep: order.cep,
       plannedWithdrawalCacambaIds: addressGroup.availableCacambaIds,

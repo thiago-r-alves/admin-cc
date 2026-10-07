@@ -360,7 +360,7 @@ test.describe('Motorista', () => {
     ]);
   });
 
-  test('ver rota abre google maps com endereco do pedido', async ({ page }) => {
+  test('exibe referencia separada do endereco sem alterar destino do google maps', async ({ page }) => {
     await page.evaluate(() => {
       window.__openedUrls = [];
       window.open = ((url?: string | URL | undefined) => {
@@ -370,11 +370,19 @@ test.describe('Motorista', () => {
     });
 
     const card = page.locator('article', { hasText: '#2231' }).first();
+    await expect(card.getByText('Referência', { exact: true })).toBeVisible();
+    await expect(card.getByText('Portão azul ao lado da farmácia.', { exact: false })).toBeVisible();
+    await expect(card.getByText('Rua Januaria, 821 - Chácaras Reunidas - São José dos Campos - CEP 12238-500', { exact: true })).toBeVisible();
+    expect(await card.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+    const legacyCard = page.locator('article', { hasText: '#2232' }).first();
+    await expect(legacyCard.getByText('Referência', { exact: true })).toHaveCount(0);
     await card.getByRole('button', { name: 'Abrir no Maps' }).click();
 
     const opened = await page.evaluate(() => window.__openedUrls ?? []);
     expect(opened.length).toBeGreaterThan(0);
     expect(opened[0]).toContain('google.com/maps/dir/?api=1');
-    expect(opened[0]).toContain('Rua%20Januaria');
+    expect(new URL(opened[0]).searchParams.get('destination')).toBe(
+      'Rua Januaria, 821 - Chácaras Reunidas - São José dos Campos - 12238-500',
+    );
   });
 });

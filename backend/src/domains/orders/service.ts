@@ -188,6 +188,7 @@ export const createOrder = async (payload: Record<string, unknown>) => {
     neighborhood,
     address,
     addressNumber,
+    reference,
     type,
     priority,
     motorista,
@@ -222,6 +223,7 @@ export const createOrder = async (payload: Record<string, unknown>) => {
     neighborhood,
     address,
     addressNumber,
+    reference: reference || '',
     type,
     priority: mapPriority(priority),
     motorista: motorista || null,
@@ -473,7 +475,7 @@ export const updateOrder = async (id: string, payload: Record<string, unknown>) 
     }
   }
 
-  const fields = [...ORDER_CLIENT_SNAPSHOT_FIELDS, 'type', 'status', 'motorista'];
+  const fields = [...ORDER_CLIENT_SNAPSHOT_FIELDS, 'reference', 'type', 'status', 'motorista'];
   for (const field of fields) {
     if (payload[field] !== undefined) updates[field] = payload[field];
   }

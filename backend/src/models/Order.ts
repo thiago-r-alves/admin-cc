@@ -23,6 +23,7 @@ export interface IOrder extends Document {
   neighborhood: string;
   address: string;
   addressNumber: string;
+  reference?: string;
   type: 'entrega' | 'retirada';
   status: 'pendente' | 'em_andamento' | 'concluido' | 'cancelado';
   motorista?: mongoose.Types.ObjectId;
@@ -73,6 +74,7 @@ const OrderSchema: Schema = new Schema<IOrder>({
   neighborhood: { type: String, trim: true, default: '' },
   address: { type: String, trim: true, default: '' },
   addressNumber: { type: String, default: '' },
+  reference: { type: String, trim: true, default: '' },
   placa: { type: String, required: false, trim: true, default: '' },
   cacambaPrice: { type: Number, min: 0, required: false, select: false },
 

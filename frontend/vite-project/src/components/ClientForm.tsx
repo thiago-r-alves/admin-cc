@@ -85,6 +85,7 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
     neighborhood: '',
     address: '',
     addressNumber: '',
+    reference: '',
   });
   const [isFetchingCep, setIsFetchingCep] = useState(false);
   const [cities, setCities] = useState<ICity[]>([]);
@@ -176,6 +177,7 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
       neighborhood: initialData.neighborhood || '',
       address: initialData.address || '',
       addressNumber: initialData.addressNumber || '',
+      reference: initialData.reference || '',
     }));
 
     const digits = onlyDigits(initialData.cep || '');
@@ -232,7 +234,7 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    onSubmit({ ...formData, reference: formData.reference.trim() });
   };
 
   const cityExists = cities.some((city) => city.name === formData.city);
@@ -385,6 +387,19 @@ const ClientForm: React.FC<Props> = ({ onSubmit, onCancel, initialData }) => {
                       value={formData.addressNumber}
                       onChange={handleChange}
                       placeholder="Numero, Bloco, Sala"
+                    />
+                  </UIField>
+                </GridField>
+
+                <GridField $span={2}>
+                  <UIField label="Referência (opcional)" htmlFor="reference" hint="Ponto de referência para o motorista.">
+                    <TextInput
+                      id="reference"
+                      name="reference"
+                      type="text"
+                      value={formData.reference}
+                      onChange={handleChange}
+                      placeholder="Ex: Ao lado da farmácia"
                     />
                   </UIField>
                 </GridField>

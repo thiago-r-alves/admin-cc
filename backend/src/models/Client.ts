@@ -8,6 +8,7 @@ export interface IClient extends Document {
   neighborhood: string;
   address: string;
   addressNumber: string;
+  reference?: string;
   cnpjCpf?: string;
   email?: string;
   rgInscricaoEstadual?: string;
@@ -23,6 +24,7 @@ const ClientSchema: Schema = new Schema<IClient>({
   neighborhood: { type: String, required: true },
   address: { type: String, required: true },
   addressNumber: { type: String, required: true },
+  reference: { type: String, trim: true, default: '' },
   cnpjCpf: { type: String, trim: true, default: '' },
   email: { type: String, trim: true, default: '' },
   rgInscricaoEstadual: { type: String, trim: true, default: '' },

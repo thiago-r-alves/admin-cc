@@ -79,12 +79,16 @@ describe('Driver APIs', () => {
       local: 'via_publica',
       horaServicoDigitos: '123',
     });
-    await OrderModel.findByIdAndUpdate(order._id, { $push: { cacambas: cacamba._id } });
+    await OrderModel.findByIdAndUpdate(order._id, {
+      $push: { cacambas: cacamba._id },
+      reference: 'Entrada pelo portão azul',
+    });
 
     const res = await request(app).get('/driver/orders').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(1);
     expect(res.body[0].cacambas[0].price).toBeUndefined();
+    expect(res.body[0].reference).toBe('Entrada pelo portão azul');
   });
 
   it('POST /driver/orders/:id/cacambas valida regras de retirada e registra com imagem', async () => {

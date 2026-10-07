@@ -38,8 +38,11 @@ const client = {
   neighborhood: 'Centro',
   address: 'Rua 1',
   addressNumber: '10',
+  reference: 'Ao lado da farmácia',
   city: 'São José dos Campos',
 };
+
+const clientWithoutReference = { ...client, _id: 'client-2', clientName: 'Cliente antigo', reference: undefined };
 
 const drivers = [{ _id: 'driver-1', username: 'motorista 1' }];
 
@@ -56,7 +59,7 @@ describe('CreateOrderModal', () => {
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
         if (url.includes('/clients')) {
-          return new Response(JSON.stringify([client]), {
+          return new Response(JSON.stringify([client, clientWithoutReference]), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
           });
@@ -158,5 +161,97 @@ describe('CreateOrderModal', () => {
     const selects = screen.getAllByRole('combobox');
     expect(selects[2]).toHaveDisplayValue('São José dos Campos');
     expect(screen.getByRole('option', { name: 'Cidade Nova' })).toBeInTheDocument();
+  });
+
+  it.each([
+    ['personalizar', '  Entrada pelo portão azul  ', 'Entrada pelo portão azul'],
+    ['apagar', '', ''],
+  ])('permite %s a referência herdada sem alterar o Maps ou o cliente', async (_action, inputValue, expectedValue) => {
+    const onOrderCreated = vi.fn();
+    render(<CreateOrderModal onClose={vi.fn()} onOrderCreated={onOrderCreated} drivers={drivers} />);
+
+    fireEvent.change(await screen.findByLabelText('Digite nome, CPF ou CNPJ...'), {
+      target: { value: client._id },
+    });
+    const referenceInput = screen.getByLabelText('Referência (opcional)');
+    expect(referenceInput).toHaveValue(client.reference);
+    expect(referenceInput).not.toBeRequired();
+    const mapFrame = screen.getByTitle('Mapa do endereço do pedido');
+    const mapLink = screen.getByRole('link', { name: /local verificado/i });
+    const expectedMapAddress = [client.address, client.addressNumber, client.neighborhood, client.city, 'Brasil'].join(', ');
+    const originalMapSrc = mapFrame.getAttribute('src');
+    const originalMapHref = mapLink.getAttribute('href');
+    expect(new URL(originalMapSrc!).searchParams.get('q')).toBe(expectedMapAddress);
+    expect(new URL(originalMapHref!).searchParams.get('query')).toBe(expectedMapAddress);
+
+    fireEvent.change(referenceInput, { target: { value: inputValue } });
+    expect(mapFrame).toHaveAttribute('src', originalMapSrc);
+    expect(mapLink).toHaveAttribute('href', originalMapHref);
+    fireEvent.click(screen.getByTestId('order-type-retirada'));
+    const selects = screen.getAllByRole('combobox');
+    fireEvent.change(selects[1], { target: { value: 'fto2e29' } });
+    fireEvent.change(selects[3], { target: { value: drivers[0]._id } });
+    submitCreateOrderForm();
+
+    await waitFor(() => expect(onOrderCreated).toHaveBeenCalledTimes(1));
+    const calls = vi.mocked(fetch).mock.calls;
+    const ordersCall = calls.find(([url]) => String(url).includes('/orders'));
+    expect(JSON.parse(String(ordersCall?.[1]?.body))).toEqual(expect.objectContaining({ reference: expectedValue }));
+    expect(calls.some(([url, init]) => String(url).includes('/clients') && init?.method === 'PATCH')).toBe(false);
+  });
+
+  it('limpa a referência ao selecionar um cliente antigo ou remover a seleção', async () => {
+    const onOrderCreated = vi.fn();
+    render(<CreateOrderModal onClose={vi.fn()} onOrderCreated={onOrderCreated} drivers={drivers} />);
+
+    const clientPicker = await screen.findByLabelText('Digite nome, CPF ou CNPJ...');
+    fireEvent.change(clientPicker, { target: { value: client._id } });
+    fireEvent.change(screen.getByLabelText('Referência (opcional)'), { target: { value: 'Referência personalizada' } });
+    fireEvent.change(screen.getByLabelText('Digite nome, CPF ou CNPJ...'), { target: { value: clientWithoutReference._id } });
+    expect(screen.getByLabelText('Referência (opcional)')).toHaveValue('');
+    fireEvent.click(screen.getByTestId('order-type-retirada'));
+    submitCreateOrderForm();
+    await waitFor(() => expect(onOrderCreated).toHaveBeenCalledTimes(1));
+    const ordersCall = vi.mocked(fetch).mock.calls.find(([url]) => String(url).includes('/orders'));
+    expect(JSON.parse(String(ordersCall?.[1]?.body))).toEqual(expect.objectContaining({ reference: '' }));
+
+    fireEvent.change(screen.getByLabelText('Digite nome, CPF ou CNPJ...'), { target: { value: '' } });
+    expect(screen.queryByLabelText('Referência (opcional)')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Digite nome, CPF ou CNPJ...'), { target: { value: clientWithoutReference._id } });
+    expect(screen.getByLabelText('Referência (opcional)')).toHaveValue('');
+  });
+
+  it('copia a referência da entrega para retirada planejada e permite editar', async () => {
+    const onOrderCreated = vi.fn();
+    render(
+      <CreateOrderModal
+        onClose={vi.fn()}
+        onOrderCreated={onOrderCreated}
+        drivers={drivers}
+        initialPreset={{
+          ...client,
+          mode: 'withdrawal',
+          clientId: client._id,
+          reference: 'Entrada pela rua lateral',
+          plannedWithdrawalCacambaIds: ['cacamba-1'],
+          cacambaNumbers: ['123'],
+        }}
+      />,
+    );
+
+    await screen.findByRole('option', { name: client.city });
+    const referenceInput = screen.getByLabelText('Referência (opcional)');
+    expect(referenceInput).toHaveValue('Entrada pela rua lateral');
+    expect(referenceInput).toBeEnabled();
+    fireEvent.change(referenceInput, { target: { value: '  Retirar pelo portão principal  ' } });
+    submitCreateOrderForm();
+
+    await waitFor(() => expect(onOrderCreated).toHaveBeenCalledTimes(1));
+    const ordersCall = vi.mocked(fetch).mock.calls.find(([url]) => String(url).includes('/orders'));
+    expect(JSON.parse(String(ordersCall?.[1]?.body))).toEqual(expect.objectContaining({
+      type: 'retirada',
+      reference: 'Retirar pelo portão principal',
+      plannedWithdrawalCacambaIds: ['cacamba-1'],
+    }));
   });
 });

@@ -54,6 +54,7 @@ export const DriverOrdersSection = ({
         const canManage = order.status !== 'cancelado';
         const cacambaCount = order.cacambas?.length ?? 0;
         const fullAddress = `${order.address}, ${order.addressNumber} - ${order.neighborhood} - ${order.city || ''} - CEP ${order.cep || ''}`;
+        const reference = order.reference?.trim();
         const actionLabel = order.type === 'entrega' ? 'Registrar entrega' : 'Registrar retirada';
 
         return (
@@ -72,6 +73,12 @@ export const DriverOrdersSection = ({
                 <InfoBlock $span={2}>
                   <InfoLabel>Endereço da obra</InfoLabel>
                   <InfoValue>{fullAddress}</InfoValue>
+                  {reference && (
+                    <div className="mt-3">
+                      <InfoLabel>Referência</InfoLabel>
+                      <InfoValue className="whitespace-pre-wrap">{reference}</InfoValue>
+                    </div>
+                  )}
                 </InfoBlock>
                 <InfoBlock>
                   <InfoLabel>Contato</InfoLabel>

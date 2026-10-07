@@ -36,6 +36,7 @@ test.describe('Admin retiradas pendentes', () => {
             neighborhood: 'Jardim Califórnia',
             address: 'Rodovia Geraldo Scavone',
             addressNumber: '4975',
+            reference: 'Usar o portão dos fundos da entrega',
             placa: 'ABC1D23',
             type: 'entrega',
             priority: 0,
@@ -140,6 +141,10 @@ test.describe('Admin retiradas pendentes', () => {
     await expect(page.getByText('Novo Pedido de Retirada')).toBeVisible();
     await expect(page.getByTestId('withdrawal-preset-notice')).toContainText('#901');
     await expect(page.getByTestId('withdrawal-preset-notice')).not.toContainText('#902');
+    const referenceInput = page.getByLabel('Referência (opcional)', { exact: true });
+    await expect(referenceInput).toHaveValue('Usar o portão dos fundos da entrega');
+    await expect(referenceInput).toBeEditable();
+    await referenceInput.fill('  Retirar pela entrada lateral  ');
 
     await page
       .locator('label', { hasText: 'Valor da Caçamba (R$)' })
@@ -171,6 +176,7 @@ test.describe('Admin retiradas pendentes', () => {
       cacambaPrice: 250,
       motorista: 'drv-1',
       placa: 'fto2e29',
+      reference: 'Retirar pela entrada lateral',
       plannedWithdrawalCacambaIds: ['cac-due-901'],
     });
   });

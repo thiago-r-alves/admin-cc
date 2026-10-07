@@ -11,6 +11,7 @@ export interface IClient {
   neighborhood?: string;
   address?: string;
   addressNumber?: string;
+  reference?: string;
   city?: string;
   cep?: string;
   createdAt?: string; // Adicionar este campo
@@ -175,6 +176,7 @@ export interface IOrder {
   neighborhood: string;
   address: string;
   addressNumber: string;
+  reference?: string;
   type: OrderType;
   priority: number;
   status: 'pendente' | 'em_andamento' | 'concluido' | 'cancelado';

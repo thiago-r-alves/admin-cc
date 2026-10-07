@@ -56,6 +56,7 @@ describe('Admin APIs', () => {
       neighborhood: targetClient.neighborhood,
       address: targetClient.address,
       addressNumber: targetClient.addressNumber,
+      reference: 'Referência exclusiva do pedido',
       city: targetClient.city || '',
       type: 'retirada',
     });
@@ -63,7 +64,7 @@ describe('Admin APIs', () => {
     const updated = await request(app)
       .patch(`/clients/${targetClient._id}`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ clientName: 'Cliente Alterado', cnpjCpf: '222.222.222-22' });
+      .send({ clientName: 'Cliente Alterado', cnpjCpf: '222.222.222-22', reference: 'Referência do cadastro' });
     expect(updated.status).toBe(200);
 
     const afterMutation = await request(app)
@@ -81,6 +82,7 @@ describe('Admin APIs', () => {
     expect(syncedOrder).toMatchObject({
       clientName: 'Cliente Alterado',
       cnpjCpf: '222.222.222-22',
+      reference: 'Referência exclusiva do pedido',
     });
   });
 
@@ -134,10 +136,12 @@ describe('Admin APIs', () => {
         type: 'entrega',
         priority: 2,
         cacambaPrice: 180,
+        reference: '  Portão azul  ',
       });
     expect(create.status).toBe(201);
     expect(create.body.orderNumber).toBe(1);
     expect(create.body.cacambaPrice).toBe(180);
+    expect(create.body.reference).toBe('Portão azul');
 
     const withdrawalCreate = await request(app)
       .post('/orders')
@@ -148,6 +152,7 @@ describe('Admin APIs', () => {
       });
     expect(withdrawalCreate.status).toBe(201);
     expect(withdrawalCreate.body.cacambaPrice).toBeUndefined();
+    expect(withdrawalCreate.body.reference).toBe('');
 
     const pricedWithdrawalCreate = await request(app)
       .post('/orders')
@@ -164,6 +169,20 @@ describe('Admin APIs', () => {
     expect(list.status).toBe(200);
     expect(Array.isArray(list.body)).toBe(true);
     expect(list.body[0].type).toBe('entrega');
+    expect(list.body.find((order: any) => order._id === create.body._id).reference).toBe('Portão azul');
+
+    const clientOrders = await request(app)
+      .get(`/clients/${client._id}/orders`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(clientOrders.status).toBe(200);
+    expect(clientOrders.body.find((order: any) => order._id === create.body._id).reference).toBe('Portão azul');
+
+    const referenceUpdate = await request(app)
+      .patch(`/orders/${create.body._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ reference: '  Entrada lateral  ' });
+    expect(referenceUpdate.status).toBe(200);
+    expect(referenceUpdate.body.reference).toBe('Entrada lateral');
 
     const patchBadType = await request(app)
       .patch(`/orders/${create.body._id}`)
@@ -177,6 +196,14 @@ describe('Admin APIs', () => {
       .send({ status: 'concluido' });
     expect(patch.status).toBe(200);
     expect(patch.body.status).toBe('concluido');
+    expect(patch.body.reference).toBe('Entrada lateral');
+
+    const referenceClear = await request(app)
+      .patch(`/orders/${create.body._id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ reference: '' });
+    expect(referenceClear.status).toBe(200);
+    expect(referenceClear.body.reference).toBe('');
 
     const patch404 = await request(app)
       .patch(`/orders/${new UserModel()._id}`)
@@ -431,6 +458,7 @@ describe('Admin APIs', () => {
         addressNumber: addressOverrides.addressNumber ?? targetClient.addressNumber,
         city: addressOverrides.city ?? targetClient.city,
         cep: addressOverrides.cep ?? targetClient.cep,
+        reference: 'Portão principal',
         type: 'entrega',
         status: 'concluido',
         motorista: driver._id,
@@ -466,10 +494,12 @@ describe('Admin APIs', () => {
         type: 'retirada',
         motorista: String(driver._id),
         placa: 'ABC1D23',
+        reference: 'Entrada lateral para retirada',
         plannedWithdrawalCacambaIds: [String(valid.cacamba._id)],
       });
     expect(validCreate.status).toBe(201);
     expect(validCreate.body.plannedWithdrawalCacambaIds).toEqual([String(valid.cacamba._id)]);
+    expect(validCreate.body.reference).toBe('Entrada lateral para retirada');
 
     const planOnDelivery = await request(app)
       .post('/orders')
@@ -1021,6 +1051,7 @@ describe('Admin APIs', () => {
       addressNumber: '20',
       city: 'Caçapava',
       cep: '12222-000',
+      reference: 'Referência do cliente novo',
     });
 
     const order = await OrderModel.create({
@@ -1036,6 +1067,7 @@ describe('Admin APIs', () => {
       status: 'concluido',
       updatedAt: new Date('2026-05-18T11:00:00.000Z'),
       createdAt: new Date('2026-05-18T08:00:00.000Z'),
+      reference: 'Referência exclusiva da retirada',
     });
 
     const pendingCacamba = await CacambaModel.create({
@@ -1067,6 +1099,8 @@ describe('Admin APIs', () => {
     const updatedOrder = await OrderModel.findById(order._id).lean();
     expect(updatedOrder?.clientName).toBe('Cliente Novo');
     expect(updatedOrder?.city).toBe('Caçapava');
+    expect(updatedOrder?.reference).toBe('Referência exclusiva da retirada');
+    expect(response.body.order.reference).toBe('Referência exclusiva da retirada');
 
     const closureClients = await request(app)
       .get('/clients?closure=true&startDate=2026-05-01&endDate=2026-05-31&paymentStatus=pending')
@@ -1093,10 +1127,26 @@ describe('Admin APIs', () => {
         addressNumber: '9',
         email: 'cliente@example.com',
         rgInscricaoEstadual: '12.345.678-9',
+        reference: '  Ao lado da farmácia  ',
       });
     expect(createClient.status).toBe(201);
     expect(createClient.body.email).toBe('cliente@example.com');
     expect(createClient.body.rgInscricaoEstadual).toBe('12.345.678-9');
+    expect(createClient.body.reference).toBe('Ao lado da farmácia');
+
+    const withoutReference = await request(app)
+      .post('/clients')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        clientName: 'Cliente Sem Referência',
+        contactName: 'Contato',
+        contactNumber: '123',
+        neighborhood: 'Centro',
+        address: 'Rua Sem Referência',
+        addressNumber: '1',
+      });
+    expect(withoutReference.status).toBe(201);
+    expect(withoutReference.body.reference).toBe('');
 
     const c1 = await ClientModel.create({
       clientName: 'Alpha',
@@ -1147,6 +1197,7 @@ describe('Admin APIs', () => {
     const all = await request(app).get('/clients').set('Authorization', `Bearer ${token}`);
     expect(all.status).toBe(200);
     expect(all.body[0].clientName).toBe('Alpha');
+    expect(all.body.find((client: any) => client._id === createClient.body._id).reference).toBe('Ao lado da farmácia');
 
     const typeOnly = await request(app)
       .get('/clients?type=retirada')
@@ -1168,11 +1219,19 @@ describe('Admin APIs', () => {
     const patch = await request(app)
       .patch(`/clients/${c1._id}`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ city: 'São Paulo', email: 'alpha@example.com', rgInscricaoEstadual: 'IE-ALPHA' });
+      .send({ city: 'São Paulo', email: 'alpha@example.com', rgInscricaoEstadual: 'IE-ALPHA', reference: '  Próximo à escola  ' });
     expect(patch.status).toBe(200);
     expect(patch.body.city).toBe('São Paulo');
     expect(patch.body.email).toBe('alpha@example.com');
     expect(patch.body.rgInscricaoEstadual).toBe('IE-ALPHA');
+    expect(patch.body.reference).toBe('Próximo à escola');
+
+    const referenceClear = await request(app)
+      .patch(`/clients/${c1._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ reference: '' });
+    expect(referenceClear.status).toBe(200);
+    expect(referenceClear.body.reference).toBe('');
 
     const blockedDelete = await request(app)
       .delete(`/clients/${c1._id}`)
