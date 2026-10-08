@@ -12,21 +12,46 @@ export const formatPercent = (value: number) => {
   return `${signal}${value.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
 };
 
-export const getDefaultBillingDateRange = (referenceDate = new Date()) => {
-  const start = new Date(referenceDate.getFullYear(), 0, 1, 0, 0, 0, 0);
-  const end = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate(), 0, 0, 0, 0);
+const toInputValue = (date: Date) => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
-  const toInputValue = (date: Date) => {
-    const year = date.getFullYear();
-    const month = `${date.getMonth() + 1}`.padStart(2, '0');
-    const day = `${date.getDate()}`.padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
+export type BillingDatePreset = 'current-month' | 'previous-month' | 'last-three-months' | 'current-year';
+
+export const getBillingDatePreset = (preset: BillingDatePreset, referenceDate = new Date()) => {
+  const year = referenceDate.getFullYear();
+  const month = referenceDate.getMonth();
+  const end = preset === 'previous-month'
+    ? new Date(year, month, 0)
+    : new Date(year, month, referenceDate.getDate());
+  const start = preset === 'current-month'
+    ? new Date(year, month, 1)
+    : preset === 'previous-month'
+      ? new Date(year, month - 1, 1)
+      : preset === 'last-three-months'
+        ? new Date(year, month - 2, 1)
+        : new Date(year, 0, 1);
 
   return {
     startDate: toInputValue(start),
     endDate: toInputValue(end),
   };
+};
+
+export const getDefaultBillingDateRange = (referenceDate = new Date()) =>
+  getBillingDatePreset('current-year', referenceDate);
+
+export const formatBillingDateRange = (startDate: string, endDate: string) => {
+  const formatDate = (value: string) => {
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString('pt-BR', {
+      day: '2-digit', month: 'short', year: 'numeric',
+    }).replace(/\./g, '');
+  };
+  return `${formatDate(startDate)} a ${formatDate(endDate)}`;
 };
 
 export const getTopAverageTicketClients = (summary: IBillingSummaryResponse | null, limit = 5) =>
